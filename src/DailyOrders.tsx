@@ -1,0 +1,1230 @@
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from './firebase';
+import { DailyOrder, OperationType, UserProfile } from './types';
+import { handleFirestoreError } from './utils';
+import Toast, { ToastType } from './Toast';
+import { 
+  Calendar, Clock, PlusCircle, Search, Trash2, Edit3, Save, X, 
+  FileSpreadsheet, Loader2, ArrowUpDown, ChevronLeft, ChevronRight,
+  TrendingUp, BarChart3, Database, Sparkles
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'motion/react';
+import XLSX from 'xlsx-js-style';
+
+interface TimeManualInputProps {
+  value: string;
+  onChange: (newValue: string) => void;
+  className?: string;
+  isSmall?: boolean;
+}
+
+function TimeManualInput({ value, onChange, className = "", isSmall = false }: TimeManualInputProps) {
+  const hourRef = useRef<HTMLInputElement>(null);
+  const minuteRef = useRef<HTMLInputElement>(null);
+
+  // Parse current value ("HH:MM")
+  const parts = (value || "").split(":");
+  const currentHour = parts[0] || "";
+  const currentMinute = parts[1] || "";
+
+  const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/[^0-9]/g, "");
+    if (val.length > 2) {
+      val = val.slice(0, 2);
+    }
+    
+    // Validate if complete
+    if (val.length === 2) {
+      const hNum = parseInt(val, 10);
+      if (hNum > 23) {
+        val = "23";
+      }
+    }
+
+    const nextVal = `${val}:${currentMinute}`;
+    onChange(nextVal);
+
+    // Auto tab to minute
+    if (val.length === 2 && minuteRef.current) {
+      minuteRef.current.focus();
+      minuteRef.current.select();
+    }
+  };
+
+  const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/[^0-9]/g, "");
+    if (val.length > 2) {
+      val = val.slice(0, 2);
+    }
+
+    if (val.length === 2) {
+      const mNum = parseInt(val, 10);
+      if (mNum > 59) {
+        val = "59";
+      }
+    }
+
+    const nextVal = `${currentHour}:${val}`;
+    onChange(nextVal);
+  };
+
+  const handleHourKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowRight" && hourRef.current) {
+      const cursor = hourRef.current.selectionStart;
+      if (cursor === currentHour.length && minuteRef.current) {
+        minuteRef.current.focus();
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleMinuteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && currentMinute.length === 0 && hourRef.current) {
+      hourRef.current.focus();
+      setTimeout(() => {
+        if (hourRef.current) {
+          hourRef.current.selectionStart = hourRef.current.selectionEnd = currentHour.length;
+        }
+      }, 0);
+      e.preventDefault();
+    } else if (e.key === "ArrowLeft" && minuteRef.current) {
+      const cursor = minuteRef.current.selectionStart;
+      if (cursor === 0 && hourRef.current) {
+        hourRef.current.focus();
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleContainerBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    // If focus is transferring to another element within the container, do not pad/format yet
+    if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) {
+      return;
+    }
+
+    let paddedHour = currentHour;
+    let paddedMin = currentMinute;
+
+    if (!paddedHour && !paddedMin) {
+      return;
+    }
+
+    if (paddedHour.length === 1) paddedHour = '0' + paddedHour;
+    if (paddedHour.length === 0) paddedHour = '00';
+    if (paddedMin.length === 1) paddedMin = '0' + paddedMin;
+    if (paddedMin.length === 0) paddedMin = '00';
+
+    if (paddedHour !== currentHour || paddedMin !== currentMinute) {
+      onChange(`${paddedHour}:${paddedMin}`);
+    }
+  };
+
+  return (
+    <div 
+      onBlur={handleContainerBlur}
+      className={`flex items-center justify-center bg-[#120a32]/60 border border-white/10 rounded-xl transition focus-within:border-indigo-400 ${
+        isSmall ? "px-2 py-0.5 gap-0.5 text-xs inline-flex" : "px-3 py-2 gap-1 w-full text-sm flex"
+      } ${className}`}
+    >
+      <input
+        ref={hourRef}
+        type="text"
+        inputMode="numeric"
+        placeholder="HH"
+        value={currentHour}
+        onChange={handleHourChange}
+        onKeyDown={handleHourKeyDown}
+        className={`bg-transparent text-center text-white outline-none font-mono placeholder-white/20 p-0 ${
+          isSmall ? "w-5 text-indigo-300 font-bold" : "w-8"
+        }`}
+      />
+      <span className="text-white/60 font-mono font-bold select-none">:</span>
+      <input
+        ref={minuteRef}
+        type="text"
+        inputMode="numeric"
+        placeholder="MM"
+        value={currentMinute}
+        onChange={handleMinuteChange}
+        onKeyDown={handleMinuteKeyDown}
+        className={`bg-transparent text-center text-white outline-none font-mono placeholder-white/20 p-0 ${
+          isSmall ? "w-5 text-indigo-300 font-bold" : "w-8"
+        }`}
+      />
+    </div>
+  );
+}
+
+interface DailyOrdersProps {
+  user: any;
+  userProfile: UserProfile | null;
+}
+
+export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
+  const [orders, setOrders] = useState<DailyOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Form State
+  const [inputDate, setInputDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [inputTime, setInputTime] = useState('');
+  const [shopee, setShopee] = useState<string>('');
+  const [tiktok, setTiktok] = useState<string>('');
+  const [lazada, setLazada] = useState<string>('');
+  const [tiktokHome, setTiktokHome] = useState<string>('');
+  const [shopeeHome, setShopeeHome] = useState<string>('');
+  const [blibli, setBlibli] = useState<string>('');
+  
+  // Filter/Search State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  
+  // Edit State
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<DailyOrder>>({});
+  
+  // Delete Confirmation Modal State
+  const [deleteConfirmId, setDeleteConfirmId] = useState<{ id: string; createdBy: string } | null>(null);
+  
+  // Toast Alert State
+  const [toast, setToast] = useState<{ message: string; type: ToastType; visible: boolean }>({
+    message: '',
+    type: 'success',
+    visible: false
+  });
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  // Retrieve existing records
+  useEffect(() => {
+    if (!user) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const q = query(collection(db, 'daily_orders'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedOrders: DailyOrder[] = [];
+      snapshot.forEach((doc) => {
+        fetchedOrders.push({
+          id: doc.id,
+          ...doc.data()
+        } as DailyOrder);
+      });
+      
+      // Sort client-side by inputDate desc, then inputTime desc
+      fetchedOrders.sort((a, b) => {
+        const dateA = a.inputDate || '';
+        const dateB = b.inputDate || '';
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA);
+        }
+        const timeA = a.inputTime || '';
+        const timeB = b.inputTime || '';
+        return timeB.localeCompare(timeA);
+      });
+      
+      setOrders(fetchedOrders);
+      setLoading(false);
+    }, (error) => {
+      setLoading(false);
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'daily_orders');
+      } catch (err) {
+        console.error("Firestore loading error:", err);
+      }
+    });
+
+    return unsubscribe;
+  }, [user]);
+
+  const triggerToast = (message: string, type: ToastType = 'success') => {
+    setToast({ message, type, visible: true });
+  };
+
+  // Safe numeric conversion helper
+  const parseNum = (val: string): number => {
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+  };
+
+  // Form Auto-calculated Total
+  const liveTotal = useMemo(() => {
+    return parseNum(shopee) + 
+           parseNum(tiktok) + 
+           parseNum(lazada) + 
+           parseNum(tiktokHome) + 
+           parseNum(shopeeHome) + 
+           parseNum(blibli);
+  }, [shopee, tiktok, lazada, tiktokHome, shopeeHome, blibli]);
+
+  // Insert Record
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      triggerToast('Anda harus masuk terlebih dahulu.', 'error');
+      return;
+    }
+
+    const timeRegex = /^[0-9]{2}:[0-9]{2}$/;
+    if (!inputDate || !inputTime || !timeRegex.test(inputTime)) {
+      triggerToast('Pilih tanggal dan masukkan waktu penarikan (Format HH:MM) dengan lengkap.', 'error');
+      return;
+    }
+
+    setActionLoading(true);
+    const newOrder: Omit<DailyOrder, 'id'> = {
+      inputDate,
+      inputTime,
+      shopee: parseNum(shopee),
+      tiktok: parseNum(tiktok),
+      lazada: parseNum(lazada),
+      tiktokHome: parseNum(tiktokHome),
+      shopeeHome: parseNum(shopeeHome),
+      blibli: parseNum(blibli),
+      total: liveTotal,
+      createdBy: user.uid,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      // Optimistic write: trigger Firestore write immediately.
+      // Firestore's latency compensation propagates this instantly to real-time onSnapshot listeners,
+      // displaying the new data in the list table without delay.
+      const savePromise = addDoc(collection(db, 'daily_orders'), newOrder);
+
+      // Reset input fields immediately to allow quick consecutive entries
+      setShopee('');
+      setTiktok('');
+      setLazada('');
+      setTiktokHome('');
+      setShopeeHome('');
+      setBlibli('');
+      setInputTime('');
+
+      // Polished user feedback with a tiny 300ms delay to make transitions smooth
+      setTimeout(() => {
+        setActionLoading(false);
+        triggerToast('Data harian berhasil disimpan!');
+      }, 300);
+
+      // Listen asynchronously for any background server verification errors
+      savePromise.catch((err) => {
+        try {
+          handleFirestoreError(err, OperationType.WRITE, 'daily_orders');
+        } catch (firestoreErr: any) {
+          let msg = 'Gagal menyimpan data harian.';
+          try {
+            const parsed = JSON.parse(firestoreErr.message);
+            msg += ` (${parsed.error || parsed})`;
+          } catch {
+            msg += ` (${firestoreErr.message || firestoreErr})`;
+          }
+          triggerToast(msg, 'error');
+        }
+        console.error(err);
+      });
+    } catch (err) {
+      console.error(err);
+      setActionLoading(false);
+    }
+  };
+
+  // Delete Record
+  const handleDelete = (id: string, createdBy: string) => {
+    const isAdminUser = userProfile?.role === 'admin' || user?.email === 'jgilbeth92@gmail.com';
+    const isRecordOwner = user?.uid === createdBy;
+
+    if (!isAdminUser && !isRecordOwner) {
+      triggerToast('Anda hanya diperbolehkan menghapus data buatan Anda sendiri.', 'error');
+      return;
+    }
+
+    setDeleteConfirmId({ id, createdBy });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    setActionLoading(true);
+    try {
+      // Optimistic delete implementation to match handleSubmit behavior
+      const deletePromise = deleteDoc(doc(db, 'daily_orders', deleteConfirmId.id));
+
+      setTimeout(() => {
+        setActionLoading(false);
+        setDeleteConfirmId(null);
+        triggerToast('Data harian berhasil dihapus.');
+      }, 300);
+
+      deletePromise.catch((err) => {
+        try {
+          handleFirestoreError(err, OperationType.DELETE, `daily_orders/${deleteConfirmId.id}`);
+        } catch (firestoreErr: any) {
+          let msg = 'Gagal menghapus data harian.';
+          try {
+            const parsed = JSON.parse(firestoreErr.message);
+            msg += ` (${parsed.error || parsed})`;
+          } catch {
+            msg += ` (${firestoreErr.message || firestoreErr})`;
+          }
+          triggerToast(msg, 'error');
+        }
+        console.error(err);
+      });
+    } catch (err) {
+      console.error(err);
+      setActionLoading(false);
+      setDeleteConfirmId(null);
+    }
+  };
+
+  // Start Edit Mode
+  const handleStartEdit = (item: DailyOrder) => {
+    const isAdminUser = userProfile?.role === 'admin' || user?.email === 'jgilbeth92@gmail.com';
+    const isRecordOwner = user?.uid === item.createdBy;
+
+    if (!isAdminUser && !isRecordOwner) {
+      triggerToast('Anda hanya bisa mengedit data milik Anda sendiri atau sebagai Admin.', 'error');
+      return;
+    }
+
+    setEditingId(item.id || null);
+    setEditForm({ ...item });
+  };
+
+  // Handle Edit Input Change
+  const handleEditChange = (field: keyof DailyOrder, value: string | number) => {
+    setEditForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto recalculate total
+      if (['shopee', 'tiktok', 'lazada', 'tiktokHome', 'shopeeHome', 'blibli'].includes(field as string)) {
+        const shopeeVal = parseNum(String(field === 'shopee' ? value : updated.shopee || 0));
+        const tiktokVal = parseNum(String(field === 'tiktok' ? value : updated.tiktok || 0));
+        const lazadaVal = parseNum(String(field === 'lazada' ? value : updated.lazada || 0));
+        const tiktokHomeVal = parseNum(String(field === 'tiktokHome' ? value : updated.tiktokHome || 0));
+        const shopeeHomeVal = parseNum(String(field === 'shopeeHome' ? value : updated.shopeeHome || 0));
+        const blibliVal = parseNum(String(field === 'blibli' ? value : updated.blibli || 0));
+        updated.total = shopeeVal + tiktokVal + lazadaVal + tiktokHomeVal + shopeeHomeVal + blibliVal;
+      }
+      return updated;
+    });
+  };
+
+  // Save Edit Record
+  const handleSaveEdit = async (id: string) => {
+    if (!editForm.inputDate || !editForm.inputTime) {
+      triggerToast('Tanggal dan waktu harus diisi.', 'error');
+      return;
+    }
+
+    try {
+      const recordDoc = doc(db, 'daily_orders', id);
+      
+      // Perform optimistic update to resolve edits instantly
+      const updatePromise = updateDoc(recordDoc, {
+        inputDate: editForm.inputDate,
+        inputTime: editForm.inputTime,
+        shopee: parseNum(String(editForm.shopee || 0)),
+        tiktok: parseNum(String(editForm.tiktok || 0)),
+        lazada: parseNum(String(editForm.lazada || 0)),
+        tiktokHome: parseNum(String(editForm.tiktokHome || 0)),
+        shopeeHome: parseNum(String(editForm.shopeeHome || 0)),
+        blibli: parseNum(String(editForm.blibli || 0)),
+        total: editForm.total || 0,
+      });
+
+      // Clear edit state and notify user immediately
+      triggerToast('Data harian berhasil diperbarui.');
+      setEditingId(null);
+
+      // Handle server resolution and validation in background
+      updatePromise.catch((err) => {
+        try {
+          handleFirestoreError(err, OperationType.WRITE, `daily_orders/${id}`);
+        } catch (firestoreErr: any) {
+          let msg = 'Gagal memperbarui data.';
+          try {
+            const parsed = JSON.parse(firestoreErr.message);
+            msg += ` (${parsed.error || parsed})`;
+          } catch {
+            msg += ` (${firestoreErr.message || firestoreErr})`;
+          }
+          triggerToast(msg, 'error');
+        }
+        console.error(err);
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Filtering Logic
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const dateMatch = !dateFilter || order.inputDate === dateFilter;
+      const searchStr = `${order.inputDate} ${order.inputTime}`.toLowerCase();
+      const stringMatch = !searchTerm || searchStr.includes(searchTerm.toLowerCase());
+      return dateMatch && stringMatch;
+    });
+  }, [orders, dateFilter, searchTerm]);
+
+  // Aggregate Metrics over filtered list
+  const totalsSummary = useMemo(() => {
+    return filteredOrders.reduce(
+      (acc, curr) => {
+        acc.shopee += curr.shopee;
+        acc.tiktok += curr.tiktok;
+        acc.lazada += curr.lazada;
+        acc.tiktokHome += curr.tiktokHome;
+        acc.shopeeHome += curr.shopeeHome;
+        acc.blibli += curr.blibli;
+        acc.total += curr.total;
+        return acc;
+      },
+      { shopee: 0, tiktok: 0, lazada: 0, tiktokHome: 0, shopeeHome: 0, blibli: 0, total: 0 }
+    );
+  }, [filteredOrders]);
+
+  // Pagination bounds
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredOrders, currentPage]);
+
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage) || 1;
+
+  // Export to beautifully styled Excel (matching other xlsx-js-style implementations)
+  const handleExportExcel = () => {
+    if (filteredOrders.length === 0) {
+      triggerToast('Tidak ada data harian untuk di-export.', 'error');
+      return;
+    }
+
+    const wsData = [
+      ['LAPORAN ORDERAN HARIAN — ADMIN REPORT PRO'],
+      [`Dicetak pada: ${format(new Date(), 'dd-MM-yyyy HH:mm')} oleh ${userProfile?.displayName || user?.email}`],
+      [],
+      ['TANGGAL', 'WAKTU', 'SHOPEE', 'TIKTOK', 'LAZADA', 'TIKTOK HOME', 'SHOPEE HOME', 'BLIBLI', 'TOTAL']
+    ];
+
+    filteredOrders.forEach((o) => {
+      wsData.push([
+        o.inputDate,
+        o.inputTime,
+        o.shopee,
+        o.tiktok,
+        o.lazada,
+        o.tiktokHome,
+        o.shopeeHome,
+        o.blibli,
+        o.total
+      ]);
+    });
+
+    // Add aggregate total row
+    wsData.push([]);
+    wsData.push([
+      'TOTAL REKAPITULASI',
+      '',
+      totalsSummary.shopee,
+      totalsSummary.tiktok,
+      totalsSummary.lazada,
+      totalsSummary.tiktokHome,
+      totalsSummary.shopeeHome,
+      totalsSummary.blibli,
+      totalsSummary.total
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Apply styles to Excel Sheets
+    ws['!cols'] = [
+      { wch: 14 }, // Tanggal
+      { wch: 10 }, // Waktu
+      { wch: 12 }, // Shopee
+      { wch: 12 }, // Tiktok
+      { wch: 12 }, // Lazada
+      { wch: 14 }, // Tiktok Home
+      { wch: 14 }, // Shopee Home
+      { wch: 12 }, // Blibli
+      { wch: 14 }  // Total
+    ];
+
+    // Design styles matching corporate aesthetic
+    const titleStyle = { font: { name: 'Arial', sz: 14, bold: true, color: { rgb: '312e81' } } };
+    const subtitleStyle = { font: { name: 'Arial', sz: 10, italic: true, color: { rgb: '6b7280' } } };
+    const headerStyle = {
+      font: { name: 'Arial', sz: 10, bold: true, color: { rgb: 'ffffff' } },
+      fill: { fgColor: { rgb: '4f46e5' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: {
+        top: { style: 'thin', color: { rgb: '4f46e5' } },
+        bottom: { style: 'medium', color: { rgb: '312e81' } }
+      }
+    };
+    const rowStyle = {
+      font: { name: 'Arial', sz: 10 },
+      alignment: { horizontal: 'center' },
+      border: { bottom: { style: 'thin', color: { rgb: 'e5e7eb' } } }
+    };
+    const summaryStyle = {
+      font: { name: 'Arial', sz: 10, bold: true, color: { rgb: 'ffffff' } },
+      fill: { fgColor: { rgb: '1e1b4b' } },
+      alignment: { horizontal: 'center' }
+    };
+
+    // Apply styles to individual cells
+    ws['A1'].s = titleStyle;
+    ws['A2'].s = subtitleStyle;
+
+    // Header cells (Row index 3 in 0-indexed representation)
+    const headerRowIdx = 3;
+    for (let colIdx = 0; colIdx < 9; colIdx++) {
+      const cellRef = XLSX.utils.encode_cell({ r: headerRowIdx, c: colIdx });
+      if (ws[cellRef]) ws[cellRef].s = headerStyle;
+    }
+
+    // Records formatting
+    const startRecordRow = 4;
+    const endRecordRow = 4 + filteredOrders.length;
+    for (let r = startRecordRow; r < endRecordRow; r++) {
+      for (let c = 0; c < 9; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        if (ws[cellRef]) ws[cellRef].s = rowStyle;
+      }
+    }
+
+    // Total Footer Styles
+    const totalRowIdx = endRecordRow + 1;
+    for (let c = 0; c < 9; c++) {
+      const cellRef = XLSX.utils.encode_cell({ r: totalRowIdx, c });
+      if (ws[cellRef]) ws[cellRef].s = summaryStyle;
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, "Rekap Orderan Harian");
+    XLSX.writeFile(wb, `Rekap_Orderan_Harian_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    triggerToast('Excel berhasil diexport!');
+  };
+
+  return (
+    <div className="flex-1 w-full max-w-none mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 relative z-10">
+      <style>{`
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          opacity: 0 !important;
+          cursor: pointer !important;
+          background: transparent !important;
+        }
+      `}</style>
+      
+      {/* Toast Alert */}
+      <Toast 
+        message={toast.message} 
+        type={toast.type} 
+        isVisible={toast.visible} 
+        onClose={() => setToast(prev => ({ ...prev, visible: false }))} 
+      />
+
+      {/* Header Widget */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1.5">
+            <div className="w-9 h-9 bg-pink-500/10 border border-pink-400/20 rounded-xl flex items-center justify-center text-pink-400 shadow-md">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              Data Orderan Harian
+              <span className="text-[10px] bg-indigo-500/15 border border-indigo-400/20 text-indigo-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">ADMIN TOOL</span>
+            </h1>
+          </div>
+          <p className="text-slate-400 text-sm max-w-xl">
+            Input manual data print admin/jumlah orderan masuk setelah dilakukan penarikan data per hari dari masing-masing platform marketplace.
+          </p>
+        </div>
+
+        {/* Quick Excel Export */}
+        <button
+          onClick={handleExportExcel}
+          className="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-bold text-white rounded-xl group bg-gradient-to-br from-indigo-500 to-pink-500 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-purple-200 cursor-pointer"
+        >
+          <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-[#120a32] rounded-[10px] group-hover:bg-opacity-0 flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400 group-hover:text-white transition-colors" />
+            Export ke Excel
+          </span>
+        </button>
+      </div>
+
+      {/* Analytics Summary Stats widget */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-[#181140]/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3 text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-widest text-[#a89eff]/60">Shopee</span>
+            <Sparkles className="w-4 h-4 text-[#ec4899]" />
+          </div>
+          <span className="text-2xl font-black text-white">{totalsSummary.shopee.toLocaleString('id-ID')}</span>
+          <span className="text-[10px] text-slate-500 font-medium mt-1">Total order tercatat</span>
+        </div>
+        
+        <div className="bg-[#181140]/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3 text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-widest text-[#a89eff]/60">TikTok</span>
+            <Sparkles className="w-4 h-4 text-[#818cf8]" />
+          </div>
+          <span className="text-2xl font-black text-white">{(totalsSummary.tiktok + totalsSummary.tiktokHome).toLocaleString('id-ID')}</span>
+          <span className="text-[10px] text-slate-500 font-medium mt-1">Regular & Home Store</span>
+        </div>
+
+        <div className="bg-[#181140]/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3 text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-widest text-[#a89eff]/60">Lazada</span>
+            <Sparkles className="w-4 h-4 text-[#38bdf8]" />
+          </div>
+          <span className="text-2xl font-black text-white">{totalsSummary.lazada.toLocaleString('id-ID')}</span>
+          <span className="text-[10px] text-slate-500 font-medium mt-1">Sinkronisasi harian</span>
+        </div>
+
+        <div className="bg-indigo-950/40 backdrop-blur-xl border border-indigo-500/20 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-indigo-500/10 to-transparent pointer-events-none rounded-full" />
+          <div className="flex items-center justify-between mb-3 text-indigo-400">
+            <span className="text-xs font-bold uppercase tracking-widest text-[#c2baff]/80">Akumulasi TOTAL</span>
+            <BarChart3 className="w-4 h-4 text-indigo-400" />
+          </div>
+          <span className="text-3xl font-black text-[#a595ff]">{totalsSummary.total.toLocaleString('id-ID')}</span>
+          <span className="text-[10px] text-indigo-300/60 font-medium mt-1">Dari semua platform</span>
+        </div>
+      </div>
+
+      {/* Main Grid: Input Form (Left/Top) vs Table (Right/Bottom) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        
+        {/* Form Container (Aesthetic Card) */}
+        <div className="xl:col-span-4 h-fit">
+          <div className="bg-[#181140]/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-pink-400 to-emerald-400" />
+            <div className="flex items-center gap-2 mb-6">
+              <PlusCircle className="w-5 h-5 text-[#a89eff]" />
+              <h2 className="text-lg font-extrabold text-white">Input Orderan Hari Ini</h2>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              
+              {/* DateTime Handlers */}
+              <div className="grid grid-cols-2 gap-4">
+                <div 
+                  className="space-y-1.5 cursor-pointer"
+                  onClick={(e) => {
+                    const input = e.currentTarget.querySelector('input');
+                    if (input) {
+                      try { (input as any).showPicker(); } catch (err) {}
+                    }
+                  }}
+                >
+                  <label className="text-[10px] font-black uppercase text-[#a89eff]/60 tracking-widest flex items-center gap-1.5 cursor-pointer">
+                    <Calendar className="w-3.5 h-3.5 text-white" /> Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={inputDate}
+                    onChange={(e) => setInputDate(e.target.value)}
+                    onClick={(e) => { e.stopPropagation(); try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
+                    onFocus={(e) => { try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3 py-2 text-white font-medium text-sm focus:outline-none focus:border-indigo-400 transition cursor-pointer"
+                  />
+                </div>
+
+                <div className="space-y-1.5 flex flex-col">
+                  <label className="text-[10px] font-black uppercase text-[#a89eff]/60 tracking-widest flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-white" /> Waktu Tarik
+                  </label>
+                  <TimeManualInput
+                    value={inputTime}
+                    onChange={setInputTime}
+                  />
+                </div>
+              </div>
+
+              {/* Platform Inputs Header */}
+              <div className="pt-2 border-t border-white/5">
+                <p className="text-[10px] font-extrabold uppercase text-[#a89eff]/40 tracking-widest mb-4">Marketplace Quantities</p>
+                
+                <div className="space-y-4">
+                  {/* Shopee & Tiktok */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Shopee</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={shopee}
+                        onChange={(e) => setShopee(e.target.value)}
+                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Tiktok</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={tiktok}
+                        onChange={(e) => setTiktok(e.target.value)}
+                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Lazada & Tiktok Home */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Lazada</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={lazada}
+                        onChange={(e) => setLazada(e.target.value)}
+                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Tiktok Home</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={tiktokHome}
+                        onChange={(e) => setTiktokHome(e.target.value)}
+                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Shopee Home & Blibli */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Shopee Home</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={shopeeHome}
+                        onChange={(e) => setShopeeHome(e.target.value)}
+                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Blibli</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={blibli}
+                        onChange={(e) => setBlibli(e.target.value)}
+                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visualized Total Tracker */}
+              <div className="p-4 bg-indigo-950/40 border border-indigo-500/20 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-[#a89eff]/60 tracking-wider">Total Otomatis</span>
+                  <p className="text-xs text-slate-400 mt-0.5">Semua marketplace</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-indigo-400 tracking-tight font-mono">{liveTotal.toLocaleString('id-ID')}</span>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="w-full bg-[#634be9] hover:bg-[#523ad4] text-white font-extrabold rounded-2xl py-3.5 text-sm transition-all shadow-lg shadow-indigo-950/40 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 border border-indigo-400/20 hover:border-indigo-400/40"
+              >
+                {actionLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <PlusCircle className="w-5 h-5" />
+                    Simpan Catatan Orderan
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* List Table Container (Translucent Cyber Slate Card) */}
+        <div className="xl:col-span-8 flex flex-col space-y-4">
+          
+          {/* Filters controls bar */}
+          <div className="bg-[#181140]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full sm:w-auto sm:flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#a89eff]/40" />
+              <input
+                type="text"
+                placeholder="Cari berdasarkan tanggal / jam..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-400 transition"
+              />
+            </div>
+
+            <div className="flex gap-3 w-full sm:w-auto shrink-0">
+              <div className="flex items-center gap-2 bg-[#120a32]/60 border border-white/10 rounded-xl px-3 py-2 w-full sm:w-auto">
+                <Calendar className="w-4 h-4 text-pink-400" />
+                <input
+                  type="date"
+                  placeholder="Filter Tanggal"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="bg-transparent border-none text-white text-xs outline-none cursor-pointer"
+                />
+                {dateFilter && (
+                  <button onClick={() => setDateFilter('')} className="p-0.5 hover:bg-white/10 rounded">
+                    <X className="w-3 h-3 text-slate-400" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#181140]/60 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden flex-1 flex flex-col relative">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[800px]">
+                <thead>
+                  <tr className="border-b border-white/10 bg-[#140a37]">
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/80 tracking-wider">Tanggal</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/80 tracking-wider">Jam Tarik</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center bg-indigo-505/10">Shopee</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center">TikTok</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center">Lazada</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center text-pink-300">TT Home</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center text-indigo-300">SP Home</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center">Blibli</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/80 tracking-wider text-center bg-indigo-500/10 text-indigo-400 border-l border-white/5 font-extrabold">Total</th>
+                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/80 tracking-wider text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={10} className="p-12 text-center text-slate-400">
+                        <div className="flex flex-col items-center gap-3">
+                          <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+                          <span className="text-xs font-medium tracking-wide">Memuat data orderan harian...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="p-12 text-center text-slate-500 text-xs">
+                        <Database className="w-8 h-8 mx-auto opacity-30 mb-2" />
+                        Belum ada catatan orderan harian atau pencarian Anda tidak ditemukan.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedOrders.map((order) => {
+                      const isEditing = editingId === order.id;
+                      return (
+                        <tr key={order.id} className="hover:bg-white/[0.02] transition text-xs select-none">
+                          
+                          {/* Tanggal */}
+                          <td className="p-4 font-bold text-white whitespace-nowrap">
+                            {isEditing ? (
+                              <div
+                                onClick={(e) => {
+                                  const input = e.currentTarget.querySelector('input');
+                                  if (input) {
+                                    try { (input as any).showPicker(); } catch (err) {}
+                                  }
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <input
+                                  type="date"
+                                  value={editForm.inputDate || ''}
+                                  onChange={(e) => handleEditChange('inputDate', e.target.value)}
+                                  onClick={(e) => { e.stopPropagation(); try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
+                                  onFocus={(e) => { try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
+                                  style={{ colorScheme: 'dark' }}
+                                  className="bg-[#120a32] border border-white/20 text-white rounded px-2 py-1 text-xs outline-none focus:border-indigo-400 w-32 cursor-pointer inline-block"
+                                />
+                              </div>
+                            ) : (
+                              format(new Date(order.inputDate), 'dd MMM yyyy')
+                            )}
+                          </td>
+
+                          {/* Jam Tarik */}
+                          <td className="p-4 font-medium text-indigo-300 font-mono whitespace-nowrap">
+                            {isEditing ? (
+                              <div
+                                onClick={(e) => {
+                                  const input = e.currentTarget.querySelector('input');
+                                  if (input) {
+                                    try { (input as any).showPicker(); } catch (err) {}
+                                  }
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <input
+                                  type="hidden" /> <TimeManualInput value={editForm.inputTime || ''} onChange={(val) => handleEditChange('inputTime', val)} isSmall={true} /> <input type="hidden"
+                                  value={editForm.inputTime || ''}
+                                  onChange={(e) => handleEditChange('inputTime', e.target.value)}
+                                  onClick={(e) => { e.stopPropagation(); try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
+                                  onFocus={(e) => { try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
+                                  style={{ colorScheme: 'dark' }}
+                                  className="bg-[#120a32] border border-white/20 text-white rounded px-2 py-1 text-xs outline-none focus:border-indigo-400 w-24 cursor-pointer inline-block"
+                                />
+                              </div>
+                            ) : (
+                              order.inputTime
+                            )}
+                          </td>
+
+                          {/* Shopee */}
+                          <td className="p-4 text-center font-mono">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editForm.shopee ?? 0}
+                                onChange={(e) => handleEditChange('shopee', Number(e.target.value))}
+                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                              />
+                            ) : (
+                              order.shopee.toLocaleString('id-ID')
+                            )}
+                          </td>
+
+                          {/* TikTok */}
+                          <td className="p-4 text-center font-mono">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editForm.tiktok ?? 0}
+                                onChange={(e) => handleEditChange('tiktok', Number(e.target.value))}
+                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                              />
+                            ) : (
+                              order.tiktok.toLocaleString('id-ID')
+                            )}
+                          </td>
+
+                          {/* Lazada */}
+                          <td className="p-4 text-center font-mono">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editForm.lazada ?? 0}
+                                onChange={(e) => handleEditChange('lazada', Number(e.target.value))}
+                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                              />
+                            ) : (
+                              order.lazada.toLocaleString('id-ID')
+                            )}
+                          </td>
+
+                          {/* TT Home */}
+                          <td className="p-4 text-center text-pink-300 font-mono">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editForm.tiktokHome ?? 0}
+                                onChange={(e) => handleEditChange('tiktokHome', Number(e.target.value))}
+                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                              />
+                            ) : (
+                              order.tiktokHome.toLocaleString('id-ID')
+                            )}
+                          </td>
+
+                          {/* SP Home */}
+                          <td className="p-4 text-center text-indigo-300 font-mono">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editForm.shopeeHome ?? 0}
+                                onChange={(e) => handleEditChange('shopeeHome', Number(e.target.value))}
+                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                              />
+                            ) : (
+                              order.shopeeHome.toLocaleString('id-ID')
+                            )}
+                          </td>
+
+                          {/* Blibli */}
+                          <td className="p-4 text-center font-mono">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editForm.blibli ?? 0}
+                                onChange={(e) => handleEditChange('blibli', Number(e.target.value))}
+                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                              />
+                            ) : (
+                              order.blibli.toLocaleString('id-ID')
+                            )}
+                          </td>
+
+                          {/* Total Column */}
+                          <td className="p-4 text-center font-black bg-indigo-500/5 text-indigo-400 font-mono text-sm border-l border-white/5">
+                            {isEditing ? (
+                              editForm.total?.toLocaleString('id-ID')
+                            ) : (
+                              order.total.toLocaleString('id-ID')
+                            )}
+                          </td>
+
+                          {/* Aksi Controls */}
+                          <td className="p-4 text-right">
+                            <div className="flex justify-end gap-2.5">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={() => handleSaveEdit(order.id!)}
+                                    className="p-1 px-2.5 text-xs text-white bg-emerald-500/25 border border-emerald-500/30 hover:bg-emerald-500/40 rounded-lg font-bold flex items-center gap-1 transition cursor-pointer"
+                                  >
+                                    <Save className="w-3.5 h-3.5" />
+                                    Simpan
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingId(null)}
+                                    className="p-1 px-2.5 text-xs text-slate-300 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                    Batal
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleStartEdit(order)}
+                                    className="p-1.5 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border border-white/5"
+                                    title="Edit Catatan"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(order.id!, order.createdBy)}
+                                    className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 rounded-lg transition-colors cursor-pointer border border-rose-500/10"
+                                    title="Hapus Catatan"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination & Summary rekap bar */}
+            {filteredOrders.length > 0 && (
+              <div className="p-4 border-t border-white/10 bg-[#140a37] flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
+                <span className="text-xs text-slate-400 font-medium">
+                  Menampilkan <span className="text-white font-bold">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</span> dari <span className="text-white font-bold">{filteredOrders.length}</span> rekap orderan harian
+                </span>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-lg transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-bold text-white px-3">
+                    Hal {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-lg transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirmId(null)}
+              className="absolute inset-0 bg-[#0c061c]/80 backdrop-blur-sm"
+            />
+            
+            {/* Modal Card */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="relative w-full max-w-md bg-[#181140]/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden text-center"
+            >
+              <div className="absolute top-0 left-0 w-full h-[3px] bg-rose-500" />
+              
+              <div className="mx-auto w-14 h-14 bg-rose-500/10 rounded-2xl flex items-center justify-center mb-4 border border-rose-500/20">
+                <Trash2 className="w-6 h-6 text-rose-400" />
+              </div>
+              
+              <h3 className="text-lg font-extrabold text-white mb-2">Konfirmasi Hapus</h3>
+              <p className="text-slate-300 text-xs sm:text-sm leading-relaxed mb-6">
+                Apakah Anda yakin ingin menghapus catatan orderan harian ini? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
+              </p>
+              
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-bold py-3 px-4 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-extrabold py-3 px-4 rounded-xl text-xs sm:text-sm transition shadow-lg shadow-rose-950/20 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Hapus Data
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+    </div>
+  );
+}

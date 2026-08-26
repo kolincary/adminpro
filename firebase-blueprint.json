@@ -1,0 +1,230 @@
+{
+  "entities": {
+    "Report": {
+      "title": "Report",
+      "description": "Administrative report entry for shipping and inventory tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "inputDate": { "type": "string", "format": "date-time", "description": "TANGGAL INPUT" },
+        "gineeInputDate": { "type": "string", "format": "date-time", "description": "TGL INPUT GINEE" },
+        "picGinee": { "type": "string", "description": "PIC INPUT GINEE" },
+        "marketplace": { "type": "string", "description": "MARKETPLACE" },
+        "invoiceNumber": { "type": "string", "description": "NO INVOICE" },
+        "status": { "type": "string", "description": "STATUS/KETERANGAN" },
+        "itemDescription": { "type": "string", "description": "KETERANGAN BARANG" },
+        "sku": { "type": "string", "description": "SKU BARANG" },
+        "quantity": { "type": "number", "description": "QTY" },
+        "createdBy": { "type": "string", "description": "UID of the user who created the entry" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["inputDate", "marketplace", "invoiceNumber", "sku", "quantity", "createdBy"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] }
+      },
+      "required": ["uid", "email"]
+    },
+    "MasterData": {
+      "title": "Master Data",
+      "description": "Dropdown options for various fields.",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string" },
+        "options": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["category", "options"]
+    },
+    "Backup": {
+      "title": "Backup",
+      "description": "Backup of deleted reports.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "originalData": { "type": "object", "$ref": "Report" },
+        "deletedAt": { "type": "string", "format": "date-time" },
+        "deletedBy": { "type": "string" }
+      },
+      "required": ["originalData", "deletedAt", "deletedBy"]
+    },
+    "AdminConfig": {
+      "title": "Admin Config",
+      "description": "Configuration for the admin panel.",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["username", "password"]
+    },
+    "BlockedUser": {
+      "title": "Blocked User",
+      "description": "List of blocked gmail addresses.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "blockedAt": { "type": "string", "format": "date-time" },
+        "blockedBy": { "type": "string" }
+      },
+      "required": ["email", "blockedAt", "blockedBy"]
+    },
+    "FormDraft": {
+      "title": "Form Draft",
+      "description": "Autosaved draft of the report form.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "category": { "type": "string" },
+        "headerData": { "type": "object" },
+        "items": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "category", "headerData", "items"]
+    },
+    "VaultItem": {
+      "title": "Vault Item",
+      "description": "A record stored in the cloud vault for cross-device transfer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fileName": { "type": "string" },
+        "data": { "type": "array", "items": { "type": "object" } },
+        "uploadedBy": { "type": "string" },
+        "uploadedByName": { "type": "string" },
+        "uploadedAt": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["fileName", "data", "uploadedBy", "uploadedByName", "uploadedAt"]
+    },
+    "DailyOrder": {
+      "title": "Daily Order",
+      "description": "Daily order summary records inputted manually.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "inputDate": { "type": "string", "description": "Tanggal" },
+        "inputTime": { "type": "string", "description": "Waktu" },
+        "shopee": { "type": "number", "description": "SHOPEE count" },
+        "tiktok": { "type": "number", "description": "TIKTOK count" },
+        "lazada": { "type": "number", "description": "LAZADA count" },
+        "tiktokHome": { "type": "number", "description": "TIKTOK HOME count" },
+        "shopeeHome": { "type": "number", "description": "SHOPEE HOME count" },
+        "blibli": { "type": "number", "description": "BLIBLI count" },
+        "total": { "type": "number", "description": "TOTAL count" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["inputDate", "inputTime", "shopee", "tiktok", "lazada", "tiktokHome", "shopeeHome", "blibli", "total", "createdBy"]
+    },
+    "BundlingAdmin": {
+      "title": "Bundling Admin Stock",
+      "description": "Stock of bundling items in the special admin room shelf.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "description": "Tanggal Log" },
+        "sku": { "type": "string", "description": "Bundling SKU" },
+        "quantity": { "type": "number", "description": "Jumlah Unit" },
+        "type": { "type": "string", "description": "MASUK atau KELUAR" },
+        "pic": { "type": "string", "description": "PIC Admin" },
+        "notes": { "type": "string", "description": "Catatan tambahan" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "userEmail": { "type": "string" }
+      },
+      "required": ["date", "sku", "quantity", "type", "pic", "createdBy", "createdAt", "userEmail"]
+    },
+    "AppControl": {
+      "title": "App Control",
+      "description": "Global application control configuration including system versions and cache reload triggers.",
+      "type": "object",
+      "properties": {
+        "currentVersion": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "forceRefreshAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["currentVersion", "updatedAt"]
+    },
+    "ForceLogouts": {
+      "title": "Force Logouts Map",
+      "description": "A record map containing specific users forced to logout.",
+      "type": "object",
+      "properties": {
+        "activeForceLogouts": { "type": "object", "description": "Key-value pair of userId to logout details" }
+      }
+    },
+    "DashboardStats": {
+      "title": "Dashboard Stats",
+      "description": "Aggregated reporting statistics cached in a single document for peak dashboard performance.",
+      "type": "object",
+      "properties": {
+        "totalQty": { "type": "number" },
+        "totalInvoices": { "type": "number" },
+        "uniqueSkus": { "type": "number" },
+        "canceledResi": { "type": "number" },
+        "marketplaceData": { "type": "object" },
+        "dailyTrend": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Collection of administrative reports."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "/master_data/{categoryId}": {
+      "schema": "MasterData",
+      "description": "Dropdown options for various fields."
+    },
+    "/backups/{backupId}": {
+      "schema": "Backup",
+      "description": "Collection of deleted reports backups."
+    },
+    "/admin_config/{configId}": {
+      "schema": "AdminConfig",
+      "description": "Configuration for the admin panel."
+    },
+    "/blocked_users/{userId}": {
+      "schema": "BlockedUser",
+      "description": "List of blocked gmail addresses."
+    },
+    "/form_drafts/{draftId}": {
+      "schema": "FormDraft",
+      "description": "Autosaved form drafts per user and category."
+    },
+    "/cloud_vault/{vaultId}": {
+      "schema": "VaultItem",
+      "description": "Collection of records stored in the cloud vault."
+    },
+    "/daily_orders/{orderId}": {
+      "schema": "DailyOrder",
+      "description": "Collection of daily order print records."
+    },
+    "/stok_bundling_admin/{itemId}": {
+      "schema": "BundlingAdmin",
+      "description": "Collection of bundling stock transactions in admin room special shelf."
+    },
+    "/metadata/{docId}": {
+      "schema": "object",
+      "description": "System metadata collection comprising dashboard_stats, force_logouts, or app_control."
+    }
+  }
+}

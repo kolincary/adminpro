@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Report Pro</title>
+    <script>
+      // Fix for "Cannot set property fetch of #<Window> which has only a getter"
+      // This happens when a polyfill tries to overwrite window.fetch or global.fetch.
+      (function() {
+        const originalFetch = window.fetch;
+        
+        // Try to define a dummy setter for window.fetch to swallow errors
+        try {
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return originalFetch; },
+            set: function() { console.warn('Swallowed attempt to overwrite window.fetch'); },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          // If we can't redefine window.fetch, we'll rely on the global proxy below
+        }
+
+        // Define a global object that handles fetch assignments gracefully
+        const globalProxy = new Proxy(window, {
+          get(target, prop) {
+            if (prop === 'global' || prop === 'window' || prop === 'self') return globalProxy;
+            return target[prop];
+          },
+          set(target, prop, value) {
+            if (prop === 'fetch') {
+              console.warn('Swallowed attempt to overwrite global.fetch');
+              return true;
+            }
+            try {
+              target[prop] = value;
+            } catch (e) {
+              console.warn(`Could not set property ${String(prop)} on window:`, e);
+            }
+            return true;
+          }
+        });
+
+        window.global = globalProxy;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
