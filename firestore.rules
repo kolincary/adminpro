@@ -35,29 +35,14 @@ service cloud.firestore {
     }
 
     function isValidReport(data) {
-      return data.keys().hasAll(['category', 'inputDate', 'sku', 'quantity', 'createdBy', 'createdAt']) &&
-             (data.category in ['retur', 'retur2', 'stok_lt3', 'rusak_internal']) &&
+      return data.keys().hasAll(['category', 'inputDate', 'sku', 'quantity', 'createdBy']) &&
              data.inputDate is string &&
-             data.sku is string && data.sku.size() > 0 && data.sku.size() < 100 &&
+             data.sku is string && data.sku.size() > 0 &&
              isNumber(data.quantity) &&
              (request.method == 'create' ? 
-               (data.createdBy == request.auth.uid && data.createdAt == request.time) : 
-               (data.createdBy == resource.data.createdBy && data.createdAt == resource.data.createdAt)
-             ) &&
-             // Category specific validation
-             (((data.category == 'retur' || data.category == 'retur2') && 
-               data.invoiceNumber is string && data.invoiceNumber.size() > 0 &&
-               data.marketplace is string && data.marketplace.size() > 0 &&
-               (!('picGinee' in data) || data.picGinee is string) &&
-               (!('gineeInputDate' in data) || data.gineeInputDate is string)
-             ) || (data.category == 'stok_lt3' && 
-               data.invoiceNumber is string && data.invoiceNumber.size() > 0 &&
-               data.type is string && (data.type == 'COD' || data.type == '') &&
-               (!('status' in data) || data.status is string)
-             ) || (data.category == 'rusak_internal' &&
-               data.logDate is string &&
-               (!('status' in data) || data.status is string)
-             ));
+               (data.createdBy == request.auth.uid) : 
+               (data.createdBy == resource.data.createdBy || isAdmin())
+             );
     }
 
     function isValidUser(data) {

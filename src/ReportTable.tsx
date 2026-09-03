@@ -41,9 +41,19 @@ export default function ReportTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMarketplace, setFilterMarketplace] = useState('');
   const [isRangeMode, setIsRangeMode] = useState(globalDateFilter?.includes('/') || false);
-  const [startDate, setStartDate] = useState(globalDateFilter?.split('/')[0] || (defaultToday ? format(new Date(), 'yyyy-MM-dd') : ''));
+  const [startDate, setStartDate] = useState(() => {
+    if (globalDateFilter) return globalDateFilter.split('/')[0];
+    const saved = localStorage.getItem(category === 'rusak_internal' ? 'selectedDateFilter_rusak_internal' : 'selectedLogDate');
+    if (saved) return saved;
+    return defaultToday ? format(new Date(), 'yyyy-MM-dd') : '';
+  });
   const [endDate, setEndDate] = useState(globalDateFilter?.split('/')[1] || '');
-  const [localDateFilter, setLocalDateFilter] = useState(globalDateFilter || (defaultToday ? format(new Date(), 'yyyy-MM-dd') : ''));
+  const [localDateFilter, setLocalDateFilter] = useState(() => {
+    if (globalDateFilter) return globalDateFilter;
+    const saved = localStorage.getItem(category === 'rusak_internal' ? 'selectedDateFilter_rusak_internal' : 'selectedLogDate');
+    if (saved) return saved;
+    return defaultToday ? format(new Date(), 'yyyy-MM-dd') : '';
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; id: string | null }>({ show: false, id: null });
@@ -357,7 +367,12 @@ export default function ReportTable({
       if (setGlobalDateFilter) setGlobalDateFilter(startDate);
       else setLocalDateFilter(startDate);
     }
-  }, [startDate, endDate, isRangeMode]);
+    if (startDate) {
+      if (category === 'rusak_internal') {
+        localStorage.setItem('selectedDateFilter_rusak_internal', startDate);
+      }
+    }
+  }, [startDate, endDate, isRangeMode, category]);
 
   const handleDateChange = (val: string) => {
     setStartDate(val);
@@ -857,6 +872,9 @@ export default function ReportTable({
                   const today = format(new Date(), 'yyyy-MM-dd');
                   setStartDate(today);
                   if (isRangeMode) setEndDate(today);
+                  if (category === 'rusak_internal') {
+                    localStorage.setItem('selectedDateFilter_rusak_internal', today);
+                  }
                 }}
                 className={`px-2 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition-all ${startDate === format(new Date(), 'yyyy-MM-dd') && (!isRangeMode || endDate === startDate) ? 'border-indigo-500 text-indigo-400' : ''}`}
               >
@@ -867,6 +885,9 @@ export default function ReportTable({
                   onClick={() => {
                     setStartDate('');
                     setEndDate('');
+                    if (category === 'rusak_internal') {
+                      localStorage.removeItem('selectedDateFilter_rusak_internal');
+                    }
                   }}
                   className="p-2.5 bg-white/5 border border-white/10 rounded-2xl text-slate-500 hover:text-rose-400"
                 >
@@ -902,6 +923,9 @@ export default function ReportTable({
               setFilterMarketplace('');
               setSearchTerm('');
               handleDateChange(''); // Clear date filter entirely on reset
+              if (category === 'rusak_internal') {
+                localStorage.removeItem('selectedDateFilter_rusak_internal');
+              }
             }}
             className="p-2.5 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-slate-400 hover:text-white transition-all"
             title="Reset Semua Filter"

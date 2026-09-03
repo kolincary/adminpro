@@ -65,7 +65,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
 
   const [masterData, setMasterData] = useState<Record<string, string[]>>({});
   const [headerData, setHeaderData] = useState({
-    inputDate: format(new Date(), 'yyyy-MM-dd'),
+    inputDate: localStorage.getItem('selectedLogDate') || format(new Date(), 'yyyy-MM-dd'),
     gineeInputDate: '',
     picGinee: (category === 'retur' || category === 'retur2' || category === 'rusak_internal' || category === 'stok_lt3') ? (localStorage.getItem('selectedPicGinee') || '') : '',
     marketplace: (category === 'retur' || category === 'retur2') ? (localStorage.getItem('selectedMarketplace') || '') : '',
@@ -75,14 +75,35 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : ((category === 'stok_lt3' || category === 'retur2') ? (localStorage.getItem('selectedMenuFisik') || '') : '')
   });
 
+  const handleLogDateChange = (val: string) => {
+    setInputItem(prev => ({ ...prev, logDate: val }));
+    setHeaderData(prev => ({ ...prev, inputDate: val }));
+    if (val) {
+      localStorage.setItem('selectedLogDate', val);
+    }
+  };
+
+  const handleResetLogDate = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    setInputItem(prev => ({ ...prev, logDate: today }));
+    setHeaderData(prev => ({ ...prev, inputDate: today }));
+    localStorage.setItem('selectedLogDate', today);
+  };
+
   useEffect(() => {
     setHeaderData(prev => ({
       ...prev,
       category,
       type: '',
+      inputDate: localStorage.getItem('selectedLogDate') || prev.inputDate || format(new Date(), 'yyyy-MM-dd'),
       picGinee: (category === 'retur' || category === 'retur2' || category === 'rusak_internal' || category === 'stok_lt3') ? (localStorage.getItem('selectedPicGinee') || '') : prev.picGinee,
       marketplace: (category === 'retur' || category === 'retur2') ? (localStorage.getItem('selectedMarketplace') || '') : prev.marketplace,
       status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : ((category === 'stok_lt3' || category === 'retur2') ? (localStorage.getItem('selectedMenuFisik') || '') : prev.status)
+    }));
+    setInputItem(prev => ({
+      ...prev,
+      logDate: localStorage.getItem('selectedLogDate') || prev.logDate || format(new Date(), 'yyyy-MM-dd'),
+      status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : prev.status
     }));
   }, [category]);
 
@@ -138,13 +159,13 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
   const [isDraftLoading, setIsDraftLoading] = useState(true);
 
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [inputItem, setInputItem] = useState<ItemRow>({
+  const [inputItem, setInputItem] = useState<ItemRow>(() => ({
     sku: '',
     quantity: 1,
-    status: 'Eliminasi Stok Rusak',
+    status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : '',
     itemDescription: '',
-    logDate: format(new Date(), 'yyyy-MM-dd')
-  });
+    logDate: localStorage.getItem('selectedLogDate') || format(new Date(), 'yyyy-MM-dd')
+  }));
 
   // Load draft from Firestore or LocalStorage
   useEffect(() => {
@@ -317,13 +338,13 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         setItems([...items, { ...inputItem, status: category === 'stok_lt3' ? headerData.status : inputItem.status }]);
       }
 
-      setInputItem({
+      setInputItem(prev => ({
         sku: '',
         quantity: 1,
         status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : headerData.status,
         itemDescription: '',
-        logDate: format(new Date(), 'yyyy-MM-dd')
-      });
+        logDate: prev.logDate || localStorage.getItem('selectedLogDate') || format(new Date(), 'yyyy-MM-dd')
+      }));
       
       showToast('Item berhasil ditambahkan ke daftar.', 'success');
       
@@ -456,6 +477,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         const reportData: any = {
           ...headerData,
           ...item,
+          invoiceNumber: item.invoiceNumber?.trim() || headerData.invoiceNumber?.trim() || '',
           inputDate: (category === 'rusak_internal' && item.logDate) ? item.logDate : headerData.inputDate,
           date: (category === 'rusak_internal' && item.logDate) ? item.logDate : headerData.inputDate,
           status: finalStatus,
@@ -524,6 +546,12 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     const { name, value } = e.target;
     const finalValue = name === 'invoiceNumber' ? value.toUpperCase() : value;
     setHeaderData(prev => ({ ...prev, [name]: finalValue }));
+    if (name === 'inputDate') {
+      if (value) {
+        localStorage.setItem('selectedLogDate', value);
+      }
+      setInputItem(prev => ({ ...prev, logDate: value }));
+    }
   };
 
   const handleResetAll = async () => {
@@ -531,9 +559,11 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     localStorage.removeItem('selectedPicGinee');
     localStorage.removeItem('selectedMarketplace');
     localStorage.removeItem('selectedMenuFisik');
+    localStorage.removeItem('selectedLogDate');
 
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     setHeaderData({
-      inputDate: format(new Date(), 'yyyy-MM-dd'),
+      inputDate: todayStr,
       gineeInputDate: '',
       picGinee: '',
       marketplace: '',
@@ -541,6 +571,13 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
       type: '',
       category: category,
       status: ''
+    });
+    setInputItem({
+      sku: '',
+      quantity: 1,
+      status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : '',
+      itemDescription: '',
+      logDate: todayStr
     });
     setItems([{ sku: '', quantity: 1, status: '', itemDescription: '' }]);
 
@@ -677,7 +714,16 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Tanggal Log</label>
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tanggal Log</label>
+                  <button
+                    type="button"
+                    onClick={handleResetLogDate}
+                    className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-tighter"
+                  >
+                    Hari Ini
+                  </button>
+                </div>
                 <div className="relative group">
                   <input
                     required
@@ -921,13 +967,22 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Tanggal Log *</label>
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tanggal Log *</label>
+                      <button
+                        type="button"
+                        onClick={handleResetLogDate}
+                        className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-tighter"
+                      >
+                        Hari Ini
+                      </button>
+                    </div>
                     <div className="relative group">
                       <input
                         required
                         type="date"
                         value={inputItem.logDate}
-                        onChange={(e) => setInputItem(prev => ({ ...prev, logDate: e.target.value }))}
+                        onChange={(e) => handleLogDateChange(e.target.value)}
                         className="w-full pl-12 pr-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none appearance-none cursor-pointer [color-scheme:dark] text-center"
                       />
                       <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
