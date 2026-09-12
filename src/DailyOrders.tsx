@@ -124,7 +124,7 @@ function TimeManualInput({ value, onChange, className = "", isSmall = false }: T
   return (
     <div 
       onBlur={handleContainerBlur}
-      className={`flex items-center justify-center bg-[#120a32]/60 border border-white/10 rounded-xl transition focus-within:border-indigo-400 ${
+      className={`flex items-center justify-center bg-[#0c0620]/90 border border-purple-900/40 rounded-xl transition focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500/30 ${
         isSmall ? "px-2 py-0.5 gap-0.5 text-xs inline-flex" : "px-3 py-2 gap-1 w-full text-sm flex"
       } ${className}`}
     >
@@ -136,11 +136,11 @@ function TimeManualInput({ value, onChange, className = "", isSmall = false }: T
         value={currentHour}
         onChange={handleHourChange}
         onKeyDown={handleHourKeyDown}
-        className={`bg-transparent text-center text-white outline-none font-mono placeholder-white/20 p-0 ${
-          isSmall ? "w-5 text-indigo-300 font-bold" : "w-8"
+        className={`bg-transparent text-center text-white outline-none font-mono placeholder-purple-300/30 p-0 ${
+          isSmall ? "w-5 text-purple-300 font-bold" : "w-8 text-white font-bold"
         }`}
       />
-      <span className="text-white/60 font-mono font-bold select-none">:</span>
+      <span className="text-purple-400/60 font-mono font-bold select-none">:</span>
       <input
         ref={minuteRef}
         type="text"
@@ -149,8 +149,8 @@ function TimeManualInput({ value, onChange, className = "", isSmall = false }: T
         value={currentMinute}
         onChange={handleMinuteChange}
         onKeyDown={handleMinuteKeyDown}
-        className={`bg-transparent text-center text-white outline-none font-mono placeholder-white/20 p-0 ${
-          isSmall ? "w-5 text-indigo-300 font-bold" : "w-8"
+        className={`bg-transparent text-center text-white outline-none font-mono placeholder-purple-300/30 p-0 ${
+          isSmall ? "w-5 text-purple-300 font-bold" : "w-8 text-white font-bold"
         }`}
       />
     </div>
@@ -615,7 +615,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
   };
 
   return (
-    <div className="flex-1 w-full max-w-none mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 relative z-10">
+    <div className="flex-1 w-full max-w-none mx-auto space-y-6 relative z-10 pb-10">
       <style>{`
         input[type="date"]::-webkit-calendar-picker-indicator,
         input[type="time"]::-webkit-calendar-picker-indicator {
@@ -633,93 +633,96 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         onClose={() => setToast(prev => ({ ...prev, visible: false }))} 
       />
 
-      {/* Header Widget */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-3 mb-1.5">
-            <div className="w-9 h-9 bg-pink-500/10 border border-pink-400/20 rounded-xl flex items-center justify-center text-pink-400 shadow-md">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-              Data Orderan Harian
-              <span className="text-[10px] bg-indigo-500/15 border border-indigo-400/20 text-indigo-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">ADMIN TOOL</span>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              DATA ORDERAN HARIAN
             </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#052e16] text-[#34d399] border border-emerald-500/30 tracking-wider">
+              Live Monitoring
+            </span>
           </div>
-          <p className="text-slate-400 text-sm max-w-xl">
-            Input manual data print admin/jumlah orderan masuk setelah dilakukan penarikan data per hari dari masing-masing platform marketplace.
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
+            Input manual data print admin/jumlah orderan masuk setelah dilakukan penarikan data per jam dari masing-masing marketplace.
           </p>
         </div>
 
         {/* Quick Excel Export */}
         <button
           onClick={handleExportExcel}
-          className="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-bold text-white rounded-xl group bg-gradient-to-br from-indigo-500 to-pink-500 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-purple-200 cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 active:scale-95 transition-all cursor-pointer"
         >
-          <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-[#120a32] rounded-[10px] group-hover:bg-opacity-0 flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400 group-hover:text-white transition-colors" />
-            Export ke Excel
-          </span>
+          <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+          <span>Export ke Excel</span>
         </button>
       </div>
 
-      {/* Analytics Summary Stats widget */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-        <div className="bg-[#181140]/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3 text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-widest text-[#a89eff]/60">Shopee</span>
-            <Sparkles className="w-4 h-4 text-[#ec4899]" />
+      {/* 4 Analytics KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 hover:border-purple-700/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-slate-400">Shopee</span>
+            <div className="w-8 h-8 rounded-lg bg-[#2f1308] border border-orange-600/30 flex items-center justify-center text-orange-400 group-hover:scale-105 transition-transform">
+              <Sparkles className="w-4 h-4" />
+            </div>
           </div>
-          <span className="text-2xl font-black text-white">{totalsSummary.shopee.toLocaleString('id-ID')}</span>
-          <span className="text-[10px] text-slate-500 font-medium mt-1">Total order tercatat</span>
+          <span className="text-2xl sm:text-3xl font-black text-white">{totalsSummary.shopee.toLocaleString('id-ID')}</span>
+          <span className="text-[11px] text-slate-400 font-medium mt-1">Total order tercatat</span>
         </div>
         
-        <div className="bg-[#181140]/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3 text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-widest text-[#a89eff]/60">TikTok</span>
-            <Sparkles className="w-4 h-4 text-[#818cf8]" />
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 hover:border-purple-700/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-slate-400">TikTok</span>
+            <div className="w-8 h-8 rounded-lg bg-[#082830] border border-cyan-600/30 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
+              <Sparkles className="w-4 h-4" />
+            </div>
           </div>
-          <span className="text-2xl font-black text-white">{(totalsSummary.tiktok + totalsSummary.tiktokHome).toLocaleString('id-ID')}</span>
-          <span className="text-[10px] text-slate-500 font-medium mt-1">Regular & Home Store</span>
+          <span className="text-2xl sm:text-3xl font-black text-white">{(totalsSummary.tiktok + totalsSummary.tiktokHome).toLocaleString('id-ID')}</span>
+          <span className="text-[11px] text-slate-400 font-medium mt-1">Regular &amp; Home Store</span>
         </div>
 
-        <div className="bg-[#181140]/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3 text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-widest text-[#a89eff]/60">Lazada</span>
-            <Sparkles className="w-4 h-4 text-[#38bdf8]" />
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 hover:border-purple-700/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-slate-400">Lazada &amp; Blibli</span>
+            <div className="w-8 h-8 rounded-lg bg-[#0b244d] border border-blue-600/30 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
+              <Sparkles className="w-4 h-4" />
+            </div>
           </div>
-          <span className="text-2xl font-black text-white">{totalsSummary.lazada.toLocaleString('id-ID')}</span>
-          <span className="text-[10px] text-slate-500 font-medium mt-1">Sinkronisasi harian</span>
+          <span className="text-2xl sm:text-3xl font-black text-white">{(totalsSummary.lazada + totalsSummary.blibli).toLocaleString('id-ID')}</span>
+          <span className="text-[11px] text-slate-400 font-medium mt-1">Lazada + Blibli tercatat</span>
         </div>
 
-        <div className="bg-indigo-950/40 backdrop-blur-xl border border-indigo-500/20 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-indigo-500/10 to-transparent pointer-events-none rounded-full" />
-          <div className="flex items-center justify-between mb-3 text-indigo-400">
-            <span className="text-xs font-bold uppercase tracking-widest text-[#c2baff]/80">Akumulasi TOTAL</span>
-            <BarChart3 className="w-4 h-4 text-indigo-400" />
+        <div className="bg-[#130b2e]/90 border border-purple-600/40 hover:border-purple-500/60 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Akumulasi Total</span>
+            <div className="w-8 h-8 rounded-lg bg-purple-900/50 border border-purple-500/40 flex items-center justify-center text-purple-300 group-hover:scale-105 transition-transform">
+              <BarChart3 className="w-4 h-4" />
+            </div>
           </div>
-          <span className="text-3xl font-black text-[#a595ff]">{totalsSummary.total.toLocaleString('id-ID')}</span>
-          <span className="text-[10px] text-indigo-300/60 font-medium mt-1">Dari semua platform</span>
+          <span className="text-3xl sm:text-4xl font-black text-purple-300 font-mono">{totalsSummary.total.toLocaleString('id-ID')}</span>
+          <span className="text-[11px] text-teal-400 font-semibold mt-1">↗ Dari semua platform</span>
         </div>
       </div>
 
-      {/* Main Grid: Input Form (Left/Top) vs Table (Right/Bottom) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+      {/* Main Grid: Input Form (Left 4 cols) vs Table (Right 8 cols) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
         
-        {/* Form Container (Aesthetic Card) */}
+        {/* Form Container */}
         <div className="xl:col-span-4 h-fit">
-          <div className="bg-[#181140]/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-pink-400 to-emerald-400" />
-            <div className="flex items-center gap-2 mb-6">
-              <PlusCircle className="w-5 h-5 text-[#a89eff]" />
-              <h2 className="text-lg font-extrabold text-white">Input Orderan Hari Ini</h2>
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+            <div className="flex items-center gap-2 mb-5">
+              <PlusCircle className="w-5 h-5 text-purple-400" />
+              <h2 className="text-base font-bold text-white">Input Orderan Hari Ini</h2>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               
               {/* DateTime Handlers */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div 
-                  className="space-y-1.5 cursor-pointer"
+                  className="space-y-1 cursor-pointer"
                   onClick={(e) => {
                     const input = e.currentTarget.querySelector('input');
                     if (input) {
@@ -727,8 +730,8 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                     }
                   }}
                 >
-                  <label className="text-[10px] font-black uppercase text-[#a89eff]/60 tracking-widest flex items-center gap-1.5 cursor-pointer">
-                    <Calendar className="w-3.5 h-3.5 text-white" /> Tanggal
+                  <label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1.5 cursor-pointer">
+                    <Calendar className="w-3.5 h-3.5 text-purple-400" /> Tanggal
                   </label>
                   <input
                     type="date"
@@ -738,13 +741,13 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                     onClick={(e) => { e.stopPropagation(); try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
                     onFocus={(e) => { try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
                     style={{ colorScheme: 'dark' }}
-                    className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3 py-2 text-white font-medium text-sm focus:outline-none focus:border-indigo-400 transition cursor-pointer"
+                    className="w-full bg-[#0c0620]/90 border border-purple-900/40 rounded-xl px-3 py-2 text-white font-medium text-xs focus:outline-none focus:border-purple-500 transition cursor-pointer"
                   />
                 </div>
 
-                <div className="space-y-1.5 flex flex-col">
-                  <label className="text-[10px] font-black uppercase text-[#a89eff]/60 tracking-widest flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-white" /> Waktu Tarik
+                <div className="space-y-1 flex flex-col">
+                  <label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-purple-400" /> Waktu Tarik
                   </label>
                   <TimeManualInput
                     value={inputTime}
@@ -753,114 +756,114 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                 </div>
               </div>
 
-              {/* Platform Inputs Header */}
-              <div className="pt-2 border-t border-white/5">
-                <p className="text-[10px] font-extrabold uppercase text-[#a89eff]/40 tracking-widest mb-4">Marketplace Quantities</p>
+              {/* Platform Inputs */}
+              <div className="pt-2 border-t border-purple-900/20">
+                <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-3">Marketplace Quantities</p>
                 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* Shopee & Tiktok */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Shopee</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-300">Shopee</label>
                       <input
                         type="number"
                         min="0"
                         placeholder="0"
                         value={shopee}
                         onChange={(e) => setShopee(e.target.value)}
-                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                        className="w-full bg-[#0c0620]/90 border border-purple-900/40 rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-purple-500 transition"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Tiktok</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-300">Tiktok</label>
                       <input
                         type="number"
                         min="0"
                         placeholder="0"
                         value={tiktok}
                         onChange={(e) => setTiktok(e.target.value)}
-                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                        className="w-full bg-[#0c0620]/90 border border-purple-900/40 rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-purple-500 transition"
                       />
                     </div>
                   </div>
 
                   {/* Lazada & Tiktok Home */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Lazada</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-300">Lazada</label>
                       <input
                         type="number"
                         min="0"
                         placeholder="0"
                         value={lazada}
                         onChange={(e) => setLazada(e.target.value)}
-                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                        className="w-full bg-[#0c0620]/90 border border-purple-900/40 rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-purple-500 transition"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Tiktok Home</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-300">Tiktok Home</label>
                       <input
                         type="number"
                         min="0"
                         placeholder="0"
                         value={tiktokHome}
                         onChange={(e) => setTiktokHome(e.target.value)}
-                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                        className="w-full bg-[#0c0620]/90 border border-purple-900/40 rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-purple-500 transition"
                       />
                     </div>
                   </div>
 
                   {/* Shopee Home & Blibli */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Shopee Home</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-300">Shopee Home</label>
                       <input
                         type="number"
                         min="0"
                         placeholder="0"
                         value={shopeeHome}
                         onChange={(e) => setShopeeHome(e.target.value)}
-                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                        className="w-full bg-[#0c0620]/90 border border-purple-900/40 rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-purple-500 transition"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Blibli</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-300">Blibli</label>
                       <input
                         type="number"
                         min="0"
                         placeholder="0"
                         value={blibli}
                         onChange={(e) => setBlibli(e.target.value)}
-                        className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl px-3.5 py-2 text-white font-mono text-sm focus:outline-none focus:border-indigo-400 transition"
+                        className="w-full bg-[#0c0620]/90 border border-purple-900/40 rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-purple-500 transition"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Visualized Total Tracker */}
-              <div className="p-4 bg-indigo-950/40 border border-indigo-500/20 rounded-2xl flex items-center justify-between">
+              {/* Total Summary Capsule */}
+              <div className="p-3.5 bg-purple-950/40 border border-purple-700/30 rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-black uppercase text-[#a89eff]/60 tracking-wider">Total Otomatis</span>
-                  <p className="text-xs text-slate-400 mt-0.5">Semua marketplace</p>
+                  <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Total Otomatis</span>
+                  <p className="text-xs text-slate-300 mt-0.5">Semua marketplace</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-2xl font-black text-indigo-400 tracking-tight font-mono">{liveTotal.toLocaleString('id-ID')}</span>
+                  <span className="text-2xl font-black text-purple-300 tracking-tight font-mono">{liveTotal.toLocaleString('id-ID')}</span>
                 </div>
               </div>
 
-              {/* Submit Buttons */}
+              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="w-full bg-[#634be9] hover:bg-[#523ad4] text-white font-extrabold rounded-2xl py-3.5 text-sm transition-all shadow-lg shadow-indigo-950/40 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 border border-indigo-400/20 hover:border-indigo-400/40"
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl py-3 text-xs sm:text-sm transition-all shadow-lg shadow-purple-600/30 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.99]"
               >
                 {actionLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    <PlusCircle className="w-5 h-5" />
-                    Simpan Catatan Orderan
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Simpan Catatan Orderan</span>
                   </>
                 )}
               </button>
@@ -868,34 +871,35 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
           </div>
         </div>
 
-        {/* List Table Container (Translucent Cyber Slate Card) */}
+        {/* List Table Container */}
         <div className="xl:col-span-8 flex flex-col space-y-4">
           
           {/* Filters controls bar */}
-          <div className="bg-[#181140]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="relative w-full sm:w-auto sm:flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#a89eff]/40" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60" />
               <input
                 type="text"
                 placeholder="Cari berdasarkan tanggal / jam..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-[#120a32]/60 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-400 transition"
+                className="w-full bg-[#0c0620]/90 border border-purple-900/40 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition"
               />
             </div>
 
-            <div className="flex gap-3 w-full sm:w-auto shrink-0">
-              <div className="flex items-center gap-2 bg-[#120a32]/60 border border-white/10 rounded-xl px-3 py-2 w-full sm:w-auto">
-                <Calendar className="w-4 h-4 text-pink-400" />
+            <div className="flex gap-2 w-full sm:w-auto shrink-0">
+              <div className="flex items-center gap-2 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl px-3 py-1.5 w-full sm:w-auto">
+                <Calendar className="w-3.5 h-3.5 text-pink-400" />
                 <input
                   type="date"
                   placeholder="Filter Tanggal"
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value)}
+                  style={{ colorScheme: 'dark' }}
                   className="bg-transparent border-none text-white text-xs outline-none cursor-pointer"
                 />
                 {dateFilter && (
-                  <button onClick={() => setDateFilter('')} className="p-0.5 hover:bg-white/10 rounded">
+                  <button onClick={() => setDateFilter('')} className="p-0.5 hover:bg-white/10 rounded cursor-pointer">
                     <X className="w-3 h-3 text-slate-400" />
                   </button>
                 )}
@@ -903,30 +907,31 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
             </div>
           </div>
 
-          <div className="bg-[#181140]/60 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden flex-1 flex flex-col relative">
+          {/* Table Card */}
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden shadow-xl flex-1 flex flex-col relative">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[800px]">
+              <table className="w-full text-left border-collapse min-w-[780px]">
                 <thead>
-                  <tr className="border-b border-white/10 bg-[#140a37]">
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/80 tracking-wider">Tanggal</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/80 tracking-wider">Jam Tarik</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center bg-indigo-505/10">Shopee</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center">TikTok</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center">Lazada</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center text-pink-300">TT Home</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center text-indigo-300">SP Home</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/40 tracking-wider text-center">Blibli</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/80 tracking-wider text-center bg-indigo-500/10 text-indigo-400 border-l border-white/5 font-extrabold">Total</th>
-                    <th className="p-4 text-[10px] font-black uppercase text-[#a89eff]/80 tracking-wider text-right">Aksi</th>
+                  <tr className="border-b border-purple-900/30 bg-[#0c0620]">
+                    <th className="p-3.5 text-[10px] font-black uppercase text-purple-300 tracking-wider">Tanggal</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-purple-300 tracking-wider">Jam Tarik</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-slate-400 tracking-wider text-center">Shopee</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-slate-400 tracking-wider text-center">TikTok</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-slate-400 tracking-wider text-center">Lazada</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-pink-400 tracking-wider text-center">TT Home</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-indigo-400 tracking-wider text-center">SP Home</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-slate-400 tracking-wider text-center">Blibli</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-purple-300 tracking-wider text-center bg-purple-950/40 border-l border-purple-900/30">Total</th>
+                    <th className="p-3.5 text-[10px] font-black uppercase text-purple-300 tracking-wider text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-purple-900/20">
                   {loading ? (
                     <tr>
                       <td colSpan={10} className="p-12 text-center text-slate-400">
                         <div className="flex flex-col items-center gap-3">
-                          <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
-                          <span className="text-xs font-medium tracking-wide">Memuat data orderan harian...</span>
+                          <Loader2 className="w-7 h-7 animate-spin text-purple-400" />
+                          <span className="text-xs font-medium">Memuat data orderan harian...</span>
                         </div>
                       </td>
                     </tr>
@@ -941,70 +946,40 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                     paginatedOrders.map((order) => {
                       const isEditing = editingId === order.id;
                       return (
-                        <tr key={order.id} className="hover:bg-white/[0.02] transition text-xs select-none">
+                        <tr key={order.id} className="hover:bg-purple-950/30 transition text-xs select-none">
                           
                           {/* Tanggal */}
-                          <td className="p-4 font-bold text-white whitespace-nowrap">
+                          <td className="p-3.5 font-bold text-white whitespace-nowrap">
                             {isEditing ? (
-                              <div
-                                onClick={(e) => {
-                                  const input = e.currentTarget.querySelector('input');
-                                  if (input) {
-                                    try { (input as any).showPicker(); } catch (err) {}
-                                  }
-                                }}
-                                className="cursor-pointer"
-                              >
-                                <input
-                                  type="date"
-                                  value={editForm.inputDate || ''}
-                                  onChange={(e) => handleEditChange('inputDate', e.target.value)}
-                                  onClick={(e) => { e.stopPropagation(); try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
-                                  onFocus={(e) => { try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
-                                  style={{ colorScheme: 'dark' }}
-                                  className="bg-[#120a32] border border-white/20 text-white rounded px-2 py-1 text-xs outline-none focus:border-indigo-400 w-32 cursor-pointer inline-block"
-                                />
-                              </div>
+                              <input
+                                type="date"
+                                value={editForm.inputDate || ''}
+                                onChange={(e) => handleEditChange('inputDate', e.target.value)}
+                                style={{ colorScheme: 'dark' }}
+                                className="bg-[#0c0620] border border-purple-600 text-white rounded-lg px-2 py-1 text-xs outline-none w-32 cursor-pointer inline-block"
+                              />
                             ) : (
                               format(new Date(order.inputDate), 'dd MMM yyyy')
                             )}
                           </td>
 
                           {/* Jam Tarik */}
-                          <td className="p-4 font-medium text-indigo-300 font-mono whitespace-nowrap">
+                          <td className="p-3.5 font-medium text-purple-300 font-mono whitespace-nowrap">
                             {isEditing ? (
-                              <div
-                                onClick={(e) => {
-                                  const input = e.currentTarget.querySelector('input');
-                                  if (input) {
-                                    try { (input as any).showPicker(); } catch (err) {}
-                                  }
-                                }}
-                                className="cursor-pointer"
-                              >
-                                <input
-                                  type="hidden" /> <TimeManualInput value={editForm.inputTime || ''} onChange={(val) => handleEditChange('inputTime', val)} isSmall={true} /> <input type="hidden"
-                                  value={editForm.inputTime || ''}
-                                  onChange={(e) => handleEditChange('inputTime', e.target.value)}
-                                  onClick={(e) => { e.stopPropagation(); try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
-                                  onFocus={(e) => { try { (e.currentTarget as any).showPicker(); } catch (err) {} }}
-                                  style={{ colorScheme: 'dark' }}
-                                  className="bg-[#120a32] border border-white/20 text-white rounded px-2 py-1 text-xs outline-none focus:border-indigo-400 w-24 cursor-pointer inline-block"
-                                />
-                              </div>
+                              <TimeManualInput value={editForm.inputTime || ''} onChange={(val) => handleEditChange('inputTime', val)} isSmall={true} />
                             ) : (
                               order.inputTime
                             )}
                           </td>
 
                           {/* Shopee */}
-                          <td className="p-4 text-center font-mono">
+                          <td className="p-3.5 text-center font-mono">
                             {isEditing ? (
                               <input
                                 type="number"
                                 value={editForm.shopee ?? 0}
                                 onChange={(e) => handleEditChange('shopee', Number(e.target.value))}
-                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                                className="bg-[#0c0620] border border-purple-600 text-white text-center rounded-lg px-2 py-1 text-xs outline-none w-16"
                               />
                             ) : (
                               order.shopee.toLocaleString('id-ID')
@@ -1012,13 +987,13 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                           </td>
 
                           {/* TikTok */}
-                          <td className="p-4 text-center font-mono">
+                          <td className="p-3.5 text-center font-mono">
                             {isEditing ? (
                               <input
                                 type="number"
                                 value={editForm.tiktok ?? 0}
                                 onChange={(e) => handleEditChange('tiktok', Number(e.target.value))}
-                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                                className="bg-[#0c0620] border border-purple-600 text-white text-center rounded-lg px-2 py-1 text-xs outline-none w-16"
                               />
                             ) : (
                               order.tiktok.toLocaleString('id-ID')
@@ -1026,13 +1001,13 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                           </td>
 
                           {/* Lazada */}
-                          <td className="p-4 text-center font-mono">
+                          <td className="p-3.5 text-center font-mono">
                             {isEditing ? (
                               <input
                                 type="number"
                                 value={editForm.lazada ?? 0}
                                 onChange={(e) => handleEditChange('lazada', Number(e.target.value))}
-                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                                className="bg-[#0c0620] border border-purple-600 text-white text-center rounded-lg px-2 py-1 text-xs outline-none w-16"
                               />
                             ) : (
                               order.lazada.toLocaleString('id-ID')
@@ -1040,13 +1015,13 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                           </td>
 
                           {/* TT Home */}
-                          <td className="p-4 text-center text-pink-300 font-mono">
+                          <td className="p-3.5 text-center text-pink-400 font-mono">
                             {isEditing ? (
                               <input
                                 type="number"
                                 value={editForm.tiktokHome ?? 0}
                                 onChange={(e) => handleEditChange('tiktokHome', Number(e.target.value))}
-                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                                className="bg-[#0c0620] border border-purple-600 text-white text-center rounded-lg px-2 py-1 text-xs outline-none w-16"
                               />
                             ) : (
                               order.tiktokHome.toLocaleString('id-ID')
@@ -1054,13 +1029,13 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                           </td>
 
                           {/* SP Home */}
-                          <td className="p-4 text-center text-indigo-300 font-mono">
+                          <td className="p-3.5 text-center text-indigo-300 font-mono">
                             {isEditing ? (
                               <input
                                 type="number"
                                 value={editForm.shopeeHome ?? 0}
                                 onChange={(e) => handleEditChange('shopeeHome', Number(e.target.value))}
-                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                                className="bg-[#0c0620] border border-purple-600 text-white text-center rounded-lg px-2 py-1 text-xs outline-none w-16"
                               />
                             ) : (
                               order.shopeeHome.toLocaleString('id-ID')
@@ -1068,13 +1043,13 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                           </td>
 
                           {/* Blibli */}
-                          <td className="p-4 text-center font-mono">
+                          <td className="p-3.5 text-center font-mono">
                             {isEditing ? (
                               <input
                                 type="number"
                                 value={editForm.blibli ?? 0}
                                 onChange={(e) => handleEditChange('blibli', Number(e.target.value))}
-                                className="bg-[#120a32] border border-white/20 text-white text-center rounded px-2 py-1 text-xs outline-none w-16"
+                                className="bg-[#0c0620] border border-purple-600 text-white text-center rounded-lg px-2 py-1 text-xs outline-none w-16"
                               />
                             ) : (
                               order.blibli.toLocaleString('id-ID')
@@ -1082,7 +1057,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                           </td>
 
                           {/* Total Column */}
-                          <td className="p-4 text-center font-black bg-indigo-500/5 text-indigo-400 font-mono text-sm border-l border-white/5">
+                          <td className="p-3.5 text-center font-black bg-purple-950/40 text-purple-300 font-mono text-sm border-l border-purple-900/30">
                             {isEditing ? (
                               editForm.total?.toLocaleString('id-ID')
                             ) : (
@@ -1091,37 +1066,37 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                           </td>
 
                           {/* Aksi Controls */}
-                          <td className="p-4 text-right">
-                            <div className="flex justify-end gap-2.5">
+                          <td className="p-3.5 text-right">
+                            <div className="flex justify-end gap-2">
                               {isEditing ? (
                                 <>
                                   <button
                                     onClick={() => handleSaveEdit(order.id!)}
-                                    className="p-1 px-2.5 text-xs text-white bg-emerald-500/25 border border-emerald-500/30 hover:bg-emerald-500/40 rounded-lg font-bold flex items-center gap-1 transition cursor-pointer"
+                                    className="p-1 px-2.5 text-xs text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold flex items-center gap-1 transition cursor-pointer"
                                   >
                                     <Save className="w-3.5 h-3.5" />
-                                    Simpan
+                                    <span>Simpan</span>
                                   </button>
                                   <button
                                     onClick={() => setEditingId(null)}
-                                    className="p-1 px-2.5 text-xs text-slate-300 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                                    className="p-1 px-2.5 text-xs text-slate-300 bg-white/10 hover:bg-white/20 rounded-lg flex items-center gap-1 transition cursor-pointer"
                                   >
                                     <X className="w-3.5 h-3.5" />
-                                    Batal
+                                    <span>Batal</span>
                                   </button>
                                 </>
                               ) : (
                                 <>
                                   <button
                                     onClick={() => handleStartEdit(order)}
-                                    className="p-1.5 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border border-white/5"
+                                    className="p-1.5 bg-purple-900/30 text-purple-300 hover:text-white hover:bg-purple-800/50 rounded-lg transition-colors cursor-pointer border border-purple-700/30"
                                     title="Edit Catatan"
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     onClick={() => handleDelete(order.id!, order.createdBy)}
-                                    className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 rounded-lg transition-colors cursor-pointer border border-rose-500/10"
+                                    className="p-1.5 bg-rose-950/40 text-rose-300 hover:bg-rose-900/60 hover:text-white rounded-lg transition-colors cursor-pointer border border-rose-700/30"
                                     title="Hapus Catatan"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -1138,28 +1113,28 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
               </table>
             </div>
 
-            {/* Pagination & Summary rekap bar */}
+            {/* Pagination & Summary footer bar */}
             {filteredOrders.length > 0 && (
-              <div className="p-4 border-t border-white/10 bg-[#140a37] flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
+              <div className="p-3.5 border-t border-purple-900/30 bg-[#0c0620] flex flex-col sm:flex-row items-center justify-between gap-3 mt-auto">
                 <span className="text-xs text-slate-400 font-medium">
-                  Menampilkan <span className="text-white font-bold">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</span> dari <span className="text-white font-bold">{filteredOrders.length}</span> rekap orderan harian
+                  Menampilkan <span className="text-white font-bold">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</span> dari <span className="text-white font-bold">{filteredOrders.length}</span> rekap orderan
                 </span>
                 
                 <div className="flex items-center gap-2">
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-lg transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1.5 bg-[#130b2e] border border-purple-900/40 hover:bg-purple-900/30 text-white rounded-lg transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-xs font-bold text-white px-3">
+                  <span className="text-xs font-bold text-white px-2">
                     Hal {currentPage} / {totalPages}
                   </span>
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-lg transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1.5 bg-[#130b2e] border border-purple-900/40 hover:bg-purple-900/30 text-white rounded-lg transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -1175,31 +1150,27 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
       <AnimatePresence>
         {deleteConfirmId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setDeleteConfirmId(null)}
-              className="absolute inset-0 bg-[#0c061c]/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-[#050212]/85 backdrop-blur-md"
             />
             
-            {/* Modal Card */}
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               transition={{ type: 'spring', duration: 0.4 }}
-              className="relative w-full max-w-md bg-[#181140]/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden text-center"
+              className="relative w-full max-w-md bg-[#130b2e] border border-purple-900/50 rounded-3xl p-6 shadow-2xl overflow-hidden text-center"
             >
-              <div className="absolute top-0 left-0 w-full h-[3px] bg-rose-500" />
-              
-              <div className="mx-auto w-14 h-14 bg-rose-500/10 rounded-2xl flex items-center justify-center mb-4 border border-rose-500/20">
+              <div className="mx-auto w-12 h-12 bg-rose-950/60 rounded-2xl flex items-center justify-center mb-4 border border-rose-600/30">
                 <Trash2 className="w-6 h-6 text-rose-400" />
               </div>
               
               <h3 className="text-lg font-extrabold text-white mb-2">Konfirmasi Hapus</h3>
-              <p className="text-slate-300 text-xs sm:text-sm leading-relaxed mb-6">
+              <p className="text-slate-300 text-xs leading-relaxed mb-6">
                 Apakah Anda yakin ingin menghapus catatan orderan harian ini? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
               </p>
               
@@ -1207,17 +1178,17 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-bold py-3 px-4 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+                  className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-bold py-2.5 px-4 rounded-xl text-xs transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
                   onClick={confirmDelete}
-                  className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-extrabold py-3 px-4 rounded-xl text-xs sm:text-sm transition shadow-lg shadow-rose-950/20 cursor-pointer flex items-center justify-center gap-2"
+                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition shadow-lg shadow-rose-950/40 cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Hapus Data
+                  <span>Hapus Data</span>
                 </button>
               </div>
             </motion.div>

@@ -4,7 +4,8 @@ import { db } from './firebase';
 import { StaffSchedule } from './types';
 import { 
   Calendar, ChevronLeft, ChevronRight, ChevronDown, Plus, X, User, 
-  Trash2, ShieldAlert, Clock, DollarSign, Save, Edit2, FileSpreadsheet
+  Trash2, ShieldAlert, Clock, DollarSign, Save, Edit2, FileSpreadsheet,
+  Users, Sparkles, Download, Upload, CheckCircle2
 } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
 import XLSX from 'xlsx-js-style';
@@ -157,7 +158,6 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
       snap.forEach((d) => {
         data.push({ id: d.id, ...d.data() } as StaffSchedule);
       });
-      console.log('Fetched schedules:', data);
       setSchedules(data);
     }, (error) => {
       console.error('Error fetching schedules:', error);
@@ -287,7 +287,7 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
         
         for (let i = 1; i < columns.length && i <= daysInMonth.length; i++) {
           const shiftValue = columns[i];
-          if (!shiftValue || shiftValue.toLowerCase() === 'off' && shiftValue.length !== 3) continue; // Skip empty cells
+          if (!shiftValue || (shiftValue.toLowerCase() === 'off' && shiftValue.length !== 3)) continue; // Skip empty cells
           
           const day = daysInMonth[i - 1];
           const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
@@ -380,16 +380,12 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
     try {
       const docId = `${editingCell.staff}_${editingCell.date}`;
       const docRef = doc(db, 'staff_schedules', docId);
-      
-      console.log('Saving schedule:', { docId, editForm });
 
       if (editForm.shiftType === '' && editForm.hourDeduction === 0) {
         // If everything is cleared, delete the document
-        console.log('Deleting schedule because everything is cleared');
         const existing = schedules.find(s => s.staffName === editingCell.staff && s.date === editingCell.date);
         if (existing) {
           await deleteDoc(docRef);
-          console.log('Deleted successfully');
         }
       } else {
         const scheduleData: StaffSchedule = {
@@ -400,9 +396,7 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
           updatedAt: new Date().toISOString(),
           updatedBy: user?.email || 'unknown'
         };
-        console.log('Setting doc with data:', scheduleData);
         await setDoc(docRef, scheduleData);
-        console.log('SetDoc successful');
       }
       setEditingCell(null);
     } catch (error) {
@@ -422,76 +416,123 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
   };
   
   const getDayColor = (dayIndex: number) => {
-    if (dayIndex === 0) return 'text-rose-400 bg-rose-500/10'; // Sunday
+    if (dayIndex === 0) return 'text-rose-400 bg-rose-950/20'; // Sunday
+    if (dayIndex === 6) return 'text-purple-300 bg-purple-950/20'; // Saturday
     return 'text-slate-300';
   };
 
   const getShiftColor = (shiftType: string) => {
     switch (shiftType) {
-      case 'Siang': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
-      case 'Pagi': return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
-      case 'Cover Pagi': return 'bg-sky-500/20 text-sky-300 border-sky-500/30';
-      case 'Cover Siang': return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-      case 'Cuti': return 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30';
-      case 'Off': return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-      case 'Cuti Sakit': return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
-      case 'POT. JAM': return 'bg-red-500/20 text-red-300 border-red-500/30';
-      case 'POT. GAJI': return 'bg-red-600/20 text-red-400 border-red-600/30';
+      case 'Siang': return 'bg-amber-500/15 text-amber-300 border-amber-500/30 shadow-sm shadow-amber-950/30';
+      case 'Pagi': return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shadow-sm shadow-emerald-950/30';
+      case 'Cover Pagi': return 'bg-sky-500/15 text-sky-300 border-sky-500/30 shadow-sm shadow-sky-950/30';
+      case 'Cover Siang': return 'bg-orange-500/15 text-orange-300 border-orange-500/30 shadow-sm shadow-orange-950/30';
+      case 'Cuti': return 'bg-purple-500/20 text-purple-300 border-purple-500/30 shadow-sm shadow-purple-950/30';
+      case 'Off': return 'bg-slate-800/80 text-slate-400 border-slate-700/50';
+      case 'Cuti Sakit': return 'bg-rose-500/15 text-rose-300 border-rose-500/30 shadow-sm shadow-rose-950/30';
+      case 'POT. JAM': return 'bg-rose-600/20 text-rose-300 border-rose-500/40';
+      case 'POT. GAJI': return 'bg-red-600/25 text-red-400 border-red-600/50';
       default: return 'bg-transparent border-transparent';
     }
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-24 relative">
+    <div className="space-y-6 animate-fade-in pb-20 relative">
       {/* Header Panel */}
-      <div className="glass-card p-6 md:p-8 rounded-[32px] border-indigo-500/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="bg-[#130b2e]/90 border border-purple-900/30 p-6 md:p-7 rounded-2xl shadow-xl relative overflow-hidden backdrop-blur-md">
+        <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-purple-600/10 blur-[130px] rounded-full pointer-events-none" />
         
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-500/30 shadow-lg shadow-indigo-500/20">
-              <Calendar className="w-7 h-7 text-indigo-400" />
+            <div className="w-13 h-13 p-3.5 bg-gradient-to-tr from-purple-600/25 to-indigo-600/25 rounded-2xl flex items-center justify-center border border-purple-500/30 shadow-lg shadow-purple-950/50">
+              <Calendar className="w-7 h-7 text-purple-400" />
             </div>
             <div>
-              <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Jadwal Staf Admin</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Jadwal Staf Admin</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40 tracking-wider uppercase">
+                  v2.6-SHIFT
+                </span>
+              </div>
               <div className="flex items-center gap-2 mt-1">
-                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-                <p className="text-indigo-300 text-xs font-bold uppercase tracking-widest">Manajemen Shift & Kehadiran</p>
+                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-sm shadow-emerald-400" />
+                <p className="text-purple-300/80 text-xs font-bold uppercase tracking-widest">
+                  Live Manajemen Shift & Kehadiran • {staffNames.length} Staf Terdaftar
+                </p>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-4 bg-[#0f172a]/80 backdrop-blur-md p-2 rounded-2xl border border-white/10">
-            <button onClick={handlePrevMonth} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-              <ChevronLeft className="w-5 h-5 text-indigo-400" />
-            </button>
-            <div className="px-4 font-bold text-white min-w-[140px] text-center tracking-wide">
-              {formatMonth(currentDate)}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            {/* Month Navigator Capsule */}
+            <div className="flex items-center gap-2 bg-[#0c0620]/90 backdrop-blur-md p-1.5 rounded-2xl border border-purple-900/40 shadow-inner">
+              <button 
+                onClick={handlePrevMonth} 
+                className="p-2 hover:bg-purple-600/20 text-purple-300 hover:text-white rounded-xl transition-colors"
+                title="Bulan Sebelumnya"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="px-3 font-black text-white min-w-[130px] text-center tracking-wide text-sm">
+                {formatMonth(currentDate)}
+              </div>
+              <button 
+                onClick={handleNextMonth} 
+                className="p-2 hover:bg-purple-600/20 text-purple-300 hover:text-white rounded-xl transition-colors"
+                title="Bulan Berikutnya"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
-            <button onClick={handleNextMonth} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-              <ChevronRight className="w-5 h-5 text-indigo-400" />
-            </button>
+
+            {/* Action Buttons */}
+            {isDeveloper && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsFastInputModalOpen(true)}
+                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-950/40 flex items-center gap-2 text-xs"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Fast Excel</span>
+                </button>
+                <button
+                  onClick={() => setIsStaffModalOpen(true)}
+                  className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-950/40 flex items-center gap-2 text-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tambah Staf</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-
+        {/* Shift Badges Legend Bar */}
+        <div className="mt-6 pt-5 border-t border-purple-900/25 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="text-purple-300/60 font-bold uppercase text-[10px] tracking-wider mr-2">Legend Shift:</span>
+          {['Pagi', 'Siang', 'Cover Pagi', 'Cover Siang', 'Cuti', 'Off', 'Cuti Sakit', 'POT. JAM', 'POT. GAJI'].map((shift) => (
+            <span key={shift} className={`px-2.5 py-1 rounded-lg border font-bold ${getShiftColor(shift)}`}>
+              {shift}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Mobile View */}
       <div className="block md:hidden space-y-4">
         {/* Toggle Mode */}
-        <div className="flex bg-[#0f172a]/80 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md">
+        <div className="flex bg-[#0c0620]/90 p-1.5 rounded-2xl border border-purple-900/40 backdrop-blur-md">
           <button
             onClick={() => setMobileViewMode('day')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${mobileViewMode === 'day' ? 'bg-indigo-500/20 text-indigo-300 shadow-sm' : 'text-slate-400'}`}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${mobileViewMode === 'day' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-900/40' : 'text-purple-300/60 hover:text-purple-200'}`}
           >
-            Harian
+            Tampilan Harian
           </button>
           <button
             onClick={() => setMobileViewMode('staff')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${mobileViewMode === 'staff' ? 'bg-indigo-500/20 text-indigo-300 shadow-sm' : 'text-slate-400'}`}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${mobileViewMode === 'staff' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-900/40' : 'text-purple-300/60 hover:text-purple-200'}`}
           >
-            Per Staf
+            Per Anggota Staf
           </button>
         </div>
 
@@ -509,11 +550,11 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
                     onClick={() => setSelectedMobileDate(day)}
                     className={`snap-center flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center border transition-all ${
                       isSelected 
-                        ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-500/30' 
-                        : 'bg-[#121b2f] border-white/5 text-slate-400 hover:border-white/10'
+                        ? 'bg-gradient-to-tr from-purple-600 to-indigo-600 border-purple-400 text-white shadow-lg shadow-purple-900/50' 
+                        : 'bg-[#130b2e]/90 border-purple-900/30 text-purple-300/70 hover:border-purple-700/50'
                     }`}
                   >
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-100' : isSunday ? 'text-rose-400' : 'text-slate-500'}`}>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? 'text-purple-100' : isSunday ? 'text-rose-400' : 'text-purple-300/60'}`}>
                       {day.toLocaleDateString('id-ID', { weekday: 'short' })}
                     </span>
                     <span className={`text-2xl font-black mt-1 ${isSelected ? 'text-white' : isSunday ? 'text-rose-400' : 'text-slate-200'}`}>
@@ -527,18 +568,20 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
             {/* Staff List for Selected Date */}
             <div className="space-y-3">
               <div className="flex items-center justify-between px-2">
-                <h3 className="text-sm font-bold text-slate-300">Jadwal Tgl {selectedMobileDate.getDate()}</h3>
+                <h3 className="text-sm font-black text-purple-200 uppercase tracking-wider">
+                  Jadwal Tanggal {selectedMobileDate.getDate()} {formatMonth(selectedMobileDate)}
+                </h3>
                 {isDeveloper && (
                   <div className="flex gap-2">
-                    <button onClick={() => setIsFastInputModalOpen(true)} className="p-1.5 bg-emerald-500/20 text-emerald-300 rounded-lg"><FileSpreadsheet className="w-4 h-4" /></button>
-                    <button onClick={() => setIsStaffModalOpen(true)} className="p-1.5 bg-indigo-500/20 text-indigo-300 rounded-lg"><Plus className="w-4 h-4" /></button>
+                    <button onClick={() => setIsFastInputModalOpen(true)} className="p-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl"><FileSpreadsheet className="w-4 h-4" /></button>
+                    <button onClick={() => setIsStaffModalOpen(true)} className="p-2 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-xl"><Plus className="w-4 h-4" /></button>
                   </div>
                 )}
               </div>
 
               {staffNames.length === 0 ? (
-                <div className="text-center p-8 bg-[#121b2f] rounded-3xl border border-white/5 text-slate-500 text-sm">
-                  Belum ada data staf.
+                <div className="text-center p-8 bg-[#130b2e]/90 rounded-2xl border border-purple-900/30 text-purple-300/60 text-sm">
+                  Belum ada data staf terdaftar.
                 </div>
               ) : (
                 staffNames.map((staff) => {
@@ -547,31 +590,31 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
                     <div 
                       key={staff} 
                       onClick={() => isDeveloper && openCellModal(staff, selectedMobileDate)}
-                      className="bg-[#121b2f] border border-white/5 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-transform"
+                      className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-4 flex items-center justify-between active:scale-[0.99] transition-transform hover:border-purple-600/40"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold text-slate-300 uppercase shrink-0 shadow-inner">
+                        <div className="w-10 h-10 rounded-xl bg-purple-950/70 border border-purple-800/40 flex items-center justify-center text-xs font-black text-purple-300 uppercase shrink-0 shadow-inner">
                           {staff.substring(0, 2)}
                         </div>
                         <div>
-                          <p className="font-semibold text-sm text-slate-200">{staff}</p>
+                          <p className="font-bold text-sm text-white">{staff}</p>
                           {data?.shiftType ? (
-                            <span className={`mt-1 inline-block text-[10px] font-bold px-2 py-0.5 rounded border ${getShiftColor(data.shiftType)}`}>
+                            <span className={`mt-1 inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-lg border ${getShiftColor(data.shiftType)}`}>
                               {data.shiftType}
                             </span>
                           ) : (
-                            <span className="mt-1 inline-block text-[10px] font-medium text-slate-500">Tidak ada jadwal</span>
+                            <span className="mt-1 inline-block text-[10px] font-medium text-slate-500 italic">Belum diset</span>
                           )}
                         </div>
                       </div>
 
                       <div className="flex flex-col items-end gap-1">
                         {(data?.hourDeduction !== 0 && data?.hourDeduction !== undefined) && (
-                          <div className={`text-[10px] font-bold px-2 py-0.5 rounded border ${data.hourDeduction > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                          <div className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${data.hourDeduction > 0 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/15 text-rose-400 border-rose-500/30'}`}>
                             {data.hourDeduction > 0 ? '+' : ''}{data.hourDeduction} Jam
                           </div>
                         )}
-                        {isDeveloper && <ChevronRight className="w-4 h-4 text-slate-600 mt-1" />}
+                        {isDeveloper && <ChevronRight className="w-4 h-4 text-purple-400/60 mt-1" />}
                       </div>
                     </div>
                   );
@@ -584,18 +627,18 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
         {mobileViewMode === 'staff' && (
           <div className="space-y-3 animate-fade-in">
             <div className="flex items-center justify-between px-2">
-              <h3 className="text-sm font-bold text-slate-300">Ringkasan Bulan Ini</h3>
+              <h3 className="text-sm font-black text-purple-200 uppercase tracking-wider">Rekapitulasi Jam Staf</h3>
               {isDeveloper && (
                 <div className="flex gap-2">
-                  <button onClick={() => setIsFastInputModalOpen(true)} className="p-1.5 bg-emerald-500/20 text-emerald-300 rounded-lg"><FileSpreadsheet className="w-4 h-4" /></button>
-                  <button onClick={() => setIsStaffModalOpen(true)} className="p-1.5 bg-indigo-500/20 text-indigo-300 rounded-lg"><Plus className="w-4 h-4" /></button>
+                  <button onClick={() => setIsFastInputModalOpen(true)} className="p-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl"><FileSpreadsheet className="w-4 h-4" /></button>
+                  <button onClick={() => setIsStaffModalOpen(true)} className="p-2 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-xl"><Plus className="w-4 h-4" /></button>
                 </div>
               )}
             </div>
             
             {staffNames.length === 0 ? (
-                <div className="text-center p-8 bg-[#121b2f] rounded-3xl border border-white/5 text-slate-500 text-sm">
-                  Belum ada data staf.
+                <div className="text-center p-8 bg-[#130b2e]/90 rounded-2xl border border-purple-900/30 text-purple-300/60 text-sm">
+                  Belum ada data staf terdaftar.
                 </div>
             ) : (
               staffNames.map((staff) => {
@@ -604,22 +647,22 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
                 const isExpanded = expandedStaff === staff;
 
                 return (
-                  <div key={staff} className="bg-[#121b2f] border border-white/5 rounded-2xl overflow-hidden transition-all">
+                  <div key={staff} className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden transition-all shadow-md">
                     <div 
                       onClick={() => setExpandedStaff(isExpanded ? null : staff)}
-                      className="p-4 flex items-center justify-between active:bg-white/5 transition-colors"
+                      className="p-4 flex items-center justify-between active:bg-purple-950/40 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold text-slate-300 uppercase shrink-0 shadow-inner">
+                        <div className="w-10 h-10 rounded-xl bg-purple-950/70 border border-purple-800/40 flex items-center justify-center text-xs font-black text-purple-300 uppercase shrink-0 shadow-inner">
                           {staff.substring(0, 2)}
                         </div>
                         <div>
-                          <p className="font-semibold text-sm text-slate-200">{staff}</p>
+                          <p className="font-bold text-sm text-white">{staff}</p>
                           <div className="flex gap-2 items-center mt-1">
                             <span className="text-[10px] font-black inline-block text-emerald-400">
-                              Masuk: +{totalMasuk} Jam
+                              Lembur: +{totalMasuk} Jam
                             </span>
-                            <span className="text-slate-600">|</span>
+                            <span className="text-purple-800">•</span>
                             <span className="text-[10px] font-black inline-block text-rose-400">
                               Potong: {totalPotong} Jam
                             </span>
@@ -630,17 +673,18 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
                         {isDeveloper && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleDeleteStaff(staff); }}
-                            className="p-2 text-slate-600 hover:text-rose-400 transition-colors"
+                            className="p-2 text-slate-500 hover:text-rose-400 transition-colors"
+                            title="Hapus Staf"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         )}
-                        <ChevronDown className={`w-5 h-5 text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-5 h-5 text-purple-400/60 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                       </div>
                     </div>
                     
                     {isExpanded && (
-                      <div className="bg-[#0a0f1c] p-4 border-t border-white/5 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="bg-[#0c0620]/95 p-4 border-t border-purple-900/30 grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {daysInMonth.map((day) => {
                           const data = getCellData(staff, day);
                           if (!data?.shiftType && !data?.hourDeduction) return null;
@@ -648,16 +692,16 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
                             <div 
                               key={day.toISOString()} 
                               onClick={() => isDeveloper && openCellModal(staff, day)}
-                              className="bg-[#121b2f] p-2.5 rounded-xl border border-white/5 flex flex-col justify-center items-center text-center gap-1 active:scale-95 transition-transform"
+                              className="bg-[#130b2e] p-2.5 rounded-xl border border-purple-900/30 flex flex-col justify-center items-center text-center gap-1 active:scale-95 transition-transform"
                             >
-                              <span className="text-[10px] font-bold text-slate-400">Tgl {day.getDate()}</span>
+                              <span className="text-[10px] font-bold text-purple-300/80">Tgl {day.getDate()}</span>
                               {data?.shiftType && (
-                                <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${getShiftColor(data.shiftType)}`}>
+                                <div className={`text-[9px] font-bold px-2 py-0.5 rounded border whitespace-nowrap ${getShiftColor(data.shiftType)}`}>
                                   {data.shiftType}
                                 </div>
                               )}
                               {(data?.hourDeduction !== 0 && data?.hourDeduction !== undefined) && (
-                                <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${data.hourDeduction > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                                <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${data.hourDeduction > 0 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/15 text-rose-400 border-rose-500/30'}`}>
                                   {data.hourDeduction > 0 ? '+' : ''}{data.hourDeduction} Jam
                                 </div>
                               )}
@@ -665,8 +709,8 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
                           );
                         })}
                         {daysInMonth.every(day => !getCellData(staff, day)?.shiftType && !getCellData(staff, day)?.hourDeduction) && (
-                          <div className="col-span-full text-center text-[10px] text-slate-500 py-2">
-                            Belum ada entri jadwal bulan ini
+                          <div className="col-span-full text-center text-[11px] text-purple-300/40 py-3 italic">
+                            Belum ada entri jadwal di bulan ini
                           </div>
                         )}
                       </div>
@@ -680,25 +724,36 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
       </div>
 
       {/* Main Calendar Grid (Desktop Only) */}
-      <div className="hidden md:block glass-card rounded-[32px] border-white/10 overflow-hidden relative z-10 group/table">
+      <div className="hidden md:block bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md relative z-10 group/table">
         
         {/* Frozen Header for Month & Year */}
-        <div className="bg-[#0f172a]/80 p-4 text-center border-b border-white/10 shadow-inner sticky top-0 z-40">
-          <span className="text-2xl font-black text-white tracking-widest uppercase">{formatMonth(currentDate)}</span>
+        <div className="bg-[#0c0620]/95 p-4 text-center border-b border-purple-900/40 shadow-inner sticky top-0 z-40 flex items-center justify-between px-6">
+          <div className="flex items-center gap-2 text-xs font-bold text-purple-300/80 uppercase tracking-widest">
+            <Users className="w-4 h-4 text-purple-400" />
+            <span>Matriks Kehadiran Bulanan</span>
+          </div>
+          <span className="text-xl font-black text-white tracking-widest uppercase bg-gradient-to-r from-purple-400 to-indigo-300 bg-clip-text text-transparent">
+            {formatMonth(currentDate)}
+          </span>
+          <div className="text-xs text-purple-400/60 font-medium">
+            {isDeveloper ? 'Klik sel untuk mengedit shift' : 'Hanya lihat'}
+          </div>
         </div>
 
         {/* Scroll Buttons */}
         <button 
           onClick={() => scrollByAmount(-400)}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 p-2 bg-indigo-600/80 hover:bg-indigo-500 text-white rounded-r-2xl shadow-lg opacity-0 group-hover/table:opacity-100 transition-opacity backdrop-blur-md"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 p-2.5 bg-purple-600/90 hover:bg-purple-500 text-white rounded-r-2xl shadow-xl shadow-purple-950/60 opacity-0 group-hover/table:opacity-100 transition-opacity backdrop-blur-md border-r border-t border-b border-purple-400/30"
+          title="Scroll Kiri"
         >
-          <ChevronLeft className="w-8 h-8" />
+          <ChevronLeft className="w-7 h-7" />
         </button>
         <button 
           onClick={() => scrollByAmount(400)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 p-2 bg-indigo-600/80 hover:bg-indigo-500 text-white rounded-l-2xl shadow-lg opacity-0 group-hover/table:opacity-100 transition-opacity backdrop-blur-md"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 p-2.5 bg-purple-600/90 hover:bg-purple-500 text-white rounded-l-2xl shadow-xl shadow-purple-950/60 opacity-0 group-hover/table:opacity-100 transition-opacity backdrop-blur-md border-l border-t border-b border-purple-400/30"
+          title="Scroll Kanan"
         >
-          <ChevronRight className="w-8 h-8" />
+          <ChevronRight className="w-7 h-7" />
         </button>
 
         <div 
@@ -711,81 +766,89 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
         >
           <table className="w-full border-collapse text-left min-w-max select-none">
             <thead>
-              <tr className="bg-[#0f172a]/60">
-                <th className="sticky left-0 z-20 bg-[#121b2f] border-b border-r border-white/10 p-3 md:p-4 min-w-[130px] md:min-w-[200px] shadow-[4px_0_12px_rgba(0,0,0,0.3)]">
+              <tr className="bg-[#0c0620]">
+                <th className="sticky left-0 z-20 bg-[#0e0725] border-b border-r border-purple-900/40 p-3 md:p-4 min-w-[140px] md:min-w-[210px] shadow-[4px_0_15px_rgba(0,0,0,0.5)]">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest truncate">Nama Staf</span>
+                    <span className="text-[11px] font-black text-purple-300 uppercase tracking-widest truncate">Nama Staf</span>
                     {isDeveloper && (
-                      <div className="flex gap-1">
+                      <div className="flex gap-1.5">
                         <button 
                           onClick={() => setIsFastInputModalOpen(true)}
-                          className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 rounded-lg transition-colors flex items-center gap-1"
-                          title="Fast Input (Excel)"
+                          className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 rounded-lg transition-colors flex items-center gap-1"
+                          title="Fast Input Excel"
                         >
-                          <FileSpreadsheet className="w-4 h-4" />
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
                         </button>
                         <button 
                           onClick={() => setIsStaffModalOpen(true)}
-                          className="p-1.5 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 rounded-lg transition-colors"
-                          title="Tambah Staf"
+                          className="p-1.5 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 rounded-lg transition-colors"
+                          title="Tambah Staf Baru"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     )}
                   </div>
                 </th>
-                <th className="md:sticky md:left-[200px] md:z-20 bg-[#121b2f] border-b border-r border-white/10 p-2 md:p-4 min-w-[100px] md:min-w-[140px] md:shadow-[4px_0_12px_rgba(0,0,0,0.3)]">
-                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Semua Bulan</span>
+                <th className="md:sticky md:left-[210px] md:z-20 bg-[#0e0725] border-b border-r border-purple-900/40 p-2 md:p-4 min-w-[110px] md:min-w-[150px] md:shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-center">
+                  <span className="text-[10px] font-black text-purple-300 uppercase tracking-widest">Total Akumulasi</span>
                 </th>
-                {daysInMonth.map((day) => (
-                  <th 
-                    key={day.toISOString()} 
-                    className={`border-b border-white/10 p-2 md:p-3 min-w-[80px] md:min-w-[100px] text-center ${getDayColor(day.getDay())}`}
-                  >
-                    <div className="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70">
-                      {day.toLocaleDateString('id-ID', { weekday: 'short' })}
-                    </div>
-                    <div className="text-lg font-black">{day.getDate()}</div>
-                  </th>
-                ))}
+                {daysInMonth.map((day) => {
+                  const isToday = new Date().toDateString() === day.toDateString();
+                  return (
+                    <th 
+                      key={day.toISOString()} 
+                      className={`border-b border-r border-purple-900/30 p-2 md:p-3 min-w-[85px] md:min-w-[105px] text-center transition-colors ${
+                        isToday ? 'bg-purple-600/20 ring-1 ring-inset ring-purple-500/40' : getDayColor(day.getDay())
+                      }`}
+                    >
+                      <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 opacity-80">
+                        {day.toLocaleDateString('id-ID', { weekday: 'short' })}
+                      </div>
+                      <div className={`text-base md:text-lg font-black ${isToday ? 'text-purple-300' : 'text-white'}`}>
+                        {day.getDate()}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
               {staffNames.length === 0 ? (
                 <tr>
-                  <td colSpan={daysInMonth.length + 1} className="p-8 text-center text-slate-500">
+                  <td colSpan={daysInMonth.length + 2} className="p-12 text-center text-purple-300/50 bg-[#130b2e]/60">
                     Belum ada data staf. {isDeveloper && "Silakan tambah staf terlebih dahulu."}
                   </td>
                 </tr>
               ) : (
                 staffNames.map((staff) => (
-                  <tr key={staff} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
-                    <td className="sticky left-0 z-20 bg-[#121b2f] group-hover:bg-[#162038] border-r border-white/10 p-3 md:p-4 shadow-[4px_0_12px_rgba(0,0,0,0.3)] transition-colors">
+                  <tr key={staff} className="border-b border-purple-900/20 hover:bg-purple-950/20 transition-colors group">
+                    <td className="sticky left-0 z-20 bg-[#0e0725] group-hover:bg-[#150a36] border-r border-purple-900/40 p-3 md:p-4 shadow-[4px_0_15px_rgba(0,0,0,0.5)] transition-colors">
                       <div className="flex items-center justify-between gap-1 md:gap-2">
                         <div className="flex items-center gap-2 md:gap-3">
-                          <div className="hidden md:flex w-8 h-8 rounded-full bg-slate-800 border border-slate-700 items-center justify-center text-xs font-bold text-slate-300 uppercase shrink-0">
+                          <div className="w-8 h-8 rounded-xl bg-purple-950/80 border border-purple-800/50 flex items-center justify-center text-xs font-black text-purple-300 uppercase shrink-0 shadow-inner">
                             {staff.substring(0, 2)}
                           </div>
-                          <span className="font-semibold text-[11px] md:text-sm text-slate-200 truncate max-w-[80px] md:max-w-none">{staff}</span>
+                          <span className="font-bold text-[12px] md:text-sm text-white truncate max-w-[90px] md:max-w-none">{staff}</span>
                         </div>
                         {isDeveloper && (
                           <button 
                             onClick={() => handleDeleteStaff(staff)}
-                            className="p-1.5 text-slate-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-rose-500/10"
+                            className="p-1.5 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-rose-500/10"
+                            title="Hapus Staf"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
                     </td>
-                    <td className="md:sticky md:left-[200px] md:z-20 bg-[#121b2f] group-hover:bg-[#162038] border-r border-white/10 p-2 md:p-3 md:shadow-[4px_0_12px_rgba(0,0,0,0.3)] transition-colors text-center">
+                    <td className="md:sticky md:left-[210px] md:z-20 bg-[#0e0725] group-hover:bg-[#150a36] border-r border-purple-900/40 p-2 md:p-3 md:shadow-[4px_0_15px_rgba(0,0,0,0.5)] transition-colors text-center">
                       <div className="flex flex-col gap-1 items-center justify-center">
-                        <div className="text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap w-full">
-                          Masuk: +{parseFloat((allTimeSchedules.filter(s => s.staffName === staff && (s.hourDeduction || 0) > 0).reduce((sum, s) => sum + (s.hourDeduction || 0), 0)).toFixed(2))} Jam
+                        <div className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap w-full">
+                          +{parseFloat((allTimeSchedules.filter(s => s.staffName === staff && (s.hourDeduction || 0) > 0).reduce((sum, s) => sum + (s.hourDeduction || 0), 0)).toFixed(2))} Jam
                         </div>
-                        <div className="text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 whitespace-nowrap w-full">
-                          Potong: {parseFloat((allTimeSchedules.filter(s => s.staffName === staff && (s.hourDeduction || 0) < 0).reduce((sum, s) => sum + (s.hourDeduction || 0), 0)).toFixed(2))} Jam
+                        <div className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap w-full">
+                          {parseFloat((allTimeSchedules.filter(s => s.staffName === staff && (s.hourDeduction || 0) < 0).reduce((sum, s) => sum + (s.hourDeduction || 0), 0)).toFixed(2))} Jam
                         </div>
                       </div>
                     </td>
@@ -794,25 +857,25 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
                       return (
                         <td 
                           key={day.toISOString()} 
-                          className={`p-2 border-r border-white/5 relative ${isDeveloper ? 'cursor-pointer hover:bg-white/5' : ''} transition-colors group/cell`}
+                          className={`p-2 border-r border-purple-900/20 relative ${isDeveloper ? 'cursor-pointer hover:bg-purple-600/15' : ''} transition-colors group/cell`}
                           onClick={() => isDeveloper && openCellModal(staff, day)}
                         >
-                          <div className="min-h-[50px] md:min-h-[60px] flex flex-col justify-center gap-1">
+                          <div className="min-h-[52px] md:min-h-[60px] flex flex-col justify-center gap-1">
                             {data?.shiftType && (
-                              <div className={`text-[9px] md:text-[10px] font-bold px-1 md:px-2 py-1 rounded border text-center whitespace-nowrap ${getShiftColor(data.shiftType)}`}>
+                              <div className={`text-[10px] md:text-[11px] font-black px-2 py-1 rounded-lg border text-center whitespace-nowrap ${getShiftColor(data.shiftType)}`}>
                                 {data.shiftType}
                               </div>
                             )}
                             
                             {(data?.hourDeduction !== 0 && data?.hourDeduction !== undefined) && (
-                              <div className={`text-[9px] md:text-[10px] font-bold px-1 md:px-1.5 py-0.5 rounded text-center border ${data.hourDeduction > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                              <div className={`text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-md text-center border ${data.hourDeduction > 0 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/15 text-rose-400 border-rose-500/30'}`}>
                                 {data.hourDeduction > 0 ? '+' : ''}{data.hourDeduction} Jam
                               </div>
                             )}
 
                             {!data?.shiftType && !data?.hourDeduction && isDeveloper && (
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity">
-                                <Plus className="w-4 h-4 text-slate-500" />
+                                <Plus className="w-4 h-4 text-purple-400/60" />
                               </div>
                             )}
                           </div>
@@ -829,35 +892,45 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
 
       {/* Add Staff Modal */}
       {isStaffModalOpen && isDeveloper && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#0f172a] border border-white/10 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[#130b2e] border border-purple-800/40 rounded-3xl w-full max-w-md p-6 md:p-8 shadow-2xl relative shadow-purple-950/80">
             <button 
               onClick={() => setIsStaffModalOpen(false)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-white/5 rounded-full"
+              className="absolute top-5 right-5 p-2 text-purple-300 hover:text-white bg-[#0c0620] hover:bg-purple-900/40 rounded-full border border-purple-800/40 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="text-xl font-black text-white mb-6">Tambah Staf Baru</h3>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                <User className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">Tambah Staf Baru</h3>
+                <p className="text-xs text-purple-300/70">Daftarkan anggota tim staf admin</p>
+              </div>
+            </div>
+            
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 mb-2 block">Nama Staf</label>
+                <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1 mb-2 block">Nama Lengkap Staf</label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
                   <input
                     type="text"
                     value={newStaffName}
                     onChange={(e) => setNewStaffName(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                    placeholder="Masukkan nama staf..."
+                    className="w-full pl-11 pr-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm placeholder-purple-400/30"
+                    placeholder="Contoh: Budi Santoso..."
                     onKeyDown={(e) => e.key === 'Enter' && handleAddStaff()}
                   />
                 </div>
               </div>
               <button 
                 onClick={handleAddStaff}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl transition-all shadow-xl shadow-indigo-900/20 uppercase tracking-widest text-xs"
+                className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl transition-all shadow-xl shadow-purple-950/50 uppercase tracking-widest text-xs flex items-center justify-center gap-2"
               >
-                Simpan Staf
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Simpan Staf</span>
               </button>
             </div>
           </div>
@@ -866,64 +939,73 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
 
       {/* Fast Input Excel Modal */}
       {isFastInputModalOpen && isDeveloper && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#0f172a] border border-white/10 rounded-3xl w-full max-w-3xl p-6 shadow-2xl relative flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[#130b2e] border border-purple-800/40 rounded-3xl w-full max-w-3xl p-6 md:p-8 shadow-2xl relative flex flex-col max-h-[90vh] shadow-purple-950/80">
             <button 
               onClick={() => setIsFastInputModalOpen(false)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-white/5 rounded-full"
+              className="absolute top-5 right-5 p-2 text-purple-300 hover:text-white bg-[#0c0620] hover:bg-purple-900/40 rounded-full border border-purple-800/40 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="text-xl font-black text-white mb-2">Fast Input dari Excel</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Copy kolom dari Spreadsheet/Excel (Format baris: Nama Staf, lalu shift Tanggal 1, shift Tanggal 2, dst) lalu Paste ke kotak di bawah. Atau Anda bisa mengunduh template dan mengimport filenya langsung.
-              <br/><br/>
-              <b>Cara Input Potongan Jam:</b><br/>
-              • Shift & Potongan: <code>Pagi, -1.5</code> atau <code>Siang, 2</code><br/>
-              • Hanya Potongan: <code>-1.5</code><br/>
-              • Hanya Shift: <code>Pagi</code>
-            </p>
+            
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">Fast Input dari Spreadsheet / Excel</h3>
+                <p className="text-xs text-purple-300/70">Impor seluruh jadwal staf satu bulan secara instan</p>
+              </div>
+            </div>
+
+            <div className="bg-[#0c0620]/80 p-3.5 rounded-xl border border-purple-900/30 text-xs text-purple-200/80 mb-4 leading-relaxed">
+              <div className="font-bold text-white mb-1">Panduan Pengisian:</div>
+              • Format Baris: <code>Nama Staf [Tab] Shift Tgl 1 [Tab] Shift Tgl 2 [Tab] ...</code><br/>
+              • Shift & Potongan Jam: <code>Pagi, -1.5</code> atau <code>Siang, 2</code> | Hanya Potongan: <code>-1.5</code> | Hanya Shift: <code>Pagi</code>
+            </div>
 
             <div className="flex flex-wrap gap-3 mb-4">
               <button 
                 onClick={handleDownloadTemplate}
-                className="px-4 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-xl transition-colors text-xs font-bold border border-indigo-500/30 flex items-center gap-2"
+                className="px-4 py-2.5 bg-[#0c0620] hover:bg-purple-900/30 text-purple-300 rounded-xl transition-colors text-xs font-bold border border-purple-800/40 flex items-center gap-2"
               >
-                Unduh Template Excel
+                <Download className="w-4 h-4 text-purple-400" />
+                <span>Unduh Template Excel</span>
               </button>
               
               <div className="relative overflow-hidden inline-block">
-                <button className="px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-xl transition-colors text-xs font-bold border border-emerald-500/30 flex items-center gap-2">
-                  <FileSpreadsheet className="w-4 h-4" /> Import File Excel / Drag & Drop
+                <button className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl transition-colors text-xs font-bold shadow-lg shadow-emerald-950/40 flex items-center gap-2">
+                  <Upload className="w-4 h-4" /> 
+                  <span>Import File Excel (.xlsx)</span>
                 </button>
                 <input 
                   type="file" 
                   accept=".xlsx, .xls"
                   onChange={handleFileUpload}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  title="Klik untuk memilih file Excel atau Drag & Drop ke sini"
+                  title="Klik untuk memilih file Excel"
                 />
               </div>
             </div>
             
-            <div className="flex-1 min-h-[300px] mb-4">
+            <div className="flex-1 min-h-[220px] mb-4">
               <textarea
                 value={fastInputData}
                 onChange={(e) => setFastInputData(e.target.value)}
-                className="w-full h-full p-4 bg-[#121b2f] border border-white/10 rounded-xl text-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-mono whitespace-pre"
-                placeholder={`Contoh Format Copy-Paste dari Excel:\nJohn Doe\tPagi\tSiang\tOff\tPagi\nJane Smith\tSiang\tPagi\tPagi\tCuti`}
+                className="w-full h-full p-4 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-purple-200 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-mono whitespace-pre placeholder-purple-400/30"
+                placeholder={`Contoh Format Copy-Paste dari Excel:\nBudi Santoso\tPagi\tSiang\tOff\tPagi\tPagi\nSiti Rahma\tSiang\tPagi\tPagi\tCuti\tOff`}
               />
             </div>
             
             <button 
               onClick={handleFastInputSubmit}
               disabled={isProcessingFastInput}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl transition-all shadow-xl shadow-emerald-900/20 uppercase tracking-widest text-xs flex justify-center items-center gap-2"
+              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-black rounded-xl transition-all shadow-xl shadow-emerald-950/50 uppercase tracking-widest text-xs flex justify-center items-center gap-2"
             >
               {isProcessingFastInput ? (
                 <>Menyimpan Data...</>
               ) : (
-                <><FileSpreadsheet className="w-4 h-4" /> Proses & Simpan Jadwal</>
+                <><CheckCircle2 className="w-4 h-4" /> Proses & Simpan Semua Jadwal</>
               )}
             </button>
           </div>
@@ -932,67 +1014,67 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
 
       {/* Edit Cell Modal */}
       {editingCell && isDeveloper && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#0f172a] border border-white/10 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[#130b2e] border border-purple-800/40 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative shadow-purple-950/80">
             <button 
               onClick={() => setEditingCell(null)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-white/5 rounded-full"
+              className="absolute top-4 right-4 p-2 text-purple-300 hover:text-white bg-[#0c0620] hover:bg-purple-900/40 rounded-full border border-purple-800/40 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
             
             <div className="mb-6">
-              <h3 className="text-lg font-black text-white">Edit Jadwal</h3>
-              <p className="text-xs text-indigo-300 font-medium mt-1">
+              <h3 className="text-lg font-black text-white">Edit Jadwal Shift</h3>
+              <p className="text-xs text-purple-300 font-medium mt-1">
                 {editingCell.staff} • {new Date(editingCell.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
 
             <div className="space-y-5">
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 mb-2 block">Status / Shift</label>
+                <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1 mb-2 block">Pilih Shift / Keterangan</label>
                 <select
                   value={editForm.shiftType}
                   onChange={(e) => setEditForm(prev => ({ ...prev, shiftType: e.target.value }))}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                 >
-                  <option value="" className="bg-slate-900">- Kosongkan -</option>
+                  <option value="" className="bg-[#0c0620] text-slate-400">- Kosongkan Shift -</option>
                   {SHIFT_TYPES.filter(t => t !== '').map(type => (
-                    <option key={type} value={type} className="bg-slate-900">{type}</option>
+                    <option key={type} value={type} className="bg-[#0c0620] text-white">{type}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 mb-2 block">Potongan Jam (Lembur / Cepat)</label>
+                <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1 mb-2 block">Potongan / Lembur Jam</label>
                 <div className="relative">
-                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
                   <input
                     type="number"
                     value={editForm.hourDeduction || ''}
                     onChange={(e) => setEditForm(prev => ({ ...prev, hourDeduction: parseFloat(e.target.value) || 0 }))}
-                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500"
-                    placeholder="Contoh: 1 atau -1"
+                    className="w-full pl-11 pr-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white outline-none focus:ring-2 focus:ring-purple-500 text-sm placeholder-purple-400/30"
+                    placeholder="Contoh: 1.5 atau -2"
                     step="0.5"
                   />
                 </div>
-                <p className="text-[9px] text-slate-500 mt-1.5 px-1">Gunakan minus (-) untuk pulang cepat, plus (+) untuk lembur.</p>
+                <p className="text-[10px] text-purple-300/50 mt-1.5 px-1">Gunakan minus (-) untuk pulang cepat / izin, plus (+) untuk lembur.</p>
               </div>
 
               <div className="pt-2 flex gap-3">
                 <button 
                   onClick={handleSaveCell}
-                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-950/50 flex items-center justify-center gap-2 text-sm"
                 >
                   <Save className="w-4 h-4" />
-                  Simpan
+                  Simpan Jadwal
                 </button>
                 <button 
                   onClick={() => {
                     setEditForm({ shiftType: '', hourDeduction: 0 });
                   }}
-                  className="px-4 py-3 bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-white/10 hover:border-rose-500/20 font-bold rounded-xl transition-all"
-                  title="Hapus / Kosongkan"
+                  className="px-4 py-3 bg-[#0c0620] hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-purple-900/40 hover:border-rose-500/30 font-bold rounded-xl transition-all"
+                  title="Hapus / Kosongkan Sel"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>

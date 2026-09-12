@@ -4,7 +4,11 @@ import { db, auth } from './firebase';
 import { OperationType } from './types';
 import { handleFirestoreError } from './utils';
 import { format, isToday } from 'date-fns';
-import { Loader2, PlusCircle, Trash2, Plus, X, RotateCcw, AlertCircle, Send, Calendar, ClipboardPaste } from 'lucide-react';
+import { 
+  Loader2, PlusCircle, Trash2, Plus, X, RotateCcw, AlertCircle, 
+  Send, Calendar, ClipboardPaste, PackagePlus, AlertTriangle, 
+  Boxes, ShieldAlert, CheckCircle2, Sparkles, FileText
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SearchableSelect, { SearchableSelectHandle } from './SearchableSelect';
 import Toast, { ToastType } from './Toast';
@@ -38,12 +42,12 @@ interface ItemRow {
 const getInvoiceStyle = (invoice: string) => {
   if (!invoice) return null;
   const styles = [
-    { bg: 'from-blue-500/10 to-transparent', border: 'border-blue-500/30', text: 'text-blue-400', badge: 'bg-blue-500/10 border-blue-500/30' },
-    { bg: 'from-emerald-500/10 to-transparent', border: 'border-emerald-500/30', text: 'text-emerald-400', badge: 'bg-emerald-500/10 border-emerald-500/30' },
-    { bg: 'from-amber-500/10 to-transparent', border: 'border-amber-500/30', text: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/30' },
-    { bg: 'from-fuchsia-500/10 to-transparent', border: 'border-fuchsia-500/30', text: 'text-fuchsia-400', badge: 'bg-fuchsia-500/10 border-fuchsia-500/30' },
-    { bg: 'from-cyan-500/10 to-transparent', border: 'border-cyan-500/30', text: 'text-cyan-400', badge: 'bg-cyan-500/10 border-cyan-500/30' },
-    { bg: 'from-rose-500/10 to-transparent', border: 'border-rose-500/30', text: 'text-rose-400', badge: 'bg-rose-500/10 border-rose-500/30' },
+    { bg: 'from-purple-500/10 to-transparent', border: 'border-purple-500/30', text: 'text-purple-300', badge: 'bg-purple-500/20 border-purple-500/30' },
+    { bg: 'from-emerald-500/10 to-transparent', border: 'border-emerald-500/30', text: 'text-emerald-400', badge: 'bg-emerald-500/20 border-emerald-500/30' },
+    { bg: 'from-amber-500/10 to-transparent', border: 'border-amber-500/30', text: 'text-amber-400', badge: 'bg-amber-500/20 border-amber-500/30' },
+    { bg: 'from-cyan-500/10 to-transparent', border: 'border-cyan-500/30', text: 'text-cyan-400', badge: 'bg-cyan-500/20 border-cyan-500/30' },
+    { bg: 'from-pink-500/10 to-transparent', border: 'border-pink-500/30', text: 'text-pink-400', badge: 'bg-pink-500/20 border-pink-500/30' },
+    { bg: 'from-rose-500/10 to-transparent', border: 'border-rose-500/30', text: 'text-rose-400', badge: 'bg-rose-500/20 border-rose-500/30' },
   ];
   let hash = 0;
   for (let i = 0; i < invoice.length; i++) {
@@ -154,133 +158,28 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
   });
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [isMassInputModalOpen, setIsMassInputModalOpen] = useState(false);
-  const [massInputText, setMassInputText] = useState('');
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isDraftLoading, setIsDraftLoading] = useState(true);
 
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [inputItem, setInputItem] = useState<ItemRow>(() => ({
+  // Single item entry state for rusak_internal / stok_lt3
+  const [inputItem, setInputItem] = useState<ItemRow>({
     sku: '',
     quantity: 1,
     status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : '',
     itemDescription: '',
     logDate: localStorage.getItem('selectedLogDate') || format(new Date(), 'yyyy-MM-dd')
-  }));
+  });
 
-  // Load draft from Firestore or LocalStorage
-  useEffect(() => {
-    if (!user || !category) return;
-
-    const loadDraft = async () => {
-      setIsDraftLoading(true);
-      const draftId = `${user.uid}_${category}`;
-      if (!auth.currentUser) {
-        // Load from LocalStorage
-        try {
-          const saved = localStorage.getItem(`draft_${draftId}`);
-          if (saved) {
-            const data = JSON.parse(saved);
-            setHeaderData(prev => ({
-              ...prev,
-              ...data.headerData,
-              category
-            }));
-            setItems(data.items || [{ sku: '', quantity: 1, status: '', itemDescription: '' }]);
-          }
-        } catch (e) {
-          console.error('Error loading offline draft:', e);
-        } finally {
-          setIsDraftLoading(false);
-        }
-        return;
-      }
-
-      try {
-        const draftDoc = await getDoc(doc(db, 'form_drafts', draftId));
-        if (draftDoc.exists()) {
-          const data = draftDoc.data();
-          setHeaderData(prev => ({
-            ...prev,
-            ...data.headerData,
-            category // Ensure category stays correct
-          }));
-          setItems(data.items || [{ sku: '', quantity: 1, status: '', itemDescription: '' }]);
-        }
-      } catch (error) {
-        console.error('Error loading draft:', error);
-        handleFirestoreError(error, OperationType.GET, `form_drafts/${draftId}`);
-      } finally {
-        setIsDraftLoading(false);
-      }
-    };
-
-    loadDraft();
-  }, [category, user]);
-
-  // Save draft to Firestore or LocalStorage (Debounced)
-  useEffect(() => {
-    if (!user || !category || isDraftLoading) return;
-
-    const saveDraft = async () => {
-      setIsSavingDraft(true);
-      const draftId = `${user.uid}_${category}`;
-      if (!auth.currentUser) {
-        // Save to LocalStorage
-        try {
-          const payload = {
-            userId: user.uid,
-            category,
-            headerData,
-            items,
-            updatedAt: new Date().toISOString()
-          };
-          localStorage.setItem(`draft_${draftId}`, JSON.stringify(payload));
-        } catch (error) {
-          console.error('Error saving offline draft:', error);
-        } finally {
-          setTimeout(() => setIsSavingDraft(false), 1000);
-        }
-        return;
-      }
-
-      try {
-        await setDoc(doc(db, 'form_drafts', draftId), {
-          userId: user.uid,
-          category,
-          headerData,
-          items,
-          updatedAt: serverTimestamp()
-        });
-      } catch (error) {
-        console.error('Error saving draft:', error);
-        handleFirestoreError(error, OperationType.WRITE, `form_drafts/${draftId}`);
-      } finally {
-        setTimeout(() => setIsSavingDraft(false), 1000);
-      }
-    };
-
-    const timeoutId = setTimeout(saveDraft, 1500); // 1.5s debounce
-    return () => clearTimeout(timeoutId);
-  }, [headerData, items, category, user, isDraftLoading]);
+  // Mass input state
+  const [isMassInputModalOpen, setIsMassInputModalOpen] = useState(false);
+  const [massInputText, setMassInputText] = useState('');
 
   const showToast = (message: string, type: ToastType) => {
     setToast({ message, type, visible: true });
   };
 
+  // Fetch Master Data
   useEffect(() => {
-    if (!auth.currentUser) {
-      // Offline mode: fallback to local master_data from localStorage if any
-      try {
-        const saved = localStorage.getItem('master_data');
-        if (saved) {
-          setMasterData(JSON.parse(saved));
-        }
-      } catch (e) {
-        console.warn('Error reading local master_data:', e);
-      }
-      return;
-    }
-
     const q = query(collection(db, 'master_data'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data: Record<string, string[]> = {};
@@ -288,215 +187,225 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         data[doc.id] = doc.data().options || [];
       });
       setMasterData(data);
-      try {
-        localStorage.setItem('master_data', JSON.stringify(data));
-      } catch (e) {
-        // ignore storage quota errors
-      }
-    }, (error) => {
-      console.warn("master_data sync permission denied / error:", error);
-      // Fail secure and fallback to local cache
-      try {
-        const saved = localStorage.getItem('master_data');
-        if (saved) {
-          setMasterData(JSON.parse(saved));
-        }
-      } catch (e) {}
     });
-
     return () => unsubscribe();
-  }, [user]);
+  }, []);
 
-   const addItemRow = () => {
+  // Load Draft
+  useEffect(() => {
+    if (!user) {
+      setIsDraftLoading(false);
+      return;
+    }
+
+    const loadDraft = async () => {
+      try {
+        const draftId = `${user.uid}_${category}`;
+        let draftData: any = null;
+
+        if (!auth.currentUser) {
+          const localDraft = localStorage.getItem(`draft_${draftId}`);
+          if (localDraft) {
+            draftData = JSON.parse(localDraft);
+          }
+        } else {
+          const docRef = doc(db, 'form_drafts', draftId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            draftData = docSnap.data();
+          }
+        }
+
+        if (draftData) {
+          if (draftData.headerData) {
+            setHeaderData(prev => ({
+              ...prev,
+              ...draftData.headerData,
+              category
+            }));
+          }
+          if (draftData.items && draftData.items.length > 0) {
+            setItems(draftData.items);
+          }
+          if (draftData.inputItem) {
+            setInputItem(draftData.inputItem);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading draft:', e);
+      } finally {
+        setIsDraftLoading(false);
+      }
+    };
+
+    loadDraft();
+  }, [user, category]);
+
+  // Save Draft (Debounced)
+  useEffect(() => {
+    if (isDraftLoading || !user) return;
+
+    const saveDraftTimer = setTimeout(async () => {
+      try {
+        setIsSavingDraft(true);
+        const draftId = `${user.uid}_${category}`;
+        const draftData = {
+          headerData,
+          items,
+          inputItem,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (!auth.currentUser) {
+          localStorage.setItem(`draft_${draftId}`, JSON.stringify(draftData));
+        } else {
+          await setDoc(doc(db, 'form_drafts', draftId), draftData, { merge: true });
+        }
+      } catch (e) {
+        console.warn('Error saving draft:', e);
+      } finally {
+        setIsSavingDraft(false);
+      }
+    }, 1000);
+
+    return () => clearTimeout(saveDraftTimer);
+  }, [headerData, items, inputItem, user, category, isDraftLoading]);
+
+  const addItemRow = () => {
     if (category === 'rusak_internal' || category === 'stok_lt3') {
-      // Strict validation for rusak_internal and stok_lt3
-      if (!headerData.picGinee) {
-        showToast('Kolom Analis (PIC) wajib diisi!', 'error');
-        return;
-      }
-      if (category === 'stok_lt3' && !headerData.status) {
-        showToast('Modul Fisik wajib dipilih!', 'error');
-        return;
-      }
-      if (!inputItem.logDate) {
-        showToast('Tanggal Log wajib diisi!', 'error');
-        return;
-      }
       if (!inputItem.sku) {
-        showToast('Tag Aset (SKU) wajib diisi!', 'error');
+        showToast('Pilih SKU terlebih dahulu!', 'error');
         return;
       }
-      if (!inputItem.quantity || inputItem.quantity <= 0) {
-        showToast('Kuantitas harus lebih dari 0!', 'error');
-        return;
-      }
-      
-      // If we have an initial empty item, replace it
-      if (items.length === 1 && !items[0].sku) {
-        setItems([{ ...inputItem, status: category === 'stok_lt3' ? headerData.status : inputItem.status }]);
-      } else {
-        setItems([...items, { ...inputItem, status: category === 'stok_lt3' ? headerData.status : inputItem.status }]);
-      }
-
+      setItems(prev => {
+        const hasEmptyFirst = prev.length === 1 && !prev[0].sku;
+        const newItem: ItemRow = {
+          ...inputItem,
+          status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : inputItem.status,
+          logDate: inputItem.logDate || headerData.inputDate,
+          invoiceNumber: headerData.invoiceNumber
+        };
+        return hasEmptyFirst ? [newItem] : [...prev, newItem];
+      });
       setInputItem(prev => ({
+        ...prev,
         sku: '',
         quantity: 1,
-        status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : headerData.status,
-        itemDescription: '',
-        logDate: prev.logDate || localStorage.getItem('selectedLogDate') || format(new Date(), 'yyyy-MM-dd')
+        itemDescription: ''
       }));
-      
-      showToast('Item berhasil ditambahkan ke daftar.', 'success');
-      
-      // Focus back to SKU field
-      setTimeout(() => skuSelectRef.current?.focus(), 0);
+      skuSelectRef.current?.focus();
     } else {
-      const firstStatus = items.length > 0 ? items[0].status : '';
-      setItems([...items, { sku: '', quantity: 1, status: firstStatus, itemDescription: '' }]);
-    }
-  };
-
-  const handleMassInput = () => {
-    if (!massInputText.trim()) return;
-    
-    const rows = massInputText.split('\n').filter(Boolean);
-    const newItems: ItemRow[] = rows.map(row => {
-      const cols = row.split('\t');
-      return {
-        invoiceNumber: cols[0]?.trim() || '', // ID Pesanan
-        status: '', // Status (Aset) dibuat kosong sesuai request
-        itemDescription: cols[2]?.trim() || '', // Alasan Pembatalan
-        sku: cols[3]?.trim() || '', // MSKU
-        quantity: parseInt(cols[4]?.trim() || '1', 10) || 1, // Jumlah
-        logDate: format(new Date(), 'yyyy-MM-dd')
-      };
-    }).filter(item => item.invoiceNumber || item.status || item.itemDescription || item.sku); // Allow if ANY data exists
-
-    if (newItems.length > 0) {
-      setItems(prev => {
-        // If the only item is completely empty, replace it
-        if (prev.length === 1 && !prev[0].sku && !prev[0].invoiceNumber && !prev[0].itemDescription) {
-          return newItems;
-        }
-        return [...prev, ...newItems];
-      });
-      setIsMassInputModalOpen(false);
-      setMassInputText('');
-      showToast(`${newItems.length} item berhasil ditambahkan dari Input Massal!`, 'success');
-    } else {
-      showToast('Gagal memproses data. Pastikan format sesuai.', 'error');
+      setItems(prev => [
+        ...prev,
+        { sku: '', quantity: 1, status: '', itemDescription: '', invoiceNumber: headerData.invoiceNumber }
+      ]);
     }
   };
 
   const removeItemRow = (index: number) => {
-    if (category === 'rusak_internal') {
-      const newItems = items.filter((_, i) => i !== index);
-      // If we removed the last item, reset to initial empty state if needed, 
-      // or just keep it empty. The UI handles empty items list.
-      setItems(newItems.length === 0 ? [{ sku: '', quantity: 1, status: '', itemDescription: '' }] : newItems);
+    if (items.length === 1) {
+      setItems([{ sku: '', quantity: 1, status: '', itemDescription: '' }]);
     } else {
-      if (items.length === 1) return;
-      setItems(items.filter((_, i) => i !== index));
+      setItems(prev => prev.filter((_, i) => i !== index));
     }
   };
 
   const updateItemRow = (index: number, field: keyof ItemRow, value: any) => {
-    const newItems = [...items];
-    let finalValue = value;
+    setItems(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
 
-    // Remove spaces from SKU
-    if (field === 'sku' && typeof value === 'string') {
-      finalValue = value.replace(/\s+/g, '');
-    }
+  const handleMassInput = () => {
+    if (!massInputText.trim()) return;
+    const lines = massInputText.split('\n');
+    const newItems: ItemRow[] = [];
 
-    newItems[index] = { ...newItems[index], [field]: finalValue };
+    lines.forEach(line => {
+      const parts = line.split('\t').map(p => p.trim());
+      if (parts.length >= 4) {
+        // [0] ID Pesanan, [1] Status, [2] Alasan, [3] MSKU, [4] Qty
+        const invoiceNumber = parts[0] || '';
+        const status = parts[1] || '';
+        const reason = parts[2] || '';
+        const sku = parts[3] || '';
+        const quantity = parseInt(parts[4]) || 1;
 
-    if (field === 'status') {
-      const currentInvoice = newItems[index].invoiceNumber;
-      
-      if (currentInvoice) {
-        // Sync status for all items with the same invoiceNumber
-        for (let i = 0; i < newItems.length; i++) {
-          if (newItems[i].invoiceNumber === currentInvoice) {
-            newItems[i].status = finalValue;
-          }
-        }
-      } else if (index === 0 && (category === 'stok_lt3' || category === 'retur2' || category === 'rusak_internal')) {
-        // Fallback: Sync status for all items if the first item's status is changed and no invoice exists
-        for (let i = 1; i < newItems.length; i++) {
-          newItems[i].status = finalValue;
+        if (sku) {
+          newItems.push({
+            sku,
+            quantity,
+            status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : (status || headerData.status || 'Retur Fisik'),
+            itemDescription: reason,
+            invoiceNumber,
+            logDate: headerData.inputDate
+          });
         }
       }
-    }
+    });
 
-    setItems(newItems);
+    if (newItems.length > 0) {
+      setItems(prev => {
+        const hasEmptyFirst = prev.length === 1 && !prev[0].sku;
+        return hasEmptyFirst ? newItems : [...prev, ...newItems];
+      });
+      showToast(`${newItems.length} data berhasil diimpor!`, 'success');
+      setIsMassInputModalOpen(false);
+      setMassInputText('');
+    } else {
+      showToast('Format data tidak sesuai. Pastikan kolom dipisahkan oleh Tab.', 'error');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (loading) return;
 
-    // Additional Global Validation
-    if (!headerData.picGinee) {
-      showToast('Gagal Simpan: Kolom Analis (PIC) masih kosong!', 'error');
+    // Validation
+    const validItems = items.filter(i => i.sku.trim() !== '');
+    if (validItems.length === 0) {
+      showToast('Harap masukkan minimal 1 item/SKU yang valid!', 'error');
       return;
     }
 
-    if (category !== 'rusak_internal' && !headerData.inputDate) {
-      showToast('Gagal Simpan: Tanggal Log masih kosong!', 'error');
+    if ((category === 'retur' || category === 'retur2') && !headerData.marketplace) {
+      showToast('Marketplace harus dipilih!', 'error');
+      return;
+    }
+
+    if ((category === 'retur' || category === 'retur2' || category === 'stok_lt3' || category === 'rusak_internal') && !headerData.picGinee) {
+      showToast('PIC Analis harus dipilih!', 'error');
       return;
     }
 
     setLoading(true);
+
     try {
-      const path = 'reports';
+      const reportItemsData = validItems.map(item => ({
+        date: item.logDate || headerData.inputDate || format(new Date(), 'yyyy-MM-dd'),
+        gineeInputDate: headerData.gineeInputDate || '',
+        picGinee: headerData.picGinee || '',
+        marketplace: headerData.marketplace || '',
+        invoiceNumber: item.invoiceNumber || headerData.invoiceNumber || '',
+        sku: item.sku,
+        quantity: Number(item.quantity) || 1,
+        status: item.status || headerData.status || (category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : ''),
+        itemDescription: item.itemDescription || '',
+        type: headerData.type || '',
+        category: category,
+        createdAt: serverTimestamp(),
+        createdBy: user?.email || 'admin',
+        userId: user?.uid || 'anonymous'
+      }));
 
-      // Filter out empty items
-      const validItems = items.filter(item => item.sku && item.sku.trim() !== '');
-      if (validItems.length === 0) {
-        showToast('Minimal satu item harus diisi', 'error');
-        setLoading(false);
-        return;
+      // Submit reports
+      for (const itemData of reportItemsData) {
+        await addDoc(collection(db, 'reports'), itemData);
       }
 
-      if (category === 'retur' || category === 'retur2') {
-        const missingInvoice = validItems.some(item => !item.invoiceNumber?.trim() && !headerData.invoiceNumber?.trim());
-        if (missingInvoice) {
-          showToast('Gagal Simpan: Referensi Invoice wajib diisi (di form atas atau per item)!', 'error');
-          setLoading(false);
-          return;
-        }
-      }
-
-      const reportItemsData: any[] = [];
-      // Save each item as a separate document
-      const promises = validItems.map(async item => {
-        const isBundling = masterData.bundling_sku?.includes(item.sku);
-        const finalStatus = isBundling ? "Bundling Fisik" : ((category === 'retur2' || category === 'stok_lt3' || category === 'rusak_internal') ? headerData.status : item.status);
-        
-        const reportData: any = {
-          ...headerData,
-          ...item,
-          invoiceNumber: item.invoiceNumber?.trim() || headerData.invoiceNumber?.trim() || '',
-          inputDate: (category === 'rusak_internal' && item.logDate) ? item.logDate : headerData.inputDate,
-          date: (category === 'rusak_internal' && item.logDate) ? item.logDate : headerData.inputDate,
-          status: finalStatus,
-          type: category === 'rusak_internal' ? 'OUT' : (headerData.type || ''),
-          sku_id: item.sku,
-          assetStatus: (category === 'retur2' || category === 'stok_lt3' || category === 'rusak_internal') ? item.status : undefined,
-          quantity: Number(item.quantity),
-          createdBy: user.uid,
-          created_at: serverTimestamp(),
-          createdAt: serverTimestamp()
-        };
-
-        reportItemsData.push(reportData);
-        return addDoc(collection(db, path), reportData);
-      });
-
-      await Promise.all(promises);
-
-      // Perform a single bulk dashboard stats update to prevent lock contention
+      // Update Dashboard Stats Bulk
       try {
         await updateDashboardStatsBulk(reportItemsData, 'add');
       } catch (e) {
@@ -513,11 +422,6 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         }
       } catch (e) {
         console.error('Error deleting draft:', e);
-        if (auth.currentUser) {
-          try {
-            handleFirestoreError(e, OperationType.DELETE, `form_drafts/${user.uid}_${category}`);
-          } catch (err) {}
-        }
       }
 
       // Reset form
@@ -532,7 +436,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
       if (category === 'rusak_internal') {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('switchTab', { detail: 'damaged_goods_report' }));
-        }, 1500);
+        }, 1200);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'reports');
@@ -555,7 +459,6 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
   };
 
   const handleResetAll = async () => {
-    // Clear localStorage
     localStorage.removeItem('selectedPicGinee');
     localStorage.removeItem('selectedMarketplace');
     localStorage.removeItem('selectedMenuFisik');
@@ -581,7 +484,6 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     });
     setItems([{ sku: '', quantity: 1, status: '', itemDescription: '' }]);
 
-    // Also delete draft
     try {
       const draftId = `${user.uid}_${category}`;
       if (!auth.currentUser) {
@@ -591,37 +493,62 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
       }
     } catch (e) {
       console.error('Error deleting draft:', e);
-      if (auth.currentUser) {
-        try {
-          handleFirestoreError(e, OperationType.DELETE, `form_drafts/${user.uid}_${category}`);
-        } catch (err) {}
-      }
     }
     
     showToast('Form dan draft berhasil direset total.', 'success');
   };
 
+  const getCategoryInfo = () => {
+    switch (category) {
+      case 'rusak_internal':
+        return {
+          title: 'ELIMINASI STOK RUSAK',
+          badge: 'v2.6-DAMAGE',
+          subtitle: 'Pencatatan & Pengurangan Fisik Stok Rusak Lantai 3',
+          icon: <AlertCircle className="w-7 h-7 text-rose-400" />,
+          iconBg: 'from-rose-600/25 to-pink-600/25 border-rose-500/30 shadow-rose-950/50',
+          badgeStyle: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+          submitBtnStyle: 'from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-950/50'
+        };
+      case 'stok_lt3':
+        return {
+          title: 'INPUT STOK LANTAI 3',
+          badge: 'v2.6-STOCK',
+          subtitle: 'Manajemen Logistik & Kontrol Fisik Barang Lantai 3',
+          icon: <Boxes className="w-7 h-7 text-cyan-400" />,
+          iconBg: 'from-cyan-600/25 to-blue-600/25 border-cyan-500/30 shadow-cyan-950/50',
+          badgeStyle: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+          submitBtnStyle: 'from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-950/50'
+        };
+      default:
+        return {
+          title: 'INPUT RETUR / LT 3',
+          badge: 'v2.6-RETUR',
+          subtitle: 'Registrasi Alokasi Retur & Logistik Fisik Lantai 3',
+          icon: <PackagePlus className="w-7 h-7 text-purple-400" />,
+          iconBg: 'from-purple-600/25 to-indigo-600/25 border-purple-500/30 shadow-purple-950/50',
+          badgeStyle: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+          submitBtnStyle: 'from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-950/50'
+        };
+    }
+  };
+
+  const catInfo = getCategoryInfo();
+
   if (isDraftLoading) {
     return (
-      <div className="glass-card rounded-[40px] p-12 animate-pulse">
-        <div className="flex items-center gap-4 mb-10 pb-6 border-b border-white/5">
-          <div className="w-12 h-12 bg-slate-800 rounded-2xl" />
+      <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-8 md:p-12 animate-pulse space-y-6">
+        <div className="flex items-center gap-4 pb-6 border-b border-purple-900/30">
+          <div className="w-12 h-12 bg-purple-900/40 rounded-2xl" />
           <div className="space-y-2">
-            <div className="h-4 w-40 bg-slate-800 rounded" />
-            <div className="h-3 w-24 bg-slate-800 rounded" />
+            <div className="h-4 w-48 bg-purple-900/40 rounded" />
+            <div className="h-3 w-32 bg-purple-900/20 rounded" />
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map(i => (
-            <div key={i} className="space-y-2">
-              <div className="h-2 w-16 bg-slate-800 rounded" />
-              <div className="h-12 bg-slate-800 rounded-2xl" />
-            </div>
+            <div key={i} className="h-12 bg-purple-900/20 rounded-xl" />
           ))}
-        </div>
-        <div className="space-y-6">
-          <div className="h-4 w-32 bg-slate-800 rounded" />
-          <div className="h-32 bg-slate-800 rounded-[32px]" />
         </div>
       </div>
     );
@@ -640,23 +567,45 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         type="danger"
       />
 
+      {/* Mass Input Modal */}
       {isMassInputModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#120a32] border border-indigo-500/30 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative">
-            <button onClick={() => setIsMassInputModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
-              <X size={20} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#130b2e] border border-purple-800/40 rounded-3xl p-6 md:p-8 w-full max-w-2xl shadow-2xl relative shadow-purple-950/80">
+            <button 
+              onClick={() => setIsMassInputModalOpen(false)} 
+              className="absolute top-5 right-5 p-2 text-purple-300 hover:text-white bg-[#0c0620] hover:bg-purple-900/40 rounded-full border border-purple-800/40 transition-colors"
+            >
+              <X size={18} />
             </button>
-            <h3 className="text-xl font-black text-white mb-2 flex items-center gap-2"><ClipboardPaste size={20} className="text-indigo-400" /> Input Massal Stok Lantai 3</h3>
-            <p className="text-xs text-indigo-300 font-bold mb-4">Paste data langsung dari Excel/Spreadsheet. Urutan kolom harus: 1. ID Pesanan, 2. Status, 3. Alasan Pembatalan, 4. MSKU, 5. Jumlah</p>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                <ClipboardPaste size={20} />
+              </div>
+              <h3 className="text-xl font-black text-white">Input Massal dari Spreadsheet / Excel</h3>
+            </div>
+            <p className="text-xs text-purple-300/70 mb-4 leading-relaxed">
+              Copy-paste data langsung dari Excel / Google Sheets.<br/>
+              <b>Urutan Kolom (Tab-separated):</b> <code>1. ID Pesanan</code> | <code>2. Status</code> | <code>3. Alasan / Keterangan</code> | <code>4. MSKU</code> | <code>5. Jumlah</code>
+            </p>
             <textarea
               value={massInputText}
               onChange={(e) => setMassInputText(e.target.value)}
-              className="w-full h-48 bg-[#0a0520] border border-white/10 rounded-xl p-4 text-xs font-mono text-white placeholder-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none mb-4"
-              placeholder="Paste di sini..."
+              className="w-full h-48 bg-[#0c0620]/90 border border-purple-900/40 rounded-2xl p-4 text-xs font-mono text-purple-100 placeholder-purple-400/30 focus:ring-2 focus:ring-purple-500 outline-none mb-4"
+              placeholder={`Contoh:\nINV/2026/001\tRetur Fisik\tBarang Cacat\tSKU-ABC-01\t2\nINV/2026/002\tRetur Fisik\tSalah Ukuran\tSKU-XYZ-02\t1`}
             />
             <div className="flex justify-end gap-3">
-              <button onClick={() => setIsMassInputModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-300 hover:bg-white/5 transition-colors">Batal</button>
-              <button onClick={handleMassInput} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-black text-white transition-colors">Proses Data</button>
+              <button 
+                onClick={() => setIsMassInputModalOpen(false)} 
+                className="px-5 py-2.5 rounded-xl font-bold text-purple-300 hover:text-white hover:bg-white/5 transition-colors text-xs"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={handleMassInput} 
+                className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl font-black text-white text-xs uppercase tracking-wider transition-all shadow-lg shadow-purple-950/40"
+              >
+                Proses Data
+              </button>
             </div>
           </div>
         </div>
@@ -668,446 +617,442 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         isVisible={toast.visible} 
         onClose={() => setToast(prev => ({ ...prev, visible: false }))} 
       />
-      <div className="glass-card rounded-[40px] p-8 md:p-12 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
-        <div className="flex items-center justify-between mb-10 pb-6 border-b border-white/5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-              <PlusCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-white tracking-tight">Registrasi Sistem</h2>
-              <div className="flex items-center gap-3 mt-0.5">
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Inisialisasi Transfer Data</p>
-                {isSavingDraft && (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full animate-pulse">
-                    <div className="w-1 h-1 bg-emerald-400 rounded-full" />
-                    <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Autosaving...</span>
-                  </div>
-                )}
-                {!isSavingDraft && !isDraftLoading && (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-full">
-                    <div className="w-1 h-1 bg-slate-500 rounded-full" />
-                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Draft Tersimpan</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+
+      <div className="space-y-6 pb-24 relative animate-fade-in">
+        {/* Top Header Card */}
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 p-6 md:p-7 rounded-2xl shadow-xl relative overflow-hidden backdrop-blur-md">
+          <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-purple-600/10 blur-[130px] rounded-full pointer-events-none" />
           
-          {category !== 'rusak_internal' && (
-            <button
-              type="button"
-              onClick={() => setIsConfirmOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest"
-            >
-              <RotateCcw className="w-3 h-3" />
-              Reset All
-            </button>
-          )}
-        </div>
-
-      <form id="report-form" onSubmit={handleSubmit} className="space-y-12">
-          {category !== 'rusak_internal' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8 bg-white/5 rounded-[32px] border border-white/5 relative">
-              <div className="absolute inset-0 overflow-hidden rounded-[32px] pointer-events-none">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-[50px] rounded-full -mr-16 -mt-16" />
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className={`w-13 h-13 p-3.5 bg-gradient-to-tr rounded-2xl flex items-center justify-center border shadow-lg ${catInfo.iconBg}`}>
+                {catInfo.icon}
               </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tanggal Log</label>
-                  <button
-                    type="button"
-                    onClick={handleResetLogDate}
-                    className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-tighter"
-                  >
-                    Hari Ini
-                  </button>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">{catInfo.title}</h2>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase border ${catInfo.badgeStyle}`}>
+                    {catInfo.badge}
+                  </span>
                 </div>
-                <div className="relative group">
-                  <input
-                    required
-                    type="date"
-                    name="inputDate"
-                    value={headerData.inputDate}
-                    onChange={handleHeaderChange}
-                    autoComplete="off"
-                    className="w-full pl-12 pr-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none appearance-none cursor-pointer [color-scheme:dark] text-center"
-                  />
-                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-pulse shadow-sm shadow-purple-400" />
+                  <p className="text-purple-300/80 text-xs font-bold uppercase tracking-widest">
+                    {catInfo.subtitle}
+                  </p>
                 </div>
               </div>
+            </div>
 
-              {(category === 'retur' || category === 'retur2') && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Tgl Input Ginee</label>
-                    <div className="relative group">
-                      <input
-                        type="date"
-                        name="gineeInputDate"
-                        value={headerData.gineeInputDate}
-                        onChange={handleHeaderChange}
-                        autoComplete="off"
-                        className="w-full pl-12 pr-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none appearance-none cursor-pointer [color-scheme:dark] text-center"
-                      />
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 relative">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PIC Input Ginee *</label>
-                      <button
-                        type="button"
-                        onClick={handleResetPicGinee}
-                        className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-tighter"
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                    <SearchableSelect
-                      required
-                      options={masterData.pic?.length ? masterData.pic : DEFAULT_PIC_OPTIONS}
-                      value={headerData.picGinee}
-                      onChange={handlePicGineeChange}
-                      placeholder="Pilih Analis"
-                    />
-                  </div>
-
-                  <div className="space-y-2 relative">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Marketplace *</label>
-                      <button
-                        type="button"
-                        onClick={handleResetMarketplace}
-                        className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-tighter"
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                    <SearchableSelect
-                      required
-                      options={masterData.marketplace?.length ? masterData.marketplace : DEFAULT_MARKETPLACE_OPTIONS}
-                      value={headerData.marketplace}
-                      onChange={handleMarketplaceChange}
-                      placeholder="Pilih Marketplace"
-                    />
-                  </div>
-                </>
+            <div className="flex items-center gap-3">
+              {isSavingDraft ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl animate-pulse">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Autosaving...</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0c0620]/80 border border-purple-900/40 rounded-xl">
+                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full" />
+                  <span className="text-[10px] font-bold text-purple-300/70 uppercase tracking-widest">Draft Tersimpan</span>
+                </div>
               )}
 
-              {(category === 'retur2') && (
-                <div className="space-y-2 relative">
+              {category !== 'rusak_internal' && (
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmOpen(true)}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-[#0c0620] hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-purple-900/40 hover:border-rose-500/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider"
+                  title="Reset Semua Inputan"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset All</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Warning Banner for Rusak Internal or Stok Lt 3 */}
+        {(category === 'rusak_internal' || category === 'stok_lt3') && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`p-5 rounded-2xl border flex items-start gap-4 shadow-lg backdrop-blur-md ${
+              category === 'rusak_internal' 
+                ? 'bg-rose-950/30 border-rose-500/40 shadow-rose-950/20' 
+                : 'bg-purple-950/30 border-purple-500/30 shadow-purple-950/20'
+            }`}
+          >
+            <div className={`p-3 rounded-xl ${category === 'rusak_internal' ? 'bg-rose-500/20 text-rose-400' : 'bg-purple-500/20 text-purple-400'}`}>
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className={`text-sm font-black uppercase tracking-wider ${category === 'rusak_internal' ? 'text-rose-300' : 'text-purple-200'}`}>
+                {category === 'rusak_internal' ? 'Peringatan Pencatatan Stok Rusak' : 'Logistik Kontrol Fisik'}
+              </h4>
+              <p className="text-xs text-purple-300/80 font-medium leading-relaxed mt-0.5">
+                {category === 'rusak_internal' 
+                  ? 'Menu ini khusus untuk eliminasi & pengurangan fisik barang rusak dari Lantai 3.'
+                  : 'Pastikan data modul fisik dan kuantitas aset terisi secara teliti sebelum dikomit ke database.'}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Main Form Body */}
+        <form id="report-form" onSubmit={handleSubmit} className="space-y-6">
+          {/* Header Controls Card (for non-rusak_internal) */}
+          {category !== 'rusak_internal' && (
+            <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 md:p-7 shadow-xl space-y-5">
+              <div className="flex items-center gap-2 text-xs font-black text-purple-300 uppercase tracking-wider pb-3 border-b border-purple-900/30">
+                <FileText className="w-4 h-4 text-purple-400" />
+                <span>Parameter Informasi Dokumen</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {/* Tanggal Log */}
+                <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Analis (PIC) *</label>
+                    <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Tanggal Log *</label>
                     <button
                       type="button"
-                      onClick={handleResetPicGinee}
-                      className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-tighter"
+                      onClick={handleResetLogDate}
+                      className="text-[10px] font-black text-purple-400 hover:text-purple-300 uppercase tracking-wider"
                     >
-                      Hapus
+                      Hari Ini
                     </button>
+                  </div>
+                  <div className="relative group">
+                    <input
+                      required
+                      type="date"
+                      name="inputDate"
+                      value={headerData.inputDate}
+                      onChange={handleHeaderChange}
+                      className="w-full pl-11 pr-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm cursor-pointer [color-scheme:dark]"
+                    />
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60 pointer-events-none" />
+                  </div>
+                </div>
+
+                {(category === 'retur' || category === 'retur2') && (
+                  <>
+                    {/* Tgl Input Ginee */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Tgl Input Ginee</label>
+                      <div className="relative group">
+                        <input
+                          type="date"
+                          name="gineeInputDate"
+                          value={headerData.gineeInputDate}
+                          onChange={handleHeaderChange}
+                          className="w-full pl-11 pr-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm cursor-pointer [color-scheme:dark]"
+                        />
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* PIC Input Ginee */}
+                    <div className="space-y-2 relative">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">PIC Input Ginee *</label>
+                        <button
+                          type="button"
+                          onClick={handleResetPicGinee}
+                          className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                      <SearchableSelect
+                        required
+                        options={masterData.pic?.length ? masterData.pic : DEFAULT_PIC_OPTIONS}
+                        value={headerData.picGinee}
+                        onChange={handlePicGineeChange}
+                        placeholder="Pilih PIC Analis"
+                      />
+                    </div>
+
+                    {/* Marketplace */}
+                    <div className="space-y-2 relative">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Marketplace *</label>
+                        <button
+                          type="button"
+                          onClick={handleResetMarketplace}
+                          className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                      <SearchableSelect
+                        required
+                        options={masterData.marketplace?.length ? masterData.marketplace : DEFAULT_MARKETPLACE_OPTIONS}
+                        value={headerData.marketplace}
+                        onChange={handleMarketplaceChange}
+                        placeholder="Pilih Marketplace"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {(category === 'retur2') && (
+                  <div className="space-y-2 relative">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Modul Fisik *</label>
+                      <button
+                        type="button"
+                        onClick={handleResetStatus}
+                        className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                    <SearchableSelect
+                      required
+                      options={["Retur Fisik", "Cancel Fisik", "Rusak Fisik", "Bundling Fisik"]}
+                      value={headerData.status}
+                      onChange={handleStatusChange}
+                      placeholder="Pilih Jalur Logika..."
+                    />
+                  </div>
+                )}
+
+                {category === 'retur2' && headerData.status === 'Retur Fisik' && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Tipe Transaksi</label>
+                      {headerData.type && (
+                        <button
+                          type="button"
+                          onClick={() => setHeaderData(prev => ({ ...prev, type: '' }))}
+                          className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                    <select
+                      name="type"
+                      value={headerData.type}
+                      onChange={handleHeaderChange}
+                      className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm"
+                    >
+                      <option value="">(Standar Non-COD)</option>
+                      <option value="COD">C.O.D (Cash On Delivery)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Referensi Invoice */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Referensi Invoice / Resi</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="invoiceNumber"
+                      value={headerData.invoiceNumber}
+                      onChange={handleHeaderChange}
+                      placeholder="Nomor Invoice/Pesanan..."
+                      className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white placeholder-purple-400/30 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none font-mono text-sm pr-10"
+                    />
+                    {headerData.invoiceNumber && (
+                      <button
+                        type="button"
+                        onClick={() => setHeaderData(prev => ({ ...prev, invoiceNumber: '' }))}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-400 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Form Section for Rusak Internal or Stok Lt 3 */}
+          {(category === 'rusak_internal' || category === 'stok_lt3') && (
+            <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 md:p-7 shadow-xl space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-purple-900/30">
+                <div className="flex items-center gap-2 text-xs font-black text-purple-300 uppercase tracking-wider">
+                  <Boxes className="w-4 h-4 text-purple-400" />
+                  <span>Input Data Barang &amp; Aset</span>
+                </div>
+                {category === 'stok_lt3' && (
+                  <button 
+                    type="button" 
+                    onClick={() => setIsMassInputModalOpen(true)} 
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-950/40 transition-all"
+                  >
+                    <ClipboardPaste size={14} /> Input Massal
+                  </button>
+                )}
+              </div>
+
+              {/* PIC, Modul & Date Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Analis (PIC) *</label>
+                    <button type="button" onClick={handleResetPicGinee} className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider">Hapus</button>
                   </div>
                   <SearchableSelect
                     required
                     options={masterData.pic?.length ? masterData.pic : DEFAULT_PIC_OPTIONS}
                     value={headerData.picGinee}
                     onChange={handlePicGineeChange}
-                    placeholder="Pilih Analis"
+                    placeholder="Pilih PIC Analis"
                   />
                 </div>
-              )}
 
-              {(category === 'retur2') && (
-                <div className="space-y-2 relative">
-                  <div className="flex justify-between items-center px-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Modul Fisik *</label>
-                    <button
-                      type="button"
-                      onClick={handleResetStatus}
-                      className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-tighter"
-                    >
-                      Hapus
-                    </button>
+                {category === 'stok_lt3' && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Modul Fisik *</label>
+                      <button type="button" onClick={handleResetStatus} className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider">Hapus</button>
+                    </div>
+                    <SearchableSelect
+                      required
+                      options={["Retur Fisik", "Cancel Fisik", "Rusak Fisik", "Bundling Fisik"]}
+                      value={headerData.status}
+                      onChange={handleStatusChange}
+                      placeholder="Pilih Jalur Logika..."
+                    />
                   </div>
-                  <SearchableSelect
-                    required
-                    options={["Retur Fisik", "Cancel Fisik", "Rusak Fisik", "Bundling Fisik"]}
-                    value={headerData.status}
-                    onChange={handleStatusChange}
-                    placeholder="Pilih Jalur Logika..."
-                  />
-                </div>
-              )}
+                )}
 
-              {((category === 'retur2' && headerData.status === 'Retur Fisik')) && (
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipe Transaksi</label>
-                    {headerData.type && (
-                      <button
-                        type="button"
-                        onClick={() => setHeaderData(prev => ({ ...prev, type: '' }))}
-                        className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-tighter"
-                      >
-                        Hapus
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <select
-                      name="type"
-                      value={headerData.type}
-                      onChange={handleHeaderChange}
-                      className="w-full px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none appearance-none"
-                    >
-                      <option value="">(Standar)</option>
-                      <option value="COD">C.O.D</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Referensi Invoice</label>
-                <div className="relative group/invoice">
-                  <input
-                    type="text"
-                    name="invoiceNumber"
-                    value={headerData.invoiceNumber}
-                    onChange={handleHeaderChange}
-                    placeholder="Nomor Invoice..."
-                    autoComplete="off"
-                    className="w-full px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white placeholder:text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none font-mono pr-12"
-                  />
-                  {headerData.invoiceNumber && (
+                    <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Tanggal Log *</label>
                     <button
                       type="button"
-                      onClick={() => setHeaderData(prev => ({ ...prev, invoiceNumber: '' }))}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-rose-400 transition-colors"
+                      onClick={handleResetLogDate}
+                      className="text-[10px] font-black text-purple-400 hover:text-purple-300 uppercase tracking-wider"
                     >
-                      <X className="w-4 h-4" />
+                      Hari Ini
                     </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {(category === 'rusak_internal' || category === 'stok_lt3') && (
-            <div className="space-y-6">
-              <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`p-8 border-2 rounded-[32px] flex items-start gap-6 relative overflow-hidden group shadow-xl ${category === 'rusak_internal' ? 'bg-rose-500/20 border-rose-500/40 shadow-[0_0_50px_rgba(244,63,94,0.1)]' : 'bg-indigo-500/10 border-indigo-500/30'}`}
-              >
-                <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r ${category === 'rusak_internal' ? 'from-rose-500/10' : 'from-indigo-500/5'} to-transparent`} />
-                <div className={`p-4 rounded-2xl relative z-10 shadow-lg ${category === 'rusak_internal' ? 'bg-rose-500/30' : 'bg-indigo-500/20'}`}>
-                  <AlertCircle className={`w-8 h-8 ${category === 'rusak_internal' ? 'text-rose-400' : 'text-indigo-400'}`} />
-                </div>
-                <div className="space-y-2 relative z-10">
-                  <h4 className={`text-lg font-black uppercase tracking-[0.2em] ${category === 'rusak_internal' ? 'text-rose-400' : 'text-indigo-300'}`}>
-                    {category === 'rusak_internal' ? 'Peringatan Stok Rusak Lantai 3' : 'Logistik Kontrol Fisik'}
-                  </h4>
-                  <p className={`text-sm font-bold leading-relaxed max-w-2xl ${category === 'rusak_internal' ? 'text-rose-300/80' : 'text-indigo-200/70'}`}>
-                    {category === 'rusak_internal' 
-                      ? 'Menu ini khusus digunakan untuk pencatatan eliminasi stok rusak yang berasal dari Lantai 3.'
-                      : 'Pastikan data modul fisik dan detail item sudah akurat sebelum didaftarkan ke sistem.'}
-                  </p>
-                </div>
-              </motion.div>
-
-              <div className="px-2 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Logistik Item</h3>
-                  <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mt-1">Input data {category === 'rusak_internal' ? 'eliminasi stok rusak' : 'logistik fisik'}</p>
-                </div>
-                {category === 'stok_lt3' && (
-                  <button type="button" onClick={() => setIsMassInputModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 rounded-lg text-xs font-bold transition-colors border border-indigo-500/30">
-                    <ClipboardPaste size={14} /> Input Massal
-                  </button>
-                )}
-              </div>
-
-              <div className="p-8 border border-white/10 rounded-[32px] bg-white/5 space-y-6 shadow-xl relative">
-                <div className="absolute inset-0 overflow-hidden rounded-[32px] pointer-events-none">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-[50px] rounded-full -mr-16 -mt-16" />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10 mb-2">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Analis (PIC) *</label>
-                      <button type="button" onClick={handleResetPicGinee} className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-tighter">Hapus</button>
-                    </div>
-                    <SearchableSelect
-                      required
-                      options={masterData.pic?.length ? masterData.pic : DEFAULT_PIC_OPTIONS}
-                      value={headerData.picGinee}
-                      onChange={handlePicGineeChange}
-                      placeholder="Pilih Analis"
-                    />
                   </div>
-
-                  {category === 'stok_lt3' && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Modul Fisik *</label>
-                        <button type="button" onClick={handleResetStatus} className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-tighter">Hapus</button>
-                      </div>
-                      <SearchableSelect
-                        required
-                        options={["Retur Fisik", "Cancel Fisik", "Rusak Fisik", "Bundling Fisik"]}
-                        value={headerData.status}
-                        onChange={handleStatusChange}
-                        placeholder="Pilih Jalur Logika..."
-                      />
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tanggal Log *</label>
-                      <button
-                        type="button"
-                        onClick={handleResetLogDate}
-                        className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-tighter"
-                      >
-                        Hari Ini
-                      </button>
-                    </div>
-                    <div className="relative group">
-                      <input
-                        required
-                        type="date"
-                        value={inputItem.logDate}
-                        onChange={(e) => handleLogDateChange(e.target.value)}
-                        className="w-full pl-12 pr-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none appearance-none cursor-pointer [color-scheme:dark] text-center"
-                      />
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
-                  <div className="lg:col-span-1">
-                    <SearchableSelect
-                      ref={skuSelectRef}
-                      label="Tag Aset (SKU) *"
-                      required
-                      options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
-                      value={inputItem.sku}
-                      onChange={(val) => setInputItem(prev => ({ ...prev, sku: val }))}
-                      onAfterSelect={() => {
-                        setTimeout(() => quantityRef.current?.focus(), 0);
-                      }}
-                      placeholder="Identifikasi SKU"
-                      allowCustom={true}
-                    />
-                  </div>
-
-                  <div className="space-y-2 lg:col-span-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Status Aset *</label>
-                    <SearchableSelect
-                      required
-                      options={masterData.status || []}
-                      value={inputItem.status}
-                      onChange={(val) => setInputItem(prev => ({ ...prev, status: val }))}
-                      placeholder="Tentukan Kondisi"
-                      allowCustom={true}
-                    />
-                  </div>
-
-                  <div className="space-y-2 lg:col-span-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Spesifikasi Teknis</label>
+                  <div className="relative group">
                     <input
-                      type="text"
-                      value={inputItem.itemDescription}
-                      onChange={(e) => setInputItem(prev => ({ ...prev, itemDescription: e.target.value }))}
-                      placeholder="Masukkan parameter..."
-                      className="w-full px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-sm"
+                      required
+                      type="date"
+                      value={inputItem.logDate}
+                      onChange={(e) => handleLogDateChange(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm cursor-pointer [color-scheme:dark]"
                     />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Kuantitas *</label>
-                    <div className="flex gap-3">
-                      <input
-                        ref={quantityRef}
-                        required
-                        type="number"
-                        min="1"
-                        value={inputItem.quantity}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => setInputItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addItemRow();
-                          }
-                        }}
-                        className="flex-1 px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none font-bold"
-                      />
-                      <button
-                        type="button"
-                        onClick={addItemRow}
-                        className="px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    </div>
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60 pointer-events-none" />
                   </div>
                 </div>
               </div>
 
-              {/* Added Items List */}
+              {/* SKU, Status, Keterangan & Qty Inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pt-2">
+                <div className="lg:col-span-1">
+                  <SearchableSelect
+                    ref={skuSelectRef}
+                    label="Tag Aset (SKU)"
+                    required
+                    options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
+                    value={inputItem.sku}
+                    onChange={(val) => setInputItem(prev => ({ ...prev, sku: val }))}
+                    onAfterSelect={() => {
+                      setTimeout(() => quantityRef.current?.focus(), 0);
+                    }}
+                    placeholder="Pilih / Ketik SKU..."
+                    allowCustom={true}
+                  />
+                </div>
+
+                <div className="space-y-2 lg:col-span-1">
+                  <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Status Aset *</label>
+                  <SearchableSelect
+                    required
+                    options={masterData.status || []}
+                    value={inputItem.status}
+                    onChange={(val) => setInputItem(prev => ({ ...prev, status: val }))}
+                    placeholder="Tentukan Kondisi"
+                    allowCustom={true}
+                  />
+                </div>
+
+                <div className="space-y-2 lg:col-span-1">
+                  <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Spesifikasi / Keterangan</label>
+                  <input
+                    type="text"
+                    value={inputItem.itemDescription}
+                    onChange={(e) => setInputItem(prev => ({ ...prev, itemDescription: e.target.value }))}
+                    placeholder="Detail kondisi barang..."
+                    className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm placeholder-purple-400/30"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Kuantitas *</label>
+                  <div className="flex gap-2">
+                    <input
+                      ref={quantityRef}
+                      required
+                      type="number"
+                      min="1"
+                      value={inputItem.quantity}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setInputItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addItemRow();
+                        }
+                      }}
+                      className="flex-1 px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none font-bold text-center"
+                    />
+                    <button
+                      type="button"
+                      onClick={addItemRow}
+                      className="px-5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl transition-all shadow-md shadow-purple-950/40 flex items-center justify-center cursor-pointer"
+                      title="Tambah Item ke List"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Added Items List Table */}
               {items.length > 0 && items[0].sku && (
-                <div className="space-y-4 pt-4">
-                  <div className="px-2 flex items-center justify-between">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Daftar Item Terinput</h4>
-                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{items.filter(i => i.sku).length} Item</span>
+                <div className="space-y-3 pt-4 border-t border-purple-900/30">
+                  <div className="flex items-center justify-between px-1">
+                    <h4 className="text-xs font-black text-purple-300 uppercase tracking-wider">Daftar Item Terinput</h4>
+                    <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">{items.filter(i => i.sku).length} Item Siap Komit</span>
                   </div>
                   
-                  <div className="bg-white/5 border border-white/10 rounded-[24px] overflow-hidden shadow-2xl">
+                  <div className="bg-[#0c0620]/90 border border-purple-900/40 rounded-2xl overflow-hidden shadow-lg">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-white/5 bg-white/[0.02]">
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Tanggal</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Invoice</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">SKU</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Kuantitas</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Keterangan</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Aksi</th>
+                        <tr className="border-b border-purple-900/30 bg-[#0e0725] text-purple-300 font-black text-[10px] tracking-wider uppercase">
+                          <th className="px-5 py-3.5">Tanggal</th>
+                          <th className="px-5 py-3.5">Invoice</th>
+                          <th className="px-5 py-3.5">SKU Barang</th>
+                          <th className="px-5 py-3.5 text-center">Jumlah</th>
+                          <th className="px-5 py-3.5">Status</th>
+                          <th className="px-5 py-3.5">Keterangan</th>
+                          <th className="px-5 py-3.5 text-right">Aksi</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/5">
+                      <tbody className="divide-y divide-purple-900/20 text-xs">
                         {items.map((item, idx) => item.sku && (
-                          <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                            <td className="px-6 py-4">
-                              <span className="text-xs font-bold text-slate-300">{item.logDate}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-xs font-bold text-indigo-300">{item.invoiceNumber || '-'}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-xs font-black text-white tracking-wide">{item.sku}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-xs font-black text-indigo-400">{item.quantity}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-[10px] text-slate-400 font-bold">{item.status || '-'}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-[10px] text-slate-500 italic line-clamp-1">{item.itemDescription || '-'}</span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
+                          <tr key={idx} className="hover:bg-purple-950/20 transition-colors">
+                            <td className="px-5 py-3 text-purple-200 font-medium">{item.logDate}</td>
+                            <td className="px-5 py-3 text-purple-300 font-mono">{item.invoiceNumber || '-'}</td>
+                            <td className="px-5 py-3 text-white font-bold font-mono">{item.sku}</td>
+                            <td className="px-5 py-3 text-center font-black text-purple-300">{item.quantity}</td>
+                            <td className="px-5 py-3 text-purple-300/80 font-semibold">{item.status || '-'}</td>
+                            <td className="px-5 py-3 text-purple-400/70 italic truncate max-w-[200px]">{item.itemDescription || '-'}</td>
+                            <td className="px-5 py-3 text-right">
                               <button
                                 type="button"
                                 onClick={() => removeItemRow(idx)}
-                                className="p-2 text-slate-600 hover:text-rose-400 transition-colors"
+                                className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1122,153 +1067,154 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
             </div>
           )}
 
-        {/* General Items Section for others */}
-        {category !== 'rusak_internal' && category !== 'stok_lt3' && (
-          <div className="space-y-6">
-          <div className="flex items-center justify-between px-2">
-            <div>
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Logistik Item</h3>
-              <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mt-1">Pemetaan alokasi sumber daya</p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setIsMassInputModalOpen(true)}
-                className="flex items-center gap-2 text-xs font-black text-indigo-400 hover:text-indigo-300 transition-all bg-indigo-500/10 px-4 py-2.5 rounded-xl border border-indigo-500/20 group"
-              >
-                <ClipboardPaste size={14} className="group-hover:scale-110 transition-transform" />
-                INPUT MASSAL
-              </button>
-              <button
-                type="button"
-                onClick={addItemRow}
-                className="flex items-center gap-2 text-xs font-black text-indigo-400 hover:text-indigo-300 transition-all bg-indigo-500/10 px-4 py-2.5 rounded-xl border border-indigo-500/20 group"
-              >
-                <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-                TAMBAH SUMBER DAYA
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            {items.map((item, index) => {
-              const groupStyle = item.invoiceNumber ? getInvoiceStyle(item.invoiceNumber) : null;
-              
-              return (
-              <div key={index} className={`relative p-8 border rounded-[32px] hover:bg-white/[0.04] transition-all space-y-6 shadow-xl ${groupStyle ? `bg-gradient-to-br ${groupStyle.bg} ${groupStyle.border}` : 'bg-white/[0.02] border-white/5'}`}>
-                {groupStyle && (
-                  <div className={`absolute -top-3 left-8 px-4 py-1.5 border rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg z-10 ${groupStyle.badge} ${groupStyle.text}`}>
-                    <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
-                    Kesatuan Data
-                  </div>
-                )}
-
-                {items.length > 1 && (
+          {/* General Items Section for Retur */}
+          {category !== 'rusak_internal' && category !== 'stok_lt3' && (
+            <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 md:p-7 shadow-xl space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-900/30">
+                <div className="flex items-center gap-2 text-xs font-black text-purple-300 uppercase tracking-wider">
+                  <Boxes className="w-4 h-4 text-purple-400" />
+                  <span>Daftar Item Retur ({items.length} Baris)</span>
+                </div>
+                <div className="flex gap-2.5">
                   <button
                     type="button"
-                    onClick={() => removeItemRow(index)}
-                    className="absolute -top-3 -right-3 p-2.5 bg-[#0f172a] text-rose-400 border border-white/10 rounded-2xl hover:bg-rose-500 hover:text-white transition-all shadow-xl group"
+                    onClick={() => setIsMassInputModalOpen(true)}
+                    className="flex items-center gap-2 text-xs font-bold text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 px-3.5 py-2 rounded-xl border border-emerald-500/30 transition-all shadow-sm"
                   >
-                    <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <ClipboardPaste size={14} />
+                    <span>Input Massal Excel</span>
                   </button>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="lg:col-span-1">
-                    <SearchableSelect
-                      label="Tag Aset (SKU)"
-                      required
-                      options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
-                      value={item.sku}
-                      onChange={(val) => updateItemRow(index, 'sku', val)}
-                      placeholder="Identifikasi SKU"
-                      allowCustom={true}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Kuantitas</label>
-                    <input
-                      required
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) => updateItemRow(index, 'quantity', e.target.value)}
-                      autoComplete="off"
-                      className="w-full px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none font-bold"
-                    />
-                  </div>
-
-                  <div className="lg:col-span-1">
-                      <SearchableSelect
-                        label="Status Aset"
-                        required
-                        options={masterData.status || []}
-                        value={item.status}
-                        onChange={(val) => updateItemRow(index, 'status', val)}
-                        placeholder="Tentukan Kondisi"
-                        allowCustom={true}
-                      />
-                  </div>
-
-                  <div className="space-y-2 lg:col-span-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Referensi Invoice (Item)</label>
-                    <input
-                      type="text"
-                      value={item.invoiceNumber || ''}
-                      onChange={(e) => updateItemRow(index, 'invoiceNumber', e.target.value)}
-                      placeholder="Otomatis / Ikut Global"
-                      className="w-full px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 lg:col-span-4 space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Spesifikasi Teknis</label>
-                    <textarea
-                      value={item.itemDescription}
-                      onChange={(e) => updateItemRow(index, 'itemDescription', e.target.value)}
-                      placeholder="Masukkan parameter lingkungan atau struktural terperinci..."
-                      rows={1}
-                      autoComplete="off"
-                      className="w-full px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none resize-none placeholder:text-slate-700 min-h-[58px]"
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={addItemRow}
+                    className="flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-3.5 py-2 rounded-xl transition-all shadow-md shadow-purple-950/40"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah Baris Item</span>
+                  </button>
                 </div>
               </div>
-            );
-          })}
-          </div>
-        </div>
-      )}
-      </form>
+
+              <div className="space-y-4">
+                {items.map((item, index) => {
+                  const groupStyle = item.invoiceNumber ? getInvoiceStyle(item.invoiceNumber) : null;
+                  
+                  return (
+                    <div 
+                      key={index} 
+                      className={`relative p-5 md:p-6 border rounded-2xl transition-all space-y-4 shadow-md ${
+                        groupStyle 
+                          ? `bg-gradient-to-br ${groupStyle.bg} ${groupStyle.border}` 
+                          : 'bg-[#0c0620]/80 border-purple-900/30 hover:border-purple-700/40'
+                      }`}
+                    >
+                      {groupStyle && (
+                        <div className={`absolute -top-3 left-6 px-3 py-0.5 border rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md z-10 ${groupStyle.badge} ${groupStyle.text}`}>
+                          <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                          <span>Invoice: {item.invoiceNumber}</span>
+                        </div>
+                      )}
+
+                      {items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItemRow(index)}
+                          className="absolute -top-2.5 -right-2.5 p-1.5 bg-[#0c0620] text-slate-500 hover:text-rose-400 border border-purple-900/40 hover:border-rose-500/30 rounded-xl transition-all shadow-lg"
+                          title="Hapus Baris"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="lg:col-span-1">
+                          <SearchableSelect
+                            label="Tag Aset (SKU)"
+                            required
+                            options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
+                            value={item.sku}
+                            onChange={(val) => updateItemRow(index, 'sku', val)}
+                            placeholder="Pilih SKU..."
+                            allowCustom={true}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Kuantitas</label>
+                          <input
+                            required
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => updateItemRow(index, 'quantity', e.target.value)}
+                            className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none font-bold text-center"
+                          />
+                        </div>
+
+                        <div className="lg:col-span-1">
+                          <SearchableSelect
+                            label="Status Aset"
+                            required
+                            options={masterData.status || []}
+                            value={item.status}
+                            onChange={(val) => updateItemRow(index, 'status', val)}
+                            placeholder="Tentukan Kondisi"
+                            allowCustom={true}
+                          />
+                        </div>
+
+                        <div className="space-y-2 lg:col-span-1">
+                          <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Invoice Item (Opsional)</label>
+                          <input
+                            type="text"
+                            value={item.invoiceNumber || ''}
+                            onChange={(e) => updateItemRow(index, 'invoiceNumber', e.target.value)}
+                            placeholder="Ikut Global jika kosong..."
+                            className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs font-mono placeholder-purple-400/30"
+                          />
+                        </div>
+
+                        <div className="md:col-span-2 lg:col-span-4 space-y-2">
+                          <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Keterangan / Alasan</label>
+                          <input
+                            type="text"
+                            value={item.itemDescription}
+                            onChange={(e) => updateItemRow(index, 'itemDescription', e.target.value)}
+                            placeholder="Detail parameter atau alasan retur..."
+                            className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs placeholder-purple-400/30"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </form>
       </div>
 
-      <div className="fixed bottom-10 right-10 z-[100]">
-          <button
-            type="submit"
-            form="report-form"
-            disabled={loading}
-            className={`${category === 'rusak_internal' ? 'flex items-center gap-4 px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-[24px] transition-all shadow-[0_20px_50px_rgba(79,70,229,0.4)] hover:scale-105 active:scale-95 text-sm uppercase tracking-widest border border-white/20' : 'glow-btn flex items-center gap-3 px-16 py-4.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl transition-all shadow-2xl shadow-indigo-900/30 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-widest'}`}
-          >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                {category === 'rusak_internal' ? (
-                  <>
-                    <span>KIRIM</span>
-                    <Send className="w-5 h-5" />
-                  </>
-                ) : (
-                  <>
-                    <span>EKSEKUSI KOMIT</span>
-                    <Send className="w-5 h-5" />
-                  </>
-                )}
-              </>
-            )}
-          </button>
-        </div>
+      {/* Floating Submit Execution Button */}
+      <div className="fixed bottom-6 right-8 z-[100]">
+        <button
+          type="submit"
+          form="report-form"
+          disabled={loading}
+          className={`flex items-center gap-3 px-8 py-3.5 bg-gradient-to-r ${catInfo.submitBtnStyle} text-white font-black rounded-2xl transition-all shadow-2xl hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs uppercase tracking-widest cursor-pointer border border-white/20`}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Memproses...</span>
+            </>
+          ) : (
+            <>
+              <span>{category === 'rusak_internal' ? 'EKSEKUSI ELIMINASI' : 'EKSEKUSI KOMIT'}</span>
+              <Send className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </div>
     </>
   );
 }

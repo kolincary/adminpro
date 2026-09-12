@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clipboard, FileSpreadsheet, CheckCircle2, XCircle, Trash2, Copy, ArrowRightLeft, Search } from 'lucide-react';
+import { Clipboard, FileSpreadsheet, CheckCircle2, XCircle, Trash2, Copy, ArrowRightLeft, Search, Sparkles, Filter } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
 import Toast, { ToastType } from './Toast';
 
@@ -128,30 +128,41 @@ const DataMatcher: React.FC = () => {
   });
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-900/20 border border-white/10">
-            <ArrowRightLeft className="w-8 h-8 text-white" />
+    <div className="flex-1 w-full max-w-none mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Title Header Card */}
+      <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 sm:p-8 backdrop-blur-md relative overflow-hidden shadow-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-purple-950/40 border border-purple-400/30 shrink-0">
+            <ArrowRightLeft className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h3 className="text-2xl font-black text-white tracking-tight text-shadow-sm">Pencocok Data Excel</h3>
-            <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-1">Sinkronisasi Logistik vs Kurir</p>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">Pencocok Data Excel</h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                <Sparkles className="w-3 h-3 text-purple-400" />
+                v2.6-MATCHER
+              </span>
+            </div>
+            <p className="text-purple-300/60 text-xs sm:text-sm font-semibold mt-1">
+              Sinkronisasi dan komparasi multi-kolom Logistik vs Kurir vs Data Cancel secara instan.
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 relative z-10">
           <button
             onClick={clearAll}
-            className="flex items-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-rose-900/20 text-[10px] uppercase tracking-widest"
+            className="flex items-center gap-2 px-5 py-3 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-black rounded-xl transition-all shadow-lg text-[10px] uppercase tracking-widest active:scale-95"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4 text-rose-400" />
             Bersihkan
           </button>
           <button
             onClick={exportToExcel}
             disabled={results.length === 0}
-            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-white font-black rounded-2xl transition-all shadow-xl shadow-emerald-900/20 text-[10px] uppercase tracking-widest"
+            className="flex items-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black rounded-xl transition-all shadow-xl shadow-emerald-950/40 text-[10px] uppercase tracking-widest active:scale-95"
           >
             <FileSpreadsheet className="w-4 h-4" />
             Ekspor Excel
@@ -159,125 +170,136 @@ const DataMatcher: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Scan Logistik</label>
-            <span className="text-[10px] font-black text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full">
+      {/* Input Columns Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Column 1: Logistik */}
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-400" />
+              1. Data Scan Logistik
+            </label>
+            <span className="text-[10px] font-mono font-black text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-3 py-1 rounded-full">
               {logistikInput.split(/\n/).filter(l => l.trim()).length} Baris
             </span>
           </div>
           <textarea
             value={logistikInput}
             onChange={(e) => setLogistikInput(e.target.value)}
-            placeholder="Tempel data logistik di sini..."
-            className="w-full h-64 bg-[#0f172a] border border-white/10 rounded-3xl p-6 text-white text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none custom-scrollbar"
+            placeholder="Tempel data logistik di sini (satu per baris)..."
+            className="w-full h-64 bg-[#0c0620]/90 border border-purple-900/40 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 rounded-xl p-4 text-white text-xs font-mono outline-none transition-all resize-none custom-scrollbar placeholder-purple-400/30"
           />
         </div>
 
-        <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Scan Kurir</label>
-            <span className="text-[10px] font-black text-violet-400 bg-violet-500/10 px-3 py-1 rounded-full">
+        {/* Column 2: Kurir */}
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-purple-400" />
+              2. Data Scan Kurir
+            </label>
+            <span className="text-[10px] font-mono font-black text-purple-300 bg-purple-500/15 border border-purple-500/30 px-3 py-1 rounded-full">
               {kurirInput.split(/\n/).filter(l => l.trim()).length} Baris
             </span>
           </div>
           <textarea
             value={kurirInput}
             onChange={(e) => setKurirInput(e.target.value)}
-            placeholder="Tempel data kurir di sini..."
-            className="w-full h-64 bg-[#0f172a] border border-white/10 rounded-3xl p-6 text-white text-sm font-mono focus:ring-2 focus:ring-violet-500 outline-none transition-all resize-none custom-scrollbar"
+            placeholder="Tempel data kurir di sini (satu per baris)..."
+            className="w-full h-64 bg-[#0c0620]/90 border border-purple-900/40 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 rounded-xl p-4 text-white text-xs font-mono outline-none transition-all resize-none custom-scrollbar placeholder-purple-400/30"
           />
         </div>
 
-        <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Scan Cancel</label>
-            <span className="text-[10px] font-black text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full">
+        {/* Column 3: Cancel */}
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-rose-400" />
+              3. Data Scan Cancel
+            </label>
+            <span className="text-[10px] font-mono font-black text-rose-300 bg-rose-500/15 border border-rose-500/30 px-3 py-1 rounded-full">
               {cancelInput.split(/\n/).filter(l => l.trim()).length} Baris
             </span>
           </div>
           <textarea
             value={cancelInput}
             onChange={(e) => setCancelInput(e.target.value)}
-            placeholder="Tempel data cancel di sini..."
-            className="w-full h-64 bg-[#0f172a] border border-white/10 rounded-3xl p-6 text-white text-sm font-mono focus:ring-2 focus:ring-rose-500 outline-none transition-all resize-none custom-scrollbar"
+            placeholder="Tempel data cancel di sini (satu per baris)..."
+            className="w-full h-64 bg-[#0c0620]/90 border border-purple-900/40 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 rounded-xl p-4 text-white text-xs font-mono outline-none transition-all resize-none custom-scrollbar placeholder-purple-400/30"
           />
         </div>
       </div>
 
+      {/* Trigger Matching Button */}
       <div className="flex justify-center">
         <button
           onClick={processData}
-          className="group relative px-12 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-[32px] transition-all shadow-2xl shadow-indigo-900/40 text-xs uppercase tracking-[0.2em] flex items-center gap-4"
+          className="group relative px-10 py-4.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-2xl transition-all shadow-2xl shadow-purple-950/60 text-xs uppercase tracking-[0.2em] flex items-center gap-3 active:scale-95 border border-purple-400/30"
         >
-          <ArrowRightLeft className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+          <ArrowRightLeft className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500 text-purple-200" />
           Mulai Pencocokan Data
         </button>
       </div>
 
+      {/* Results Section */}
       {results.length > 0 && (
-        <div className="glass-card rounded-[48px] border-white/5 overflow-hidden shadow-2xl animate-in zoom-in duration-500">
-          <div className="p-8 border-b border-white/5 space-y-6 bg-white/[0.02]">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <Search className="w-6 h-6 text-indigo-400" />
-                <h4 className="text-lg font-black text-white tracking-tight">Hasil Pencocokan</h4>
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md animate-in zoom-in duration-500">
+          <div className="p-6 sm:p-8 border-b border-purple-900/30 space-y-6 bg-[#0e0728]/60">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/15 rounded-xl border border-purple-500/30">
+                  <Search className="w-5 h-5 text-purple-300" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-white tracking-tight">Hasil Pencocokan Data</h4>
+                  <p className="text-[10px] text-purple-300/60 uppercase tracking-widest font-semibold mt-0.5">
+                    Total {results.length} record diproses
+                  </p>
+                </div>
               </div>
               
-              <div className="flex flex-wrap items-center gap-2 bg-[#0f172a] p-1.5 rounded-2xl border border-white/5">
+              <div className="flex flex-wrap items-center gap-2 bg-[#0c0620] p-1.5 rounded-xl border border-purple-900/40">
                 <button
                   onClick={() => setFilter('all')}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'all' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'all' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white'}`}
                 >
                   Semua ({results.length})
                 </button>
                 <button
                   onClick={() => setFilter('match')}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'match' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'match' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/40' : 'text-purple-300/60 hover:text-white'}`}
                 >
                   Match ({results.filter(r => r.status === 'match' || r.status === 'multi_match').length})
                 </button>
                 <button
                   onClick={() => setFilter('logistik_only')}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'logistik_only' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'logistik_only' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950/40' : 'text-purple-300/60 hover:text-white'}`}
                 >
-                  Logistik Only ({results.filter(r => r.status === 'logistik_only').length})
+                  Logistik ({results.filter(r => r.status === 'logistik_only').length})
                 </button>
                 <button
                   onClick={() => setFilter('kurir_only')}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'kurir_only' ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/40' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'kurir_only' ? 'bg-purple-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white'}`}
                 >
-                  Kurir Only ({results.filter(r => r.status === 'kurir_only').length})
+                  Kurir ({results.filter(r => r.status === 'kurir_only').length})
                 </button>
                 <button
                   onClick={() => setFilter('cancel_only')}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'cancel_only' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/40' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === 'cancel_only' ? 'bg-rose-600 text-white shadow-lg shadow-rose-950/40' : 'text-purple-300/60 hover:text-white'}`}
                 >
-                  Cancel Only ({results.filter(r => r.status === 'cancel_only').length})
-                </button>
-                
-                <div className="w-px h-6 bg-white/10 mx-1" />
-                
-                <button
-                  onClick={exportToExcel}
-                  className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/20 flex items-center gap-2"
-                  title="Ekspor Hasil Filter"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  Ekspor {filter === 'all' ? 'Semua' : filter === 'match' ? 'Match' : filter === 'logistik_only' ? 'Logistik' : filter === 'kurir_only' ? 'Kurir' : 'Cancel'}
+                  Cancel ({results.filter(r => r.status === 'cancel_only').length})
                 </button>
               </div>
             </div>
 
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari data spesifik..."
-                className="w-full pl-12 pr-6 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                placeholder="Cari barcode / nomor resi spesifik..."
+                className="w-full pl-11 pr-5 py-3 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none transition-all placeholder-purple-400/30"
               />
             </div>
           </div>
@@ -285,79 +307,79 @@ const DataMatcher: React.FC = () => {
           <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-10">
-                <tr className="bg-[#0f172a] border-b border-white/5">
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                <tr className="bg-[#0c0620] border-b border-purple-900/40 text-purple-300 font-black text-[10px] uppercase tracking-[0.2em]">
+                  <th className="px-6 py-4">
                     <div className="flex items-center justify-between">
-                      Logistik
-                      <button onClick={() => copyColumn('logistik')} className="p-2 hover:bg-white/10 rounded-xl transition-all text-indigo-400" title="Salin Kolom">
-                        <Copy className="w-4 h-4" />
+                      <span>Logistik</span>
+                      <button onClick={() => copyColumn('logistik')} className="p-1.5 hover:bg-purple-500/20 rounded-lg transition-all text-indigo-400" title="Salin Kolom Logistik">
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                  <th className="px-6 py-4">
                     <div className="flex items-center justify-between">
-                      Kurir
-                      <button onClick={() => copyColumn('kurir')} className="p-2 hover:bg-white/10 rounded-xl transition-all text-violet-400" title="Salin Kolom">
-                        <Copy className="w-4 h-4" />
+                      <span>Kurir</span>
+                      <button onClick={() => copyColumn('kurir')} className="p-1.5 hover:bg-purple-500/20 rounded-lg transition-all text-purple-400" title="Salin Kolom Kurir">
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                  <th className="px-6 py-4">
                     <div className="flex items-center justify-between">
-                      Cancel
-                      <button onClick={() => copyColumn('cancel')} className="p-2 hover:bg-white/10 rounded-xl transition-all text-rose-400" title="Salin Kolom">
-                        <Copy className="w-4 h-4" />
+                      <span>Cancel</span>
+                      <button onClick={() => copyColumn('cancel')} className="p-1.5 hover:bg-purple-500/20 rounded-lg transition-all text-rose-400" title="Salin Kolom Cancel">
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] text-center w-40">Status</th>
+                  <th className="px-6 py-4 text-center w-40">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.03]">
+              <tbody className="divide-y divide-purple-900/20 text-xs">
                 {filteredResults.map((res, idx) => (
                   <tr 
                     key={idx} 
-                    className={`hover:bg-white/[0.04] transition-all group ${
-                      res.status === 'logistik_only' ? 'bg-indigo-500/[0.02]' : 
-                      res.status === 'kurir_only' ? 'bg-violet-500/[0.02]' : 
-                      res.status === 'cancel_only' ? 'bg-rose-500/[0.02]' : ''
+                    className={`hover:bg-purple-500/10 transition-all ${
+                      res.status === 'logistik_only' ? 'bg-indigo-950/15' : 
+                      res.status === 'kurir_only' ? 'bg-purple-950/15' : 
+                      res.status === 'cancel_only' ? 'bg-rose-950/15' : ''
                     }`}
                   >
-                    <td className="px-8 py-4 text-sm font-mono text-slate-300">
-                      {res.logistik || <span className="text-slate-700 italic">---</span>}
+                    <td className="px-6 py-3.5 font-mono text-purple-200">
+                      {res.logistik || <span className="text-purple-500/40 italic">---</span>}
                     </td>
-                    <td className="px-8 py-4 text-sm font-mono text-slate-300">
-                      {res.kurir || <span className="text-slate-700 italic">---</span>}
+                    <td className="px-6 py-3.5 font-mono text-purple-200">
+                      {res.kurir || <span className="text-purple-500/40 italic">---</span>}
                     </td>
-                    <td className="px-8 py-4 text-sm font-mono text-slate-300">
-                      {res.cancel || <span className="text-slate-700 italic">---</span>}
+                    <td className="px-6 py-3.5 font-mono text-purple-200">
+                      {res.cancel || <span className="text-purple-500/40 italic">---</span>}
                     </td>
-                    <td className="px-8 py-4 text-center">
+                    <td className="px-6 py-3.5 text-center">
                       <div className="flex justify-center">
                         {res.status === 'match' ? (
-                          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20 text-[9px] font-black uppercase tracking-widest">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/15 text-emerald-300 rounded-full border border-emerald-500/30 text-[9px] font-black uppercase tracking-wider">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                             Match
                           </div>
                         ) : res.status === 'multi_match' ? (
-                          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20 text-[9px] font-black uppercase tracking-widest">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/15 text-amber-300 rounded-full border border-amber-500/30 text-[9px] font-black uppercase tracking-wider">
+                            <CheckCircle2 className="w-3 h-3 text-amber-400" />
                             Multi Match
                           </div>
                         ) : res.status === 'logistik_only' ? (
-                          <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 text-indigo-400 rounded-full border border-indigo-500/20 text-[9px] font-black uppercase tracking-widest">
-                            <ArrowRightLeft className="w-3.5 h-3.5" />
-                            Logistik
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-500/15 text-indigo-300 rounded-full border border-indigo-500/30 text-[9px] font-black uppercase tracking-wider">
+                            <ArrowRightLeft className="w-3 h-3 text-indigo-400" />
+                            Logistik Only
                           </div>
                         ) : res.status === 'kurir_only' ? (
-                          <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/10 text-violet-400 rounded-full border border-violet-500/20 text-[9px] font-black uppercase tracking-widest">
-                            <ArrowRightLeft className="w-3.5 h-3.5" />
-                            Kurir
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-500/15 text-purple-300 rounded-full border border-purple-500/30 text-[9px] font-black uppercase tracking-wider">
+                            <ArrowRightLeft className="w-3 h-3 text-purple-400" />
+                            Kurir Only
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-full border border-rose-500/20 text-[9px] font-black uppercase tracking-widest">
-                            <XCircle className="w-3.5 h-3.5" />
-                            Cancel
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-500/15 text-rose-300 rounded-full border border-rose-500/30 text-[9px] font-black uppercase tracking-wider">
+                            <XCircle className="w-3 h-3 text-rose-400" />
+                            Cancel Only
                           </div>
                         )}
                       </div>
@@ -366,10 +388,10 @@ const DataMatcher: React.FC = () => {
                 ))}
                 {filteredResults.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-8 py-20 text-center">
-                      <div className="flex flex-col items-center gap-4 opacity-20">
-                        <Search className="w-12 h-12 text-slate-500" />
-                        <p className="text-sm font-black uppercase tracking-widest text-slate-500">Data tidak ditemukan</p>
+                    <td colSpan={4} className="px-6 py-16 text-center">
+                      <div className="flex flex-col items-center gap-3 opacity-40">
+                        <Search className="w-10 h-10 text-purple-400" />
+                        <p className="text-xs font-black uppercase tracking-widest text-purple-300">Data tidak ditemukan</p>
                       </div>
                     </td>
                   </tr>

@@ -336,7 +336,7 @@ export default function PackingListCheck() {
   }, [listToFilter]);
 
   return (
-    <div className="flex-1 w-full max-w-none mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 relative z-10">
+    <div className="flex-1 w-full max-w-none mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       <AnimatePresence>
         {toast.visible && (
@@ -344,10 +344,10 @@ export default function PackingListCheck() {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-4.5 rounded-2xl shadow-2xl border text-sm font-extrabold tracking-tight backdrop-blur-md ${
+            className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border text-xs font-black tracking-wider uppercase backdrop-blur-xl ${
               toast.type === 'error'
-                ? 'bg-rose-950/90 border-rose-500/35 text-rose-200'
-                : 'bg-emerald-950/90 border-emerald-500/35 text-emerald-200'
+                ? 'bg-rose-950/90 border-rose-500/40 text-rose-200 shadow-rose-950/50'
+                : 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200 shadow-emerald-950/50'
             }`}
           >
             {toast.type === 'error' ? (
@@ -360,30 +360,31 @@ export default function PackingListCheck() {
               onClick={() => setToast(prev => ({ ...prev, visible: false }))}
               className="ml-4 hover:opacity-80 p-0.5 rounded cursor-pointer shrink-0"
             >
-              <XCircle className="w-4 h-4 text-white/55" />
+              <XCircle className="w-4 h-4 text-white/50" />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 shadow-2xl animate-fade-in p-8">
-        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Welcome Banner Card */}
+      <div className="relative overflow-hidden rounded-2xl bg-[#130b2e]/90 border border-purple-900/30 shadow-2xl p-6 sm:p-8 backdrop-blur-md">
+        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-purple-500/50 to-transparent" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 relative z-10">
-          <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 shadow-inner shrink-0">
-            <FolderSearch className="w-8 h-8 text-indigo-400" />
+          <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-xl shadow-purple-950/40 shrink-0">
+            <FolderSearch className="w-8 h-8 text-white" />
           </div>
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-3xl font-bold text-white tracking-tight">Cek Folder Packing List</h2>
-              <span className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full">
+            <div className="flex items-center gap-3 mb-1.5">
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">Cek Folder Packing List</h2>
+              <span className="bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[10px] font-black uppercase tracking-wider px-3 py-0.5 rounded-full flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-purple-400" />
                 Active Crawler
               </span>
             </div>
-            <p className="text-slate-400 text-sm leading-relaxed max-w-3xl">
-               Modul cerdas untuk memindai folder lokal, memverifikasi keselarasan cetakan (PDF) dengan orderan (Excel/Ginee). Menjamin kecocokan file secara instan dan akurat.
+            <p className="text-purple-300/60 text-xs sm:text-sm font-semibold leading-relaxed max-w-3xl">
+              Modul cerdas untuk memindai folder lokal, memverifikasi keselarasan cetakan (PDF) dengan orderan (Excel/Ginee). Menjamin kecocokan file secara instan dan akurat.
             </p>
           </div>
         </div>
@@ -393,20 +394,20 @@ export default function PackingListCheck() {
         
         {/* Left Side: Upload Console */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-[24px] p-6 sm:p-8 relative shadow-xl">
+          <div className="bg-[#130b2e]/90 backdrop-blur-md border border-purple-900/30 rounded-2xl p-6 sm:p-8 relative shadow-xl">
             
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <Sparkles className="w-5 h-5 text-blue-400" />
+                <div className="p-2 bg-purple-500/15 border border-purple-500/30 rounded-xl">
+                  <Sparkles className="w-5 h-5 text-purple-300" />
                 </div>
-                <h3 className="font-semibold text-white text-lg">Media Upload</h3>
+                <h3 className="font-black text-white text-base tracking-tight">Media Upload Folder</h3>
               </div>
-              <span className="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-medium px-3 py-1 rounded-full">Interactive Sync</span>
+              <span className="bg-[#0c0620] border border-purple-900/40 text-purple-300 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full">Interactive Sync</span>
             </div>
 
-            <p className="text-slate-400 text-sm leading-relaxed mb-8">
-              Pilih folder lokal yang berisi subfolder <span className="text-blue-400 font-medium">PL</span> atau <span className="text-blue-400 font-medium">LEADER</span>. Sistem otomatis menyelaraskan kecocokan PDF dan Excel harian.
+            <p className="text-purple-300/60 text-xs font-semibold leading-relaxed mb-6">
+              Pilih folder lokal yang berisi subfolder <span className="text-purple-300 font-bold">PL</span> atau <span className="text-indigo-300 font-bold">LEADER</span>. Sistem otomatis menyelaraskan kecocokan PDF dan Excel harian.
             </p>
 
             {/* Drag and Drop Zone */}
@@ -416,10 +417,10 @@ export default function PackingListCheck() {
                 onDragLeave={() => setIsDragActive(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative border-2 border-dashed rounded-[20px] p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-4 group overflow-hidden ${
+                className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-4 group overflow-hidden ${
                   isDragActive 
-                    ? 'border-blue-500 bg-blue-500/10' 
-                    : 'border-slate-700 bg-slate-800/30 hover:border-blue-500/50 hover:bg-slate-800/80'
+                    ? 'border-purple-400 bg-purple-500/15 scale-[1.01]' 
+                    : 'border-purple-900/40 bg-[#0c0620]/60 hover:border-purple-500/50 hover:bg-[#0c0620]/90'
                 }`}
               >
                 <input
@@ -431,34 +432,34 @@ export default function PackingListCheck() {
                   className="hidden"
                 />
                 
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-transform relative z-10 ${isDragActive ? 'bg-blue-500/20 border-blue-500/30 scale-110' : 'bg-slate-800 border-slate-700 group-hover:scale-105'}`}>
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-transform relative z-10 ${isDragActive ? 'bg-purple-500/20 border-purple-400 scale-110' : 'bg-purple-950/40 border-purple-800/40 group-hover:scale-105'}`}>
                   {isScanning ? (
-                    <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
+                    <RefreshCw className="w-6 h-6 text-purple-300 animate-spin" />
                   ) : (
-                    <Upload className={`w-6 h-6 transition-colors ${isDragActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-blue-400'}`} />
+                    <Upload className={`w-6 h-6 transition-colors ${isDragActive ? 'text-purple-300' : 'text-purple-400 group-hover:text-purple-300'}`} />
                   )}
                 </div>
 
                 <div className="relative z-10 max-w-sm">
-                  <h4 className="text-white font-medium text-sm mb-1.5">
+                  <h4 className="text-white font-black text-sm mb-1">
                     {isScanning ? 'Mengolah Berkas...' : 'Drop Folder Utama / Bebas'}
                   </h4>
-                  <p className="text-slate-400 text-xs leading-relaxed mb-3">
-                    Drag & drop folder di sini atau <span className="text-blue-400 group-hover:text-blue-300 transition-colors">klik untuk browsing</span>
+                  <p className="text-purple-300/60 text-xs font-semibold leading-relaxed mb-3">
+                    Drag & drop folder di sini atau <span className="text-purple-400 group-hover:text-purple-300 transition-colors underline font-bold">klik untuk browsing</span>
                   </p>
-                  <span className="inline-block text-[10px] text-slate-300 font-medium bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
-                    Otomatis Deteksi Subfolder PL/LEADER
+                  <span className="inline-block text-[10px] text-purple-300 font-bold bg-[#130b2e] px-3 py-1.5 rounded-lg border border-purple-800/40">
+                    Otomatis Deteksi Subfolder PL / LEADER
                   </span>
                 </div>
               </div>
 
               {selectedFolder && (
-                <div className="flex items-center justify-between gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                <div className="flex items-center justify-between gap-3 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
                   <div className="flex items-center gap-3 min-w-0">
                     <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                     <div className="min-w-0">
-                      <span className="text-[10px] font-medium text-emerald-400/80 block leading-none mb-1">FOLDER TERMUAT</span>
-                      <span className="text-sm text-emerald-100 font-medium truncate block">{selectedFolder}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400/80 block leading-none mb-1">FOLDER TERMUAT</span>
+                      <span className="text-xs text-emerald-200 font-bold truncate block">{selectedFolder}</span>
                     </div>
                   </div>
                   <button
@@ -468,7 +469,7 @@ export default function PackingListCheck() {
                       setScannedFiles([]);
                       setHasScanned(false);
                     }}
-                    className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors active:scale-95"
+                    className="text-emerald-300 hover:text-white hover:bg-emerald-500/20 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors active:scale-95"
                   >
                     Hapus
                   </button>
@@ -476,21 +477,21 @@ export default function PackingListCheck() {
               )}
 
               {isScanning && (
-                <div className="space-y-2 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                  <div className="flex items-center justify-between text-xs text-slate-300">
-                    <span className="flex items-center gap-2">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                <div className="space-y-2 bg-[#0c0620] p-4 rounded-xl border border-purple-900/40">
+                  <div className="flex items-center justify-between text-xs text-purple-300">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-400" />
                       {scanProgress < 100 ? (
                         scanProgress === 0 ? "Mendeteksi susunan folder..." : "Membaca file: " + scanProgress + "%"
                       ) : (
                         "Menganalisa kelengkapan..."
                       )}
                     </span>
-                    <span className="text-white font-medium">{scanProgress}%</span>
+                    <span className="text-white font-mono font-black">{scanProgress}%</span>
                   </div>
-                  <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                  <div className="w-full bg-[#130b2e] h-2 rounded-full overflow-hidden border border-purple-900/30">
                     <div 
-                      className="bg-blue-500 h-full rounded-full transition-all duration-300"
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 h-full rounded-full transition-all duration-300 shadow-md shadow-purple-900/50"
                       style={{ width: `${scanProgress}%` }}
                     />
                   </div>
@@ -499,24 +500,24 @@ export default function PackingListCheck() {
             </div>
 
             {/* Validation Explanation / Legend */}
-            <div className="mt-8 pt-6 border-t border-slate-700/50 space-y-4">
-              <h4 className="text-xs font-semibold text-slate-400">Petunjuk Kelengkapan</h4>
+            <div className="mt-8 pt-6 border-t border-purple-900/30 space-y-4">
+              <h4 className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Petunjuk Kelengkapan</h4>
               
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 <div className="flex gap-3 text-xs">
-                  <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center shrink-0">
+                  <span className="w-6 h-6 rounded-full bg-purple-900/30 border border-purple-700/40 text-purple-300 flex items-center justify-center shrink-0 font-bold text-[11px]">
                     1
                   </span>
-                  <p className="text-slate-400 leading-relaxed pt-0.5">
-                    Letakkan <span className="text-slate-200">PDF</span> (manifest) dan <span className="text-slate-200">XLSX</span> (orderan) dengan nama berkas yang <span className="text-white font-medium">persis sama</span> dalam satu folder.
+                  <p className="text-purple-300/70 leading-relaxed font-semibold pt-0.5">
+                    Letakkan <span className="text-purple-200 font-bold">PDF</span> (manifest cetak) dan <span className="text-purple-200 font-bold">XLSX</span> (orderan) dengan nama berkas yang <span className="text-white font-bold">persis sama</span> dalam satu folder.
                   </p>
                 </div>
                 <div className="flex gap-3 text-xs">
-                  <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center shrink-0">
+                  <span className="w-6 h-6 rounded-full bg-purple-900/30 border border-purple-700/40 text-purple-300 flex items-center justify-center shrink-0 font-bold text-[11px]">
                     2
                   </span>
-                  <p className="text-slate-400 leading-relaxed pt-0.5">
-                    Sistem mendeteksi selisih file (<span className="text-amber-400">Kurang Excel</span> / <span className="text-rose-400">Kurang PDF</span>) secara otomatis.
+                  <p className="text-purple-300/70 leading-relaxed font-semibold pt-0.5">
+                    Sistem mendeteksi selisih file (<span className="text-amber-400 font-bold">Kurang Excel</span> / <span className="text-rose-400 font-bold">Kurang PDF</span>) secara otomatis.
                   </p>
                 </div>
               </div>
@@ -526,32 +527,32 @@ export default function PackingListCheck() {
 
         {/* Right Side: Ledger Lists & Warnings */}
         <div className="lg:col-span-7 flex flex-col gap-6">
-          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-[24px] p-6 shadow-xl flex-1 flex flex-col">
+          <div className="bg-[#130b2e]/90 backdrop-blur-md border border-purple-900/30 rounded-2xl p-6 shadow-xl flex-1 flex flex-col">
             
             {/* Real-time Mismatch Alert Banner */}
             {mismatchFiles.length > 0 && (
-              <div className="mb-6 p-5 bg-rose-500/10 border border-rose-500/20 rounded-[16px] flex items-start gap-3">
+              <div className="mb-6 p-5 bg-rose-950/40 border border-rose-500/30 rounded-2xl flex items-start gap-3.5">
                 <FileWarning className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                 <div className="min-w-0 w-full">
-                  <h4 className="text-rose-100 font-medium text-sm mb-1">
+                  <h4 className="text-rose-100 font-black text-sm mb-1 tracking-tight">
                     Selisih Berkas Ditemukan ({mismatchFiles.length} Item Tidak Lengkap)
                   </h4>
-                  <p className="text-rose-200/70 text-xs mb-4">
+                  <p className="text-rose-200/70 text-xs font-semibold mb-3">
                     Batch berikut kehilangan salah satu pasangannya (Excel atau PDF):
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                     {mismatchFiles.map((file, idx) => (
-                      <div key={`${file.category}-${file.subFolder}-${file.name}-${idx}`} className="p-3 bg-slate-900/50 border border-rose-500/20 rounded-xl flex flex-col gap-2">
+                      <div key={`${file.category}-${file.subFolder}-${file.name}-${idx}`} className="p-3 bg-[#0c0620] border border-rose-500/20 rounded-xl flex flex-col gap-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-slate-200 truncate text-xs">{file.name}</span>
-                          <span className={`text-[9px] font-bold tracking-wider uppercase px-2 py-1 rounded bg-rose-500/20 text-rose-300 shrink-0`}>
+                          <span className="font-mono text-purple-200 truncate text-xs font-bold">{file.name}</span>
+                          <span className="text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0">
                             {file.status === 'MISSING_EXCEL' ? 'KURANG EXCEL' : 'KURANG PDF'}
                           </span>
                         </div>
                         {file.category && (
-                          <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                            <span className="w-1 h-1 bg-slate-500 rounded-full" />
-                            Subfolder: <span className="text-slate-300 font-medium">{file.subFolder}</span>
+                          <div className="text-[10px] text-purple-300/60 font-semibold flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 bg-purple-400 rounded-full" />
+                            Subfolder: <span className="text-purple-200 font-bold">{file.subFolder}</span>
                           </div>
                         )}
                       </div>
@@ -562,35 +563,35 @@ export default function PackingListCheck() {
             )}
 
             {!hasScanned && (
-              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-[16px] text-xs leading-relaxed text-blue-200 mb-6 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+              <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-xs leading-relaxed text-purple-200 mb-6 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-white font-medium block mb-1">Mode Simulasi</strong>
+                  <strong className="text-white font-black block mb-0.5">Mode Simulasi Aktif</strong>
                   Anda sedang melihat data visual mockup. Drag/drop folder lokal utama Anda untuk memverifikasi file sungguhan.
                 </div>
               </div>
             )}
 
             {hasScanned && mismatchFiles.length === 0 && (
-              <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-[16px] flex items-center gap-3">
-                <div className="p-2 bg-emerald-500/20 rounded-full shrink-0">
+              <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/20 rounded-xl shrink-0">
                   <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
-                  <strong className="text-emerald-100 block text-sm font-medium mb-0.5">Berkas Sinkron 100%</strong>
-                  <span className="text-emerald-200/70 text-xs">Seluruh file PDF dan Excel di folder ini lengkap tanpa selisih.</span>
+                  <strong className="text-emerald-100 block text-sm font-black mb-0.5">Berkas Sinkron 100%</strong>
+                  <span className="text-emerald-200/70 text-xs font-semibold">Seluruh file PDF dan Excel di folder ini lengkap tanpa selisih.</span>
                 </div>
               </div>
             )}
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-slate-800 border border-slate-700">
-                  <Layers className="w-4 h-4 text-slate-300" />
+                <div className="p-2 rounded-xl bg-[#0c0620] border border-purple-900/40">
+                  <Layers className="w-4 h-4 text-purple-300" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white text-base">Hasil Detektor</h3>
-                  <p className="text-xs text-slate-400">Daftar keselarasan manifest</p>
+                  <h3 className="font-black text-white text-base tracking-tight">Hasil Detektor Manifest</h3>
+                  <p className="text-[10px] text-purple-300/60 uppercase tracking-widest font-semibold">Daftar keselarasan PDF vs Excel</p>
                 </div>
               </div>
               
@@ -598,17 +599,17 @@ export default function PackingListCheck() {
               <div className="relative w-full sm:w-64">
                 <input
                   type="text"
-                  placeholder="Cari file..."
+                  placeholder="Cari file / batch..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  className="w-full pl-9 pr-4 py-2 bg-[#0c0620] border border-purple-900/40 rounded-xl text-xs text-white placeholder-purple-400/30 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors font-semibold"
                 />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60" />
               </div>
             </div>
 
             {/* Quick Filter Tabs */}
-            <div className="flex p-1 bg-slate-800/50 border border-slate-700/50 rounded-xl mb-6">
+            <div className="flex p-1 bg-[#0c0620] border border-purple-900/40 rounded-xl mb-6">
               {[
                 { id: 'ALL', label: 'Semua' },
                 { id: 'MATCH', label: 'Match' },
@@ -617,10 +618,10 @@ export default function PackingListCheck() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-colors ${
                     activeTab === tab.id 
-                      ? 'bg-slate-700 text-white shadow-sm' 
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/30'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-950/40' 
+                      : 'text-purple-300/60 hover:text-white'
                   }`}
                 >
                   {tab.label}
@@ -629,51 +630,51 @@ export default function PackingListCheck() {
             </div>
 
             {/* Table layout of file audits */}
-            <div className="overflow-x-auto rounded-[16px] border border-slate-700/50 bg-slate-800/20 flex-1 min-h-[300px]">
+            <div className="overflow-x-auto rounded-xl border border-purple-900/30 bg-[#0c0620]/60 flex-1 min-h-[300px] custom-scrollbar">
               <table className="w-full text-left border-collapse min-w-[500px]">
                 <thead>
-                  <tr className="border-b border-slate-700/50 bg-slate-800/50 text-slate-400 text-xs font-medium">
-                    <th className="py-3 px-4 font-medium">Nama File / Batch Identifikasi</th>
-                    <th className="py-3 px-4 text-center font-medium">Excel</th>
-                    <th className="py-3 px-4 text-center font-medium">PDF</th>
-                    <th className="py-3 px-4 text-center font-medium">Status</th>
+                  <tr className="border-b border-purple-900/40 bg-[#0c0620] text-purple-300 font-black text-[10px] uppercase tracking-wider">
+                    <th className="py-3 px-4 font-black">Nama File / Batch Identifikasi</th>
+                    <th className="py-3 px-4 text-center font-black">Excel</th>
+                    <th className="py-3 px-4 text-center font-black">PDF</th>
+                    <th className="py-3 px-4 text-center font-black">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700/50 text-slate-300 text-sm">
+                <tbody className="divide-y divide-purple-900/20 text-xs">
                   {filteredItems.map((item, idx) => (
-                    <tr key={`${item.category}-${item.subFolder}-${item.name}-${idx}`} className="hover:bg-slate-800/50 transition-colors">
+                    <tr key={`${item.category}-${item.subFolder}-${item.name}-${idx}`} className="hover:bg-purple-500/10 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-medium text-slate-200">{item.name}</div>
+                        <div className="font-mono font-bold text-purple-100">{item.name}</div>
                         {item.category && (
                           <div className="mt-1 flex items-center gap-1.5">
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[10px] text-purple-300/60 font-semibold">
                               Folder: {item.subFolder || item.category}
                             </span>
                           </div>
                         )}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className={`inline-flex px-2 py-1 rounded border text-[10px] font-medium ${item.excel ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${item.excel ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-purple-950/30 text-purple-500/50 border-purple-900/30'}`}>
                           {item.excel ? 'ADA' : 'TIDAK ADA'}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className={`inline-flex px-2 py-1 rounded border text-[10px] font-medium ${item.pdf ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${item.pdf ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' : 'bg-purple-950/30 text-purple-500/50 border-purple-900/30'}`}>
                           {item.pdf ? 'ADA' : 'TIDAK ADA'}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
                         {item.status === 'MATCH' ? (
-                          <span className="inline-flex items-center gap-1.5 text-emerald-400 text-[10px] font-medium bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded">
-                            <CheckCircle2 className="w-3 h-3" /> MATCH {item.orderCount ? `(${item.orderCount})` : ''}
+                          <span className="inline-flex items-center gap-1.5 text-emerald-300 text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" /> MATCH {item.orderCount ? `(${item.orderCount})` : ''}
                           </span>
                         ) : item.status === 'MISSING_EXCEL' ? (
-                          <span className="inline-flex items-center gap-1.5 text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded">
-                            <AlertTriangle className="w-3 h-3" /> Kurang Excel
+                          <span className="inline-flex items-center gap-1.5 text-amber-300 text-[9px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded-full">
+                            <AlertTriangle className="w-3 h-3 text-amber-400" /> Kurang Excel
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 text-rose-400 text-[10px] font-medium bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded">
-                            <ShieldAlert className="w-3 h-3" /> Kurang PDF
+                          <span className="inline-flex items-center gap-1.5 text-rose-300 text-[9px] font-black uppercase tracking-wider bg-rose-500/15 border border-rose-500/30 px-2.5 py-1 rounded-full">
+                            <ShieldAlert className="w-3 h-3 text-rose-400" /> Kurang PDF
                           </span>
                         )}
                       </td>
@@ -683,7 +684,7 @@ export default function PackingListCheck() {
               </table>
 
               {filteredItems.length === 0 && (
-                <div className="text-center py-12 text-slate-400 text-sm">
+                <div className="text-center py-16 text-purple-300/40 text-xs font-black uppercase tracking-widest">
                   Tidak ada data yang cocok dengan pencarian.
                 </div>
               )}

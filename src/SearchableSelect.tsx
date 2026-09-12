@@ -158,8 +158,8 @@ const SearchableSelect = forwardRef<SearchableSelectHandle, SearchableSelectProp
   return (
     <div className="space-y-2 relative" ref={containerRef}>
       {label && (
-        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-1">
-          {label} {required && <span className="text-rose-500">*</span>}
+        <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">
+          {label} {required && <span className="text-rose-400">*</span>}
         </label>
       )}
 
@@ -168,12 +168,16 @@ const SearchableSelect = forwardRef<SearchableSelectHandle, SearchableSelectProp
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
         tabIndex={0}
-        className={`w-full px-5 py-3.5 bg-[#0f172a] border border-white/5 rounded-2xl flex items-center justify-between cursor-pointer transition-all outline-none group ${isOpen ? 'ring-2 ring-indigo-500 border-transparent shadow-2xl shadow-indigo-900/20' : 'hover:border-white/10 hover:bg-white/[0.02] focus:ring-2 focus:ring-indigo-500/50'}`}
+        className={`w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl flex items-center justify-between cursor-pointer transition-all outline-none group ${
+          isOpen 
+            ? 'ring-2 ring-purple-500 border-purple-500 shadow-xl shadow-purple-950/50' 
+            : 'hover:border-purple-700/50 hover:bg-[#11082d] focus:ring-2 focus:ring-purple-500/50'
+        }`}
       >
-        <span className={`truncate text-[13px] font-bold tracking-wide ${!value ? 'text-slate-600 group-hover:text-slate-500' : 'text-slate-200'}`}>
+        <span className={`truncate text-sm font-bold tracking-wide ${!value ? 'text-purple-300/40 group-hover:text-purple-300/60' : 'text-white'}`}>
           {value || placeholder}
         </span>
-        <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-400' : 'group-hover:text-slate-400'}`} />
+        <ChevronDown className={`w-4 h-4 text-purple-400/60 transition-transform duration-300 ${isOpen ? 'rotate-180 text-purple-300' : 'group-hover:text-purple-300'}`} />
       </div>
 
       {isOpen && dropdownRect && createPortal(
@@ -195,15 +199,15 @@ const SearchableSelect = forwardRef<SearchableSelectHandle, SearchableSelectProp
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: openUp ? 10 : -10, scale: 0.95 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className={`w-full ${openUp ? 'mb-2' : 'mt-2'} bg-[#0a0f1e]/95 backdrop-blur-2xl border border-white/10 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden`}
+              className={`w-full ${openUp ? 'mb-2' : 'mt-2'} bg-[#130b2e]/98 backdrop-blur-2xl border border-purple-800/50 rounded-2xl shadow-2xl shadow-purple-950/80 overflow-hidden`}
             >
-              <div className="p-3 border-b border-white/5 flex items-center gap-3 bg-white/[0.02]">
-                <Search className="w-4 h-4 text-slate-500" />
+              <div className="p-3 border-b border-purple-900/40 flex items-center gap-2.5 bg-[#0c0620]/90">
+                <Search className="w-4 h-4 text-purple-400/60" />
                 <input
                   autoFocus
                   type="text"
-                  className="w-full bg-transparent border-none outline-none text-sm text-slate-200 placeholder:text-slate-700 font-bold"
-                  placeholder="Cari..."
+                  className="w-full bg-transparent border-none outline-none text-xs text-purple-100 placeholder:text-purple-400/40 font-bold"
+                  placeholder="Cari pilihan..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -215,13 +219,13 @@ const SearchableSelect = forwardRef<SearchableSelectHandle, SearchableSelectProp
                       e.stopPropagation();
                       setSearchTerm('');
                     }}
-                    className="p-1.5 hover:bg-white/10 rounded-xl transition-colors"
+                    className="p-1 hover:bg-purple-800/40 rounded-lg text-purple-400 transition-colors"
                   >
-                    <X className="w-3.5 h-3.5 text-slate-500" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
-              <div className="max-h-64 overflow-y-auto custom-scrollbar py-2" ref={listRef}>
+              <div className="max-h-60 overflow-y-auto custom-scrollbar py-1.5" ref={listRef}>
                 {filteredOptions.length > 0 ? (
                   filteredOptions.map((option, index) => (
                     <div
@@ -231,10 +235,16 @@ const SearchableSelect = forwardRef<SearchableSelectHandle, SearchableSelectProp
                         handleSelect(option);
                       }}
                       onMouseEnter={() => setHighlightedIndex(index)}
-                      className={`px-5 py-3 text-[13px] cursor-pointer transition-all flex items-center justify-between border-l-4 ${value === option ? 'bg-indigo-500/10 text-indigo-400 font-black border-indigo-500' : highlightedIndex === index ? 'bg-white/5 text-slate-200 border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border-transparent hover:bg-white/[0.01]'}`}
+                      className={`px-4 py-2.5 text-xs cursor-pointer transition-all flex items-center justify-between border-l-4 ${
+                        value === option 
+                          ? 'bg-purple-600/25 text-purple-200 font-black border-purple-500' 
+                          : highlightedIndex === index 
+                          ? 'bg-purple-900/30 text-white border-purple-500/40' 
+                          : 'text-purple-300/70 hover:text-white border-transparent hover:bg-purple-950/20'
+                      }`}
                     >
-                      <span className="truncate tracking-wide">{option}</span>
-                      {value === option && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full shadow-lg shadow-indigo-500/50" />}
+                      <span className="truncate tracking-wide font-medium">{option}</span>
+                      {value === option && <div className="w-1.5 h-1.5 bg-purple-400 rounded-full shadow-lg shadow-purple-400" />}
                     </div>
                   ))
                 ) : allowCustom && searchTerm ? (
@@ -244,14 +254,16 @@ const SearchableSelect = forwardRef<SearchableSelectHandle, SearchableSelectProp
                       handleSelect(searchTerm);
                     }}
                     onMouseEnter={() => setHighlightedIndex(0)}
-                    className={`px-5 py-4 text-sm text-indigo-400 cursor-pointer transition-colors font-black flex items-center gap-3 border-l-4 ${highlightedIndex === 0 ? 'bg-indigo-500/10 border-indigo-500' : 'hover:bg-indigo-500/5 border-transparent'}`}
+                    className={`px-4 py-3 text-xs text-purple-300 cursor-pointer transition-colors font-bold flex items-center gap-2 border-l-4 ${
+                      highlightedIndex === 0 ? 'bg-purple-600/20 border-purple-500' : 'hover:bg-purple-900/20 border-transparent'
+                    }`}
                   >
-                    <Plus className="w-4.5 h-4.5" />
-                    <span className="uppercase tracking-widest text-xs">Tambah: "{searchTerm}"</span>
+                    <Plus className="w-4 h-4 text-purple-400" />
+                    <span className="uppercase tracking-wider text-[11px]">Tambah Baru: "{searchTerm}"</span>
                   </div>
                 ) : (
-                  <div className="px-5 py-8 text-center">
-                    <span className="text-slate-700 text-[10px] font-black uppercase tracking-[0.2em]">Tidak ada data ditemukan</span>
+                  <div className="px-4 py-6 text-center">
+                    <span className="text-purple-300/40 text-[10px] font-black uppercase tracking-widest">Tidak ada data ditemukan</span>
                   </div>
                 )}
               </div>

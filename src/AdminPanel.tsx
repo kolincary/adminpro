@@ -689,59 +689,62 @@ export default function AdminPanel({ user }: AdminPanelProps) {
 
   if (!isLoggedIn) {
     return (
-      <div className="max-w-md mx-auto mt-20">
-        <div className="glass-card p-10 rounded-[40px] border-white/5 shadow-2xl">
-          <div className="flex flex-col items-center mb-10">
-            <div className="w-20 h-20 bg-indigo-500/10 rounded-[32px] flex items-center justify-center text-indigo-400 border border-indigo-500/20 mb-6">
-              <Shield className="w-10 h-10" />
+      <div className="max-w-md mx-auto mt-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-3xl p-8 sm:p-10 shadow-2xl backdrop-blur-md relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-purple-500/50 to-transparent" />
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-600/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="flex flex-col items-center mb-8 relative z-10">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white border border-purple-400/30 shadow-xl shadow-purple-950/40 mb-4">
+              <Shield className="w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight">Admin Panel</h2>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2">Restricted Access</p>
+            <h2 className="text-2xl font-black text-white tracking-tight">Admin Control Panel</h2>
+            <p className="text-purple-400 text-[10px] font-black uppercase tracking-widest mt-1">Akses Khusus Terbatas</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-5 relative z-10">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Username</label>
+              <label className="text-[10px] font-black text-purple-300 uppercase tracking-widest px-1">Username</label>
               <div className="relative">
-                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60" />
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-12 pr-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  placeholder="Enter username"
+                  className="w-full pl-11 pr-4 py-3 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white placeholder-purple-400/30 text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                  placeholder="Masukkan username admin"
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Password</label>
+              <label className="text-[10px] font-black text-purple-300 uppercase tracking-widest px-1">Password</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  placeholder="Enter password"
+                  className="w-full pl-11 pr-4 py-3 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white placeholder-purple-400/30 text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                  placeholder="Masukkan password admin"
                   required
                 />
               </div>
             </div>
 
             {error && (
-              <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-400 text-xs font-bold">
-                <AlertCircle className="w-4 h-4" />
+              <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3 text-rose-300 text-xs font-bold">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-900/20 text-xs uppercase tracking-widest"
+              className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl transition-all shadow-xl shadow-purple-950/40 text-xs uppercase tracking-widest active:scale-[0.98]"
             >
-              Authenticate
+              Autentikasi Masuk
             </button>
           </form>
         </div>
@@ -763,68 +766,68 @@ export default function AdminPanel({ user }: AdminPanelProps) {
       />
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-900/20 border border-white/10">
+          <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-purple-950/40 border border-purple-400/30 shrink-0">
             <Shield className="w-8 h-8 text-white" />
           </div>
           <div>
             <h3 className="text-2xl font-black text-white tracking-tight">Admin Control Center</h3>
-            <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-1">System Management & Security</p>
+            <p className="text-purple-400 text-xs font-black uppercase tracking-widest mt-0.5">Sistem Manajemen, Sesi & Keamanan Operasional</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 lg:gap-3 p-1.5 bg-white/5 rounded-2xl border border-white/5 w-full">
+        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#0c0620] rounded-2xl border border-purple-900/40 w-full lg:w-auto overflow-x-auto">
           <button
             onClick={() => setActiveSubTab('backups')}
-            className={`flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSubTab === 'backups' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${activeSubTab === 'backups' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'}`}
           >
             <History className="w-3.5 h-3.5" />
             Backups
           </button>
           <button
             onClick={() => setActiveSubTab('blocked')}
-            className={`flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSubTab === 'blocked' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${activeSubTab === 'blocked' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'}`}
           >
             <UserX className="w-3.5 h-3.5" />
             Blocked
           </button>
           <button
             onClick={() => setActiveSubTab('sessions')}
-            className={`flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSubTab === 'sessions' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${activeSubTab === 'sessions' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'}`}
           >
             <Activity className="w-3.5 h-3.5" />
             Sesi & Update
           </button>
           <button
             onClick={() => setActiveSubTab('master')}
-            className={`flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSubTab === 'master' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${activeSubTab === 'master' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'}`}
           >
             <Database className="w-3.5 h-3.5" />
             Master Control
           </button>
           <button
             onClick={() => setActiveSubTab('settings')}
-            className={`flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSubTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${activeSubTab === 'settings' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'}`}
           >
             <Settings className="w-3.5 h-3.5" />
             Config
           </button>
           <button
             onClick={() => setActiveSubTab('security')}
-            className={`flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSubTab === 'security' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${activeSubTab === 'security' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'}`}
           >
             <Key className="w-3.5 h-3.5" />
             Keamanan 2FA
           </button>
           <button
             onClick={() => setActiveSubTab('notifications')}
-            className={`flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSubTab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${activeSubTab === 'notifications' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'}`}
           >
             <BellRing className="w-3.5 h-3.5" />
             Notifikasi
           </button>
           <button
             onClick={handleLogout}
-            className="flex-shrink-0 flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20"
           >
             <LogOut className="w-3.5 h-3.5" />
             Logout
@@ -834,89 +837,89 @@ export default function AdminPanel({ user }: AdminPanelProps) {
 
       <div className="mt-8">
         {activeSubTab === 'backups' && (
-          <div className="glass-card rounded-[40px] border-white/5 overflow-hidden">
-            <div className="p-8 border-b border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <h4 className="text-lg font-black text-white tracking-tight">Deleted Reports Backup</h4>
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md">
+            <div className="p-6 border-b border-purple-900/40 bg-[#0c0620]/60 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <h4 className="text-base font-black text-white tracking-tight">Deleted Reports Backup</h4>
                 {selectedBackupIds.length > 0 && (
                   <button
                     onClick={handleBulkDelete}
-                    className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest"
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-xl transition-all text-[10px] font-black uppercase tracking-wider"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Hapus Terpilih ({selectedBackupIds.length})
                   </button>
                 )}
               </div>
-              <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                {backups.length} Records Saved
+              <div className="text-[10px] font-black text-purple-400 bg-purple-500/15 border border-purple-500/30 px-3 py-1 rounded-full uppercase tracking-wider">
+                {backups.length} Records Tersimpan
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-white/[0.02]">
-                    <th className="px-8 py-5 w-10">
+                  <tr className="bg-[#0c0620] border-b border-purple-900/40 text-purple-300 font-black text-[10px] uppercase tracking-wider">
+                    <th className="px-6 py-4 w-10">
                       <button 
                         onClick={handleSelectAll}
-                        className="text-slate-500 hover:text-indigo-400 transition-colors"
+                        className="text-purple-400/60 hover:text-purple-300 transition-colors"
                       >
                         {selectedBackupIds.length === backups.length && backups.length > 0 ? (
-                          <CheckSquare className="w-5 h-5 text-indigo-400" />
+                          <CheckSquare className="w-5 h-5 text-purple-400" />
                         ) : (
                           <Square className="w-5 h-5" />
                         )}
                       </button>
                     </th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Deleted At</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Invoice</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">SKU</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Qty</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Deleted By</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] text-right">Ops</th>
+                    <th className="px-6 py-4">Deleted At</th>
+                    <th className="px-6 py-4">Invoice</th>
+                    <th className="px-6 py-4">SKU</th>
+                    <th className="px-6 py-4">Qty</th>
+                    <th className="px-6 py-4">Deleted By</th>
+                    <th className="px-6 py-4 text-right">Ops</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.03]">
+                <tbody className="divide-y divide-purple-900/20 text-slate-200">
                   {backups.map((backup) => (
-                    <tr key={backup.id} className={`hover:bg-white/[0.04] transition-all group ${selectedBackupIds.includes(backup.id || '') ? 'bg-indigo-500/5' : ''}`}>
-                      <td className="px-8 py-5">
+                    <tr key={backup.id} className={`hover:bg-purple-900/20 transition-all group ${selectedBackupIds.includes(backup.id || '') ? 'bg-purple-600/10' : ''}`}>
+                      <td className="px-6 py-4">
                         <button 
                           onClick={() => backup.id && handleSelectOne(backup.id)}
-                          className="text-slate-500 hover:text-indigo-400 transition-colors"
+                          className="text-purple-400/60 hover:text-purple-300 transition-colors"
                         >
                           {selectedBackupIds.includes(backup.id || '') ? (
-                            <CheckSquare className="w-5 h-5 text-indigo-400" />
+                            <CheckSquare className="w-5 h-5 text-purple-400" />
                           ) : (
                             <Square className="w-5 h-5" />
                           )}
                         </button>
                       </td>
-                      <td className="px-8 py-5 text-sm text-slate-400 font-medium">
+                      <td className="px-6 py-4 text-xs text-purple-200 font-semibold">
                         {backup.deletedAt?.toDate ? format(backup.deletedAt.toDate(), 'yyyy-MM-dd HH:mm') : '---'}
                       </td>
-                      <td className="px-8 py-5 text-[13px] font-mono text-indigo-300/80 font-bold">{backup.originalData.invoiceNumber}</td>
-                      <td className="px-8 py-5 text-xs font-black text-white tracking-wide">{backup.originalData.sku}</td>
-                      <td className="px-8 py-5 text-sm">
-                        <span className="bg-indigo-500/10 text-indigo-400 font-black px-2 py-1 rounded-lg border border-indigo-500/10">
+                      <td className="px-6 py-4 text-xs font-mono text-purple-300 font-bold">{backup.originalData.invoiceNumber}</td>
+                      <td className="px-6 py-4 text-xs font-black text-white tracking-wide">{backup.originalData.sku}</td>
+                      <td className="px-6 py-4 text-xs">
+                        <span className="bg-purple-500/15 text-purple-300 font-black px-2.5 py-1 rounded-lg border border-purple-500/30">
                           {backup.originalData.quantity}
                         </span>
                       </td>
-                      <td className="px-8 py-5 text-xs text-slate-500 font-bold">{backup.deletedBy}</td>
-                      <td className="px-8 py-5 text-right">
+                      <td className="px-6 py-4 text-xs text-purple-300/70 font-semibold">{backup.deletedBy}</td>
+                      <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => backup.id && handleDeleteBackup(backup.id)}
-                          className="p-2.5 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all border border-transparent hover:border-rose-500/20"
-                          title="Developer Only"
+                          className="p-2 text-purple-400/60 hover:text-rose-400 hover:bg-rose-500/15 rounded-xl transition-all border border-transparent hover:border-rose-500/30"
+                          title="Hapus Backup (Developer Only)"
                         >
-                          <Trash2 className="w-4.5 h-4.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
                   ))}
                   {backups.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-8 py-20 text-center text-slate-600 font-black text-[10px] uppercase tracking-widest">
-                        No backups found
+                      <td colSpan={7} className="px-6 py-16 text-center text-purple-300/40 font-black text-xs uppercase tracking-widest">
+                        Tidak ada data backup
                       </td>
                     </tr>
                   )}
@@ -928,14 +931,14 @@ export default function AdminPanel({ user }: AdminPanelProps) {
 
         {activeSubTab === 'blocked' && (
           <div className="max-w-4xl mx-auto space-y-8">
-            <div className="glass-card p-8 rounded-[40px] border-white/5">
-              <h4 className="text-lg font-black text-white tracking-tight mb-8">Block New User</h4>
-              <div className="flex gap-4">
+            <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 sm:p-8 shadow-xl backdrop-blur-md">
+              <h4 className="text-lg font-black text-white tracking-tight mb-6">Blokir Pengguna Baru</h4>
+              <div className="flex flex-col sm:flex-row gap-4">
                 <input
                   type="email"
                   id="block-email"
-                  placeholder="Enter Gmail address to block"
-                  className="flex-1 px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-rose-500 outline-none transition-all"
+                  placeholder="Masukkan alamat Gmail untuk diblokir..."
+                  className="flex-1 px-4 py-3 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white placeholder-purple-400/30 text-xs font-semibold focus:ring-2 focus:ring-rose-500 outline-none transition-all"
                 />
                 <button
                   onClick={() => {
@@ -943,50 +946,50 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                     handleBlockUser(input.value);
                     input.value = '';
                   }}
-                  className="px-8 py-3.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-rose-900/20 text-xs uppercase tracking-widest"
+                  className="px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl transition-all shadow-lg shadow-rose-950/40 text-xs uppercase tracking-widest active:scale-[0.98]"
                 >
-                  Block User
+                  Blokir Akses
                 </button>
               </div>
             </div>
 
-            <div className="glass-card rounded-[40px] border-white/5 overflow-hidden">
-              <div className="p-8 border-b border-white/5">
-                <h4 className="text-lg font-black text-white tracking-tight">Blocked Users List</h4>
+            <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
+              <div className="p-6 border-b border-purple-900/40 bg-[#0c0620]/60">
+                <h4 className="text-base font-black text-white tracking-tight">Daftar Pengguna Terblokir</h4>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-white/[0.02]">
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Email</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Blocked At</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Blocked By</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] text-right">Ops</th>
+                    <tr className="bg-[#0c0620] border-b border-purple-900/40 text-purple-300 font-black text-[10px] uppercase tracking-wider">
+                      <th className="px-6 py-4">Email</th>
+                      <th className="px-6 py-4">Blocked At</th>
+                      <th className="px-6 py-4">Blocked By</th>
+                      <th className="px-6 py-4 text-right">Ops</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.03]">
+                  <tbody className="divide-y divide-purple-900/20 text-slate-200">
                     {blockedUsers.map((bu: any) => (
-                      <tr key={bu.id} className="hover:bg-white/[0.04] transition-all group">
-                        <td className="px-8 py-5 text-sm text-white font-bold">{bu.email}</td>
-                        <td className="px-8 py-5 text-sm text-slate-400">
+                      <tr key={bu.id} className="hover:bg-purple-900/20 transition-all group">
+                        <td className="px-6 py-4 text-xs text-white font-bold">{bu.email}</td>
+                        <td className="px-6 py-4 text-xs text-purple-300/70 font-semibold">
                           {bu.blockedAt?.toDate ? format(bu.blockedAt.toDate(), 'yyyy-MM-dd HH:mm') : '---'}
                         </td>
-                        <td className="px-8 py-5 text-xs text-slate-500">{bu.blockedBy}</td>
-                        <td className="px-8 py-5 text-right">
+                        <td className="px-6 py-4 text-xs text-purple-400 font-semibold">{bu.blockedBy}</td>
+                        <td className="px-6 py-4 text-right">
                           <button
                             onClick={() => bu.id && handleUnblockUser(bu.id)}
-                            className="p-2.5 text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all border border-transparent hover:border-emerald-500/20"
-                            title="Unblock"
+                            className="p-2 text-purple-400/60 hover:text-emerald-400 hover:bg-emerald-500/15 rounded-xl transition-all border border-transparent hover:border-emerald-500/30"
+                            title="Buka Blokir"
                           >
-                            <RefreshCcw className="w-4.5 h-4.5" />
+                            <RefreshCcw className="w-4 h-4" />
                           </button>
                         </td>
                       </tr>
                     ))}
                     {blockedUsers.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-8 py-20 text-center text-slate-600 font-black text-[10px] uppercase tracking-widest">
-                          No blocked users
+                        <td colSpan={4} className="px-6 py-16 text-center text-purple-300/40 font-black text-xs uppercase tracking-widest">
+                          Tidak ada pengguna yang diblokir
                         </td>
                       </tr>
                     )}
@@ -1001,28 +1004,28 @@ export default function AdminPanel({ user }: AdminPanelProps) {
           <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300">
             {/* 1. Version Update & Cache Busting Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="glass-card p-8 rounded-[30px] border-white/5 flex flex-col justify-between">
+              <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 sm:p-8 shadow-xl backdrop-blur-md flex flex-col justify-between">
                 <div>
                   <h4 className="text-lg font-black text-white tracking-tight mb-2">Release Patrol & Cache Buster</h4>
-                  <p className="text-slate-400 text-xs font-semibold leading-relaxed mb-6">
-                    Membantu mengatasi browser user yang tidak ter-refresh setelah deployment update Netlify. Mengubah versi atau memaksa reload akan langsung menyegarkan browser seluruh staff secara real-time.
+                  <p className="text-purple-300/70 text-xs font-semibold leading-relaxed mb-6">
+                    Membantu mengatasi browser user yang tidak ter-refresh setelah deployment update. Mengubah versi atau memaksa reload akan langsung menyegarkan browser seluruh staff secara real-time.
                   </p>
                   
                   <form onSubmit={handleUpdateSystemVersion} className="space-y-4">
                     <div>
-                      <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Versi Target Sistem Terbaru</label>
+                      <label className="block text-[10px] font-black uppercase text-purple-300 tracking-wider mb-2">Versi Target Sistem Terbaru</label>
                       <div className="flex gap-3">
                         <input
                           type="text"
                           value={newVersionInput}
                           onChange={(e) => setNewVersionInput(e.target.value)}
                           placeholder="Contoh: 2.4.3"
-                          className="flex-1 px-4 py-3 bg-[#0f172a] border border-white/10 rounded-xl text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                          className="flex-1 px-4 py-3 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none transition-all placeholder-purple-400/30"
                         />
                         <button
                           type="submit"
                           disabled={updatingVersion}
-                          className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider"
+                          className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider shadow-lg shadow-purple-950/40"
                         >
                           {updatingVersion ? 'Saving...' : 'Set Versi'}
                         </button>
@@ -1031,12 +1034,12 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                   </form>
                 </div>
 
-                <div className="pt-6 border-t border-white/5 mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="pt-6 border-t border-purple-900/30 mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <span className="block text-[9px] font-black uppercase text-slate-500 tracking-widest leading-none">STATUS VERSI AKTIF</span>
+                    <span className="block text-[9px] font-black uppercase text-purple-400 tracking-widest leading-none">STATUS VERSI AKTIF</span>
                     <div className="flex items-center gap-2 mt-1.5">
                       <span className="text-lg font-black text-white">{appControlData?.currentVersion || '2.4.2'}</span>
-                      <span className="text-[10px] font-semibold text-slate-400 px-2 py-0.5 bg-white/5 border border-white/10 rounded-full">
+                      <span className="text-[10px] font-semibold text-purple-300 px-2 py-0.5 bg-purple-500/15 border border-purple-500/30 rounded-full">
                         Client: {CLIENT_VERSION}
                       </span>
                     </div>
@@ -1045,7 +1048,7 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                   <button
                     onClick={handleForceGlobalRefresh}
                     disabled={updatingVersion}
-                    className="flex items-center gap-2 px-6 py-3.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-black rounded-xl transition-all shadow-lg shadow-amber-950/20 text-xs uppercase tracking-widest active:scale-[0.98]"
+                    className="flex items-center gap-2 px-5 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-black rounded-xl transition-all shadow-lg shadow-amber-950/40 text-xs uppercase tracking-widest active:scale-[0.98]"
                     title="Memaksa semua user yang sedang membuka portal untuk me-reload halaman & membersihkan cache"
                   >
                     <RefreshCcw className={`w-4 h-4 ${updatingVersion ? 'animate-spin' : ''}`} />
@@ -1055,64 +1058,62 @@ export default function AdminPanel({ user }: AdminPanelProps) {
               </div>
 
               {/* Security Advisory / Explanation of Deployment Caching Card */}
-              <div className="glass-card p-8 rounded-[30px] border-white/5 bg-gradient-to-br from-indigo-950/20 to-transparent flex flex-col justify-between">
+              <div className="bg-[#0c0620]/90 border border-purple-900/40 rounded-2xl p-6 sm:p-8 shadow-xl backdrop-blur-md flex flex-col justify-between">
                 <div>
-                  <h4 className="text-sm font-black uppercase text-indigo-400 tracking-widest mb-3">Panduan Update & Caching</h4>
-                  <div className="space-y-3.5 text-xs text-slate-300 font-medium leading-relaxed">
+                  <h4 className="text-sm font-black uppercase text-purple-300 tracking-widest mb-3">Panduan Update & Caching</h4>
+                  <div className="space-y-3.5 text-xs text-purple-200/80 font-medium leading-relaxed">
                     <p>
-                      <strong className="text-white">Bagaimana cache browser bekerja?</strong> Saat Anda men-deploy update baru ke Netlify, file javascript & HTML akan di-cache secara otomatis oleh browser user untuk menjamin performa cepat.
+                      <strong className="text-white">Bagaimana cache browser bekerja?</strong> Saat Anda men-deploy update baru, file javascript & HTML akan di-cache secara otomatis oleh browser user untuk menjamin performa cepat.
                     </p>
                     <p>
                       <strong className="text-white">Mengapa user tidak melihat perubahan?</strong> Jika user tidak menutup tab atau merefresh browser secara manual, browser mereka akan terus menjalankan kode lama yang ada di memori aktif tab mereka.
                     </p>
                     <p>
-                      <strong className="text-white">Solusi Resmi:</strong> Kami merancang listener real-time. Dengan mengklik tombol <strong className="text-amber-300">"Paksa Hard Reload"</strong>, browser semua user yang sedang online akan langsung dimuat ulang otomatis dengan parameter bypass cache (<code className="text-indigo-300">?u=[timestamp]</code>), menghapus file cache lama seketika tanpa perlu men-crash-kan website!
+                      <strong className="text-white">Solusi Resmi:</strong> Kami merancang listener real-time. Dengan mengklik tombol <strong className="text-amber-300">"Paksa Hard Reload"</strong>, browser semua user yang sedang online akan langsung dimuat ulang otomatis dengan parameter bypass cache (<code className="text-purple-300">?u=[timestamp]</code>), menghapus file cache lama seketika tanpa perlu men-crash-kan website!
                     </p>
                   </div>
                 </div>
-                <div className="pt-4 text-[9px] text-[#8e85cf]/40 font-black uppercase tracking-widest mt-4 flex items-center gap-1.5 select-none">
-                  <Shield className="w-3.5 h-3.5 text-indigo-500/50" />
+                <div className="pt-4 text-[9px] text-purple-400 font-black uppercase tracking-widest mt-4 flex items-center gap-1.5 select-none">
+                  <Shield className="w-3.5 h-3.5 text-purple-400" />
                   Realtime Cache Control System
                 </div>
               </div>
             </div>
 
             {/* 2. Sesi & User Patrol Database List representation */}
-            <div className="glass-card rounded-[30px] border-white/5 overflow-hidden">
-              <div className="p-8 border-b border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
+              <div className="p-6 border-b border-purple-900/40 bg-[#0c0620]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h4 className="text-lg font-black text-white tracking-tight">Active Sessions & Member Patrol</h4>
-                  <p className="text-slate-400 text-xs font-semibold mt-1">Daftar staff terdaftar beserta pantauan aktivitas real-time dan opsi penghentian sesi paksa.</p>
+                  <p className="text-purple-300/70 text-xs font-semibold mt-1">Daftar staff terdaftar beserta pantauan aktivitas real-time dan opsi penghentian sesi paksa.</p>
                 </div>
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-3.5 py-1.5 border border-white/5 rounded-full select-none">
+                <div className="text-[10px] font-black text-purple-300 uppercase tracking-widest bg-purple-500/15 px-3.5 py-1.5 border border-purple-500/30 rounded-full select-none">
                   {allUsers.length} Staff Terdaftar
                 </div>
               </div>
 
-              <div className="overflow-x-auto text-slate-200">
+              <div className="overflow-x-auto custom-scrollbar text-slate-200">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-white/[0.02]">
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Nama Staff</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Status Online</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Terakhir Aktif</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Sesi Admin Status</th>
-                      <th className="px-8 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] text-right">Aksi Kontrol</th>
+                    <tr className="bg-[#0c0620] border-b border-purple-900/40 text-purple-300 font-black text-[10px] uppercase tracking-wider">
+                      <th className="px-6 py-4">Nama Staff</th>
+                      <th className="px-6 py-4">Status Online</th>
+                      <th className="px-6 py-4">Terakhir Aktif</th>
+                      <th className="px-6 py-4">Sesi Admin Status</th>
+                      <th className="px-6 py-4 text-right">Aksi Kontrol</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.03]">
+                  <tbody className="divide-y divide-purple-900/20 text-slate-200">
                     {allUsers.map((usr: any) => {
-                      // Check if online (active in custom past 5 mins window)
                       let isOnline = false;
                       if (usr.lastActiveAt) {
                         const activeDiff = currentTime - new Date(usr.lastActiveAt).getTime();
-                        isOnline = activeDiff < 300000; // 5 mins range
+                        isOnline = activeDiff < 300000;
                       }
                       
                       const forcedState = activeForceLogouts[usr.uid];
                       const isBlocked = blockedUsers.some((bu: any) => bu.id === usr.uid);
 
-                      // Calculate remaining time for countdown UI
                       let remainingSeconds = 0;
                       let isForcedActive = false;
                       if (forcedState) {
@@ -1137,40 +1138,40 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                       }
 
                       return (
-                        <tr key={usr.uid} className="hover:bg-white/[0.04] transition-all group">
-                          <td className="px-8 py-5">
+                        <tr key={usr.uid} className="hover:bg-purple-900/20 transition-all group">
+                          <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 bg-indigo-500/10 text-indigo-400 font-bold rounded-xl flex items-center justify-center border border-indigo-500/20 text-xs">
+                              <div className="w-9 h-9 bg-purple-500/15 text-purple-300 font-bold rounded-xl flex items-center justify-center border border-purple-500/30 text-xs">
                                 {usr.displayName ? usr.displayName.slice(0, 2).toUpperCase() : 'ST'}
                               </div>
                               <div>
                                 <span className="block text-sm text-white font-bold">{usr.displayName || 'Staf'}</span>
-                                <span className="block text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{usr.email || usr.uid}</span>
+                                <span className="block text-[10px] text-purple-300/60 font-semibold uppercase tracking-wider">{usr.email || usr.uid}</span>
                               </div>
                             </div>
                           </td>
-                          <td className="px-8 py-5">
+                          <td className="px-6 py-4">
                             {isOnline ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full uppercase tracking-wider animate-pulse">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 rounded-full uppercase tracking-wider animate-pulse">
                                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
                                 Online
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-black text-slate-400 bg-white/5 border border-white/10 rounded-full uppercase tracking-wider">
-                                <span className="w-1.5 h-1.5 bg-slate-500 rounded-full" />
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-black text-purple-400/60 bg-[#0c0620] border border-purple-900/40 rounded-full uppercase tracking-wider">
+                                <span className="w-1.5 h-1.5 bg-purple-500/40 rounded-full" />
                                 Offline
                               </span>
                             )}
                           </td>
-                          <td className="px-8 py-5 text-sm font-semibold text-slate-400">
+                          <td className="px-6 py-4 text-xs font-semibold text-purple-200">
                             {usr.lastActiveAt ? format(new Date(usr.lastActiveAt), 'yyyy-MM-dd HH:mm:ss') : 'Belum tercatat'}
                           </td>
-                          <td className="px-8 py-5">
+                          <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1.5">
                               {usr.role === 'admin' ? (
-                                <span className="px-2 py-0.5 text-[9px] font-black uppercase text-indigo-300 bg-indigo-500/20 border border-indigo-500/30 rounded">ADMIN</span>
+                                <span className="px-2 py-0.5 text-[9px] font-black uppercase text-purple-300 bg-purple-500/20 border border-purple-500/30 rounded">ADMIN</span>
                               ) : (
-                                <span className="px-2 py-0.5 text-[9px] font-black uppercase text-slate-400 bg-white/5 border border-white/10 rounded">STAFF</span>
+                                <span className="px-2 py-0.5 text-[9px] font-black uppercase text-purple-400/70 bg-[#0c0620] border border-purple-900/40 rounded">STAFF</span>
                               )}
                               
                               {isForcedActive && (
@@ -1182,12 +1183,12 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                               )}
                             </div>
                           </td>
-                          <td className="px-8 py-5">
+                          <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2">
                               {isForcedActive ? (
                                 <button
                                   onClick={() => handleClearForceLogout(usr.uid)}
-                                  className="px-3.5 py-1.5 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 rounded-xl transition-all text-[9px] font-black uppercase tracking-wider"
+                                  className="px-3.5 py-1.5 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 border border-emerald-500/30 rounded-xl transition-all text-[9px] font-black uppercase tracking-wider"
                                   title="Pulihkan akses sesi agar user bisa login kembali"
                                 >
                                   Batalkan Paksa Logout ({Math.floor(remainingSeconds / 60)}:{(remainingSeconds % 60).toString().padStart(2, '0')})
@@ -1195,7 +1196,7 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                               ) : (
                                 <button
                                   onClick={() => handleForceLogoutUser(usr.uid, usr.email || usr.displayName)}
-                                  className="px-3.5 py-1.5 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 rounded-xl transition-all text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.98]"
+                                  className="px-3.5 py-1.5 bg-rose-600/15 hover:bg-rose-600/25 text-rose-300 border border-rose-500/30 rounded-xl transition-all text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.98]"
                                   title="Paksa logout sesi user ini (Sesi akan diakhiri seketika)"
                                 >
                                   <LogOut className="w-3 h-3" />
@@ -1209,7 +1210,7 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                     })}
                     {allUsers.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-8 py-20 text-center text-slate-500 font-extrabold text-[10px] uppercase tracking-widest">
+                        <td colSpan={5} className="px-6 py-16 text-center text-purple-300/40 font-black text-xs uppercase tracking-widest">
                           Belum ada data staff terdaftar di database.
                         </td>
                       </tr>
@@ -1227,36 +1228,36 @@ export default function AdminPanel({ user }: AdminPanelProps) {
 
         {activeSubTab === 'settings' && (
           <div className="max-w-2xl mx-auto">
-            <div className="glass-card p-10 rounded-[40px] border-white/5 shadow-2xl">
-              <div className="flex items-center gap-4 mb-10 pb-6 border-b border-white/5">
-                <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+            <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-3xl p-8 sm:p-10 shadow-2xl backdrop-blur-md">
+              <div className="flex items-center gap-4 mb-8 pb-6 border-b border-purple-900/30">
+                <div className="w-12 h-12 bg-purple-500/15 rounded-2xl flex items-center justify-center text-purple-300 border border-purple-500/30">
                   <Key className="w-6 h-6" />
                 </div>
                 <div>
                   <h4 className="text-xl font-black text-white tracking-tight">Admin Credentials</h4>
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-0.5">Update Panel Access</p>
+                  <p className="text-purple-400 text-xs font-black uppercase tracking-widest mt-0.5">Perbarui Kredensial Akses Panel</p>
                 </div>
               </div>
 
-              <form onSubmit={handleUpdateConfig} className="space-y-8">
+              <form onSubmit={handleUpdateConfig} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">New Username</label>
+                  <label className="text-[10px] font-black text-purple-300 uppercase tracking-widest px-1">New Username</label>
                   <input
                     type="text"
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
-                    className="w-full px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white placeholder-purple-400/30 text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                     placeholder={config?.username || 'admin'}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">New Password</label>
+                  <label className="text-[10px] font-black text-purple-300 uppercase tracking-widest px-1">New Password</label>
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-5 py-3.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white placeholder-purple-400/30 text-xs font-semibold focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                     placeholder="••••••••"
                   />
                 </div>
@@ -1264,54 +1265,54 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-indigo-900/20 text-xs uppercase tracking-widest"
+                  className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-black rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-purple-950/40 text-xs uppercase tracking-widest active:scale-[0.98]"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                  Save Changes
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Simpan Perubahan
                 </button>
               </form>
 
-              <div className="mt-12 pt-10 border-t border-white/5">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-400 border border-amber-500/20">
+              <div className="mt-10 pt-8 border-t border-purple-900/30">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-amber-500/15 rounded-2xl flex items-center justify-center text-amber-300 border border-amber-500/30">
                     <RefreshCcw className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="text-xl font-black text-white tracking-tight">Maintenance</h4>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-0.5">System Optimization</p>
+                    <h4 className="text-xl font-black text-white tracking-tight">Maintenance & Tools</h4>
+                    <p className="text-purple-400 text-xs font-black uppercase tracking-widest mt-0.5">Optimasi & Inisialisasi Database</p>
                   </div>
                 </div>
                 
-                <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-[32px] space-y-6">
+                <div className="p-6 bg-[#0c0620] border border-purple-900/40 rounded-2xl space-y-5">
                   <div className="flex items-start gap-4">
-                    <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5" />
-                    <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                      Gunakan tombol di bawah untuk menghitung ulang seluruh statistik dashboard dari nol. Gunakan hanya jika angka di dashboard terasa tidak sinkron dengan data asli. Proses ini mungkin memakan waktu jika data sangat banyak.
+                    <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-purple-200/80 font-medium leading-relaxed">
+                      Gunakan tombol di bawah untuk menghitung ulang seluruh statistik dashboard dari nol. Gunakan jika angka di dashboard terasa tidak sinkron dengan data asli.
                     </p>
                   </div>
                   <button
                     onClick={handleRecalculateStats}
                     disabled={isRecalculating}
-                    className="w-full py-4 bg-amber-600/10 hover:bg-amber-600/20 text-amber-400 font-black rounded-2xl transition-all flex items-center justify-center gap-3 border border-amber-500/20 text-xs uppercase tracking-widest disabled:opacity-50"
+                    className="w-full py-3.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-black rounded-xl transition-all flex items-center justify-center gap-3 border border-amber-500/30 text-xs uppercase tracking-widest disabled:opacity-50 active:scale-[0.98]"
                   >
-                    {isRecalculating ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
-                    Recalculate Dashboard Stats
+                    {isRecalculating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                    Hitung Ulang Statistik Dashboard
                   </button>
                 </div>
 
-                <div className="p-6 bg-indigo-500/5 border border-indigo-500/10 rounded-[32px] space-y-6 mt-6">
+                <div className="p-6 bg-[#0c0620] border border-purple-900/40 rounded-2xl space-y-5 mt-5">
                   <div className="flex items-start gap-4">
-                    <Database className="w-5 h-5 text-indigo-400 mt-0.5" />
-                    <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                      <strong>Inisialisasi Database Baru:</strong> Bila database Anda (<code className="text-xs text-indigo-300">stock-pro-admin</code>) masih kosong atau baru dibuat, klik tombol di bawah untuk mengisi data master default (PIC, Status Aset, Marketplace) serta setelan kontrol versi sistem secara otomatis.
+                    <Database className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-purple-200/80 font-medium leading-relaxed">
+                      <strong>Inisialisasi Database Baru:</strong> Bila database Anda (<code className="text-xs text-purple-300 font-bold">stock-pro-admin</code>) masih kosong, klik tombol di bawah untuk mengisi data master default (PIC, Status Aset, Marketplace) serta setelan kontrol versi sistem.
                     </p>
                   </div>
                   <button
                     onClick={handleBootstrapDatabase}
                     disabled={isBootstrapping}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 text-xs uppercase tracking-widest active:scale-[0.98]"
+                    className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-black rounded-xl transition-all flex items-center justify-center gap-3 text-xs uppercase tracking-widest active:scale-[0.98] shadow-lg shadow-purple-950/40"
                   >
-                    {isBootstrapping ? <Loader2 className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
+                    {isBootstrapping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
                     Inisialisasi & Seed Database
                   </button>
                 </div>
@@ -1325,56 +1326,56 @@ export default function AdminPanel({ user }: AdminPanelProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-[#0f172a] rounded-[2rem] border border-white/5 p-8"
+            className="bg-[#130b2e]/90 border border-purple-900/30 rounded-3xl p-6 sm:p-8 shadow-xl backdrop-blur-md"
           >
             <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20">
-                <Key className="w-6 h-6 text-indigo-400" />
+              <div className="w-12 h-12 bg-purple-500/15 rounded-2xl flex items-center justify-center border border-purple-500/30 text-purple-300">
+                <Key className="w-6 h-6" />
               </div>
               <div>
                 <h4 className="text-xl font-black text-white">Autentikasi Keamanan (2FA)</h4>
-                <p className="text-slate-400 text-sm mt-1">Kelola akses staf menggunakan kode rahasia 6-digit.</p>
+                <p className="text-purple-300/70 text-xs font-semibold mt-1">Kelola akses staf menggunakan kode rahasia 6-digit.</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-[#121b2f] p-6 rounded-3xl border border-white/5">
+              <div className="bg-[#0c0620] p-6 rounded-2xl border border-purple-900/40">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h5 className="font-bold text-white">Wajibkan Kode 2FA</h5>
-                    <p className="text-xs text-slate-400 mt-1">Staf harus memasukkan kode untuk login</p>
+                    <p className="text-xs text-purple-300/70 mt-1">Staf harus memasukkan kode untuk login</p>
                   </div>
                   <button
                     onClick={handleToggleAuthCode}
-                    className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${securityData?.authCodeRequired ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                    className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${securityData?.authCodeRequired ? 'bg-emerald-500' : 'bg-purple-950/60 border border-purple-900/40'}`}
                   >
                     <div className={`w-6 h-6 rounded-full bg-white transition-transform ${securityData?.authCodeRequired ? 'translate-x-6' : 'translate-x-0'}`} />
                   </button>
                 </div>
 
-                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-                  <p className="text-sm text-blue-300 leading-relaxed">
+                <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                  <p className="text-xs text-purple-200 leading-relaxed font-medium">
                     Jika fitur ini <strong>ON</strong>, semua staf yang login menggunakan Google harus memasukkan kode 6 digit di bawah ini. Jika <strong>OFF</strong>, staf dapat login langsung.
                   </p>
                 </div>
               </div>
 
-              <div className="bg-[#121b2f] p-6 rounded-3xl border border-white/5 flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-slate-800">
+              <div className="bg-[#0c0620] p-6 rounded-2xl border border-purple-900/40 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-purple-950">
                   <div 
-                    className="h-full bg-indigo-500 transition-all duration-1000 ease-linear"
+                    className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-1000 ease-linear"
                     style={{ width: `${(totpRemaining / 60) * 100}%` }}
                   />
                 </div>
                 
-                <h5 className="font-black text-slate-400 tracking-widest text-xs uppercase mb-4">Kode Live Saat Ini</h5>
+                <h5 className="font-black text-purple-400 tracking-widest text-[10px] uppercase mb-4">Kode Live Saat Ini</h5>
                 
-                <div className="text-5xl font-black tracking-[0.2em] text-white tabular-nums drop-shadow-2xl">
+                <div className="text-5xl font-black tracking-[0.2em] text-white tabular-nums drop-shadow-2xl font-mono">
                   {currentTOTP || '------'}
                 </div>
                 
-                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500">
-                  <RefreshCcw className={`w-3 h-3 ${totpRemaining < 10 ? 'text-rose-400 animate-spin' : ''}`} />
+                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-purple-300/70">
+                  <RefreshCcw className={`w-3.5 h-3.5 ${totpRemaining < 10 ? 'text-rose-400 animate-spin' : 'text-purple-400'}`} />
                   <span className={totpRemaining < 10 ? 'text-rose-400' : ''}>Berganti dalam {totpRemaining} detik</span>
                 </div>
               </div>
@@ -1387,37 +1388,37 @@ export default function AdminPanel({ user }: AdminPanelProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-[#0f172a] rounded-[2rem] border border-white/5 p-8"
+            className="bg-[#130b2e]/90 border border-purple-900/30 rounded-3xl p-6 sm:p-8 shadow-xl backdrop-blur-md"
           >
             <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20">
-                <Megaphone className="w-6 h-6 text-indigo-400" />
+              <div className="w-12 h-12 bg-purple-500/15 rounded-2xl flex items-center justify-center border border-purple-500/30 text-purple-300">
+                <Megaphone className="w-6 h-6" />
               </div>
               <div>
                 <h4 className="text-xl font-black text-white">Notifikasi Global Real-Time</h4>
-                <p className="text-slate-400 text-sm mt-1">Kirim pesan penting ke seluruh perangkat yang sedang aktif.</p>
+                <p className="text-purple-300/70 text-xs font-semibold mt-1">Kirim pesan penting ke seluruh perangkat yang sedang aktif.</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Form Send Notification */}
-              <div className="bg-[#121b2f] p-6 rounded-3xl border border-white/5 space-y-6">
+              <div className="bg-[#0c0620] p-6 rounded-2xl border border-purple-900/40 space-y-6">
                 <div>
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest block mb-2">Tipe Notifikasi</label>
+                  <label className="text-xs font-black text-purple-300 uppercase tracking-widest block mb-2">Tipe Notifikasi</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { id: 'wa-alert', label: 'WhatsApp', icon: MessageCircle, color: 'emerald' },
-                      { id: 'info', label: 'Info', icon: AlertCircle, color: 'indigo' },
-                      { id: 'warning', label: 'Warning', icon: AlertCircle, color: 'amber' },
-                      { id: 'success', label: 'Success', icon: CheckCircle2, color: 'blue' }
+                      { id: 'wa-alert', label: 'WhatsApp', icon: MessageCircle, activeStyle: 'bg-emerald-500/20 border-emerald-500 text-emerald-300' },
+                      { id: 'info', label: 'Info', icon: AlertCircle, activeStyle: 'bg-indigo-500/20 border-indigo-500 text-indigo-300' },
+                      { id: 'warning', label: 'Warning', icon: AlertCircle, activeStyle: 'bg-amber-500/20 border-amber-500 text-amber-300' },
+                      { id: 'success', label: 'Success', icon: CheckCircle2, activeStyle: 'bg-purple-500/20 border-purple-500 text-purple-300' }
                     ].map((t) => (
                       <button
                         key={t.id}
                         onClick={() => setNotificationType(t.id as any)}
                         className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
                           notificationType === t.id 
-                            ? `bg-${t.color}-500/20 border-${t.color}-500/50 text-${t.color}-400 shadow-[0_0_15px_rgba(var(--${t.color}-500),0.2)]` 
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                            ? t.activeStyle 
+                            : 'bg-[#130b2e] border-purple-900/40 text-purple-400/60 hover:text-purple-200'
                         }`}
                       >
                         <t.icon className="w-5 h-5" />
@@ -1428,18 +1429,18 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                 </div>
 
                 <div>
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest block mb-2">Pesan Notifikasi</label>
+                  <label className="text-xs font-black text-purple-300 uppercase tracking-widest block mb-2">Pesan Notifikasi</label>
                   <textarea
                     value={notificationMessage}
                     onChange={(e) => setNotificationMessage(e.target.value)}
                     placeholder="Ketik pesan untuk semua user..."
                     rows={3}
-                    className="w-full bg-[#0f172a] text-white py-3 px-4 rounded-xl border border-white/10 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none transition-all placeholder:text-white/20"
+                    className="w-full bg-[#130b2e] text-white py-3 px-4 rounded-xl border border-purple-900/40 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none resize-none transition-all placeholder:text-purple-400/30 text-xs font-semibold"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest block mb-2">Durasi Tampil (Menit)</label>
+                  <label className="text-xs font-black text-purple-300 uppercase tracking-widest block mb-2">Durasi Tampil (Menit)</label>
                   <div className="flex flex-col gap-3">
                     <div className="flex gap-2">
                       {[
@@ -1453,8 +1454,8 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                           onClick={() => setNotificationDuration(preset.value)}
                           className={`flex-1 py-2 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all ${
                             notificationDuration === preset.value
-                              ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400'
-                              : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                              ? 'bg-purple-500/20 border-purple-500 text-purple-300'
+                              : 'bg-[#130b2e] border-purple-900/40 text-purple-400/60 hover:text-purple-200'
                           }`}
                         >
                           {preset.label}
@@ -1462,17 +1463,17 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                       ))}
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-500 font-bold">Kustom:</span>
+                      <span className="text-xs text-purple-300 font-bold">Kustom:</span>
                       <input
                         type="number"
                         min="0.1"
                         step="0.1"
                         value={notificationDuration}
                         onChange={(e) => setNotificationDuration(parseFloat(e.target.value) || 0)}
-                        className="flex-1 bg-[#0f172a] text-white py-2 px-3 rounded-xl border border-white/10 focus:border-indigo-500 outline-none text-sm"
+                        className="flex-1 bg-[#130b2e] text-white py-2 px-3 rounded-xl border border-purple-900/40 focus:border-purple-500 outline-none text-xs font-semibold"
                         placeholder="Contoh: 10"
                       />
-                      <span className="text-xs text-slate-500 font-bold">Menit</span>
+                      <span className="text-xs text-purple-300 font-bold">Menit</span>
                     </div>
                   </div>
                 </div>
@@ -1480,20 +1481,20 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                 <button
                   onClick={(e) => handleSendGlobalNotification(e)}
                   disabled={isSendingNotification || !notificationMessage.trim()}
-                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black rounded-xl transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2 text-xs uppercase tracking-widest active:scale-[0.98]"
+                  className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black rounded-xl transition-all shadow-lg shadow-purple-950/40 flex items-center justify-center gap-2 text-xs uppercase tracking-widest active:scale-[0.98]"
                 >
                   {isSendingNotification ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
-                  Kirim Sekarang
+                  Kirim Notifikasi
                 </button>
               </div>
 
               {/* Quick Actions & Status */}
               <div className="space-y-6">
                 {activeGlobalAlert?.isActive && (
-                  <div className="bg-rose-500/10 p-6 rounded-3xl border border-rose-500/20 animate-pulse">
+                  <div className="bg-rose-500/10 p-6 rounded-2xl border border-rose-500/30 animate-pulse">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h5 className="font-black text-rose-400 text-sm uppercase tracking-widest mb-1 flex items-center gap-2">
+                        <h5 className="font-black text-rose-400 text-xs uppercase tracking-widest mb-1 flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-rose-500" />
                           Notifikasi Sedang Aktif
                         </h5>
@@ -1515,41 +1516,41 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                   </div>
                 )}
 
-                <div className="bg-[#121b2f] p-6 rounded-3xl border border-white/5">
-                  <h5 className="font-bold text-white mb-4 flex items-center gap-2">
+                <div className="bg-[#0c0620] p-6 rounded-2xl border border-purple-900/40">
+                  <h5 className="font-bold text-white mb-4 flex items-center gap-2 text-sm">
                     <MessageCircle className="w-4 h-4 text-emerald-400" />
-                    Preset Cepat (1-Klik)
+                    Preset Pesan Cepat (1-Klik)
                   </h5>
                   <div className="space-y-3">
                     <button
                       onClick={() => handleSendGlobalNotification(undefined, 'wa-alert', 'Ada Chat WhatsApp masuk dari customer, mohon segera dicek!', 0.25)}
-                      className="w-full flex items-center justify-between p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl transition-all group"
+                      className="w-full flex items-center justify-between p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl transition-all group text-left"
                     >
-                      <span className="text-sm font-semibold text-emerald-100">"Ada Chat WA Baru" (15 Detik)</span>
-                      <Megaphone className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-semibold text-emerald-100">"Ada Chat WA Baru" (15 Detik)</span>
+                      <Megaphone className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0 ml-2" />
                     </button>
                     
                     <button
                       onClick={() => handleSendGlobalNotification(undefined, 'warning', 'Sistem sedang sibuk / lambat. Harap bersabar dan jangan refresh berulang kali.', 5)}
-                      className="w-full flex items-center justify-between p-3.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all group"
+                      className="w-full flex items-center justify-between p-3.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all group text-left"
                     >
-                      <span className="text-sm font-semibold text-amber-100">"Sistem Sibuk" (5 Menit)</span>
-                      <Megaphone className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-semibold text-amber-100">"Sistem Sibuk" (5 Menit)</span>
+                      <Megaphone className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0 ml-2" />
                     </button>
                     
                     <button
                       onClick={() => handleSendGlobalNotification(undefined, 'info', 'Mohon selesaikan packing dan orderan secepatnya, jam pickup akan segera tiba.', 60)}
-                      className="w-full flex items-center justify-between p-3.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl transition-all group"
+                      className="w-full flex items-center justify-between p-3.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 rounded-xl transition-all group text-left"
                     >
-                      <span className="text-sm font-semibold text-indigo-100">"Persiapan Pickup" (1 Jam)</span>
-                      <Megaphone className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-semibold text-purple-100">"Persiapan Pickup" (1 Jam)</span>
+                      <Megaphone className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform shrink-0 ml-2" />
                     </button>
                   </div>
                 </div>
 
-                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-start gap-3">
-                  <Info className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-start gap-3">
+                  <Info className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-purple-200/80 leading-relaxed font-medium">
                     Notifikasi sekarang tidak bisa ditutup manual oleh staf. Pesan akan hilang secara otomatis sesuai timer atau dengan menekan tombol Hentikan Notifikasi di panel ini.
                   </p>
                 </div>

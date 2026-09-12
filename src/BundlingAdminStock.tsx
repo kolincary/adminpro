@@ -8,7 +8,8 @@ import SearchableSelect, { SearchableSelectHandle } from './SearchableSelect';
 import { 
   Calendar, PlusCircle, Search, Trash2, X, FileSpreadsheet, Loader2, 
   ArrowUpDown, ChevronLeft, ChevronRight, Package, Inbox, AlertTriangle, 
-  Minus, Plus, Clipboard, User as UserIcon, Tag, Info, ArrowUpRight, ArrowDownLeft
+  Minus, Plus, Clipboard, User as UserIcon, Tag, Info, ArrowUpRight, ArrowDownLeft,
+  Boxes, Sparkles, TrendingUp, CheckCircle2, Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -44,12 +45,11 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
     const checkMarqueeTime = () => {
       const now = new Date();
       const min = now.getMinutes();
-      // Show for first 5 minutes of every half hour: [00-05) and [30-35)
       const shouldShow = (min >= 0 && min < 5) || (min >= 30 && min < 35);
       setShowMarquee(shouldShow);
     };
     checkMarqueeTime();
-    const timer = setInterval(checkMarqueeTime, 10000); // Check every 10 seconds
+    const timer = setInterval(checkMarqueeTime, 10000);
     return () => clearInterval(timer);
   }, []);
 
@@ -138,7 +138,6 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
         return 0;
       };
 
-      // Sort client-side by date desc, then createdAt desc
       fetchedLogs.sort((a, b) => {
         const dateA = a.date || '';
         const dateB = b.date || '';
@@ -151,244 +150,201 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
       setLogs(fetchedLogs);
       setLoading(false);
     }, (error) => {
+      console.error("Error fetching logs:", error);
+      handleFirestoreError(error, OperationType.READ, 'stok_bundling_admin');
       setLoading(false);
-      try {
-        handleFirestoreError(error, OperationType.GET, 'stok_bundling_admin');
-      } catch (err) {
-        console.error("Firestore loading error:", err);
-      }
     });
 
     return () => unsubscribe();
   }, [user]);
 
-  // 3. Dynamic Inventory Summary (Map of SKU to quantities)
-  const inventorySummary = useMemo(() => {
-    const summary: Record<string, { sku: string; totalIn: number; totalOut: number; balance: number }> = {};
+  // 3. Compute Realtime Stock Summary per SKU
+  const stockSummary = useMemo(() => {
+    const summaryMap: Record<string, { masuk: number; keluar: number; balance: number }> = {};
     
-    logs.forEach((log) => {
-      if (!summary[log.sku]) {
-        summary[log.sku] = { sku: log.sku, totalIn: 0, totalOut: 0, balance: 0 };
+    logs.forEach(log => {
+      const targetSku = log.sku.trim().toUpperCase();
+      if (!targetSku) return;
+      if (!summaryMap[targetSku]) {
+        summaryMap[targetSku] = { masuk: 0, keluar: 0, balance: 0 };
       }
       if (log.type === 'MASUK') {
-        summary[log.sku].totalIn += log.quantity;
-      } else {
-        summary[log.sku].totalOut += log.quantity;
+        summaryMap[targetSku].masuk += log.quantity;
+        summaryMap[targetSku].balance += log.quantity;
+      } else if (log.type === 'KELUAR') {
+        summaryMap[targetSku].keluar += log.quantity;
+        summaryMap[targetSku].balance -= log.quantity;
       }
-      summary[log.sku].balance = summary[log.sku].totalIn - summary[log.sku].totalOut;
     });
 
-    return Object.values(summary).sort((a, b) => b.balance - a.balance);
+    return Object.entries(summaryMap).map(([skuKey, stats]) => ({
+      sku: skuKey,
+      ...stats
+    })).sort((a, b) => a.sku.localeCompare(b.sku));
   }, [logs]);
 
-  // Filters for summary list
-  const filteredSummary = useMemo(() => {
-    return inventorySummary.filter(item => 
-      item.sku.toLowerCase().includes(summarySearch.toLowerCase())
-    );
-  }, [inventorySummary, summarySearch]);
+  // KPIs
+  const totalStockOnHand = useMemo(() => {
+    return stockSummary.reduce((acc, curr) => acc + curr.balance, 0);
+  }, [stockSummary]);
 
-  // Filters for historical ledger logs list
+  const totalMasukAll = useMemo(() => {
+    return logs.filter(l => l.type === 'MASUK').reduce((acc, curr) => acc + curr.quantity, 0);
+  }, [logs]);
+
+  const totalKeluarAll = useMemo(() => {
+    return logs.filter(l => l.type === 'KELUAR').reduce((acc, curr) => acc + curr.quantity, 0);
+  }, [logs]);
+
+  // Filtered Stock Summary for Search
+  const filteredSummary = useMemo(() => {
+    if (!summarySearch.trim()) return stockSummary;
+    const term = summarySearch.toLowerCase();
+    return stockSummary.filter(item => item.sku.toLowerCase().includes(term));
+  }, [stockSummary, summarySearch]);
+
+  // Filtered Logs
   const filteredLogs = useMemo(() => {
-    return logs.filter(log => 
-      log.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.pic.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (log.notes && log.notes.toLowerCase().includes(searchTerm.toLowerCase()))
+    if (!searchTerm.trim()) return logs;
+    const term = searchTerm.toLowerCase();
+    return logs.filter(l => 
+      l.sku.toLowerCase().includes(term) ||
+      l.pic.toLowerCase().includes(term) ||
+      (l.notes && l.notes.toLowerCase().includes(term)) ||
+      l.date.includes(term)
     );
   }, [logs, searchTerm]);
 
-  // Submit Handler
+  // Pagination
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredLogs.slice(start, start + itemsPerPage);
+  }, [filteredLogs, currentPage, itemsPerPage]);
+
+  // Handle Form Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser) {
-      triggerToast('Anda harus login terlebih dahulu.', 'error');
-      return;
-    }
     if (!sku.trim()) {
-      triggerToast('SKU Barang Bundling wajib diisi.', 'error');
+      triggerToast('Pilih atau ketik SKU terlebih dahulu!', 'error');
       return;
     }
-    if (quantity <= 0) {
-      triggerToast('Jumlah unit harus lebih dari 0.', 'error');
+    if (!quantity || quantity <= 0) {
+      triggerToast('Jumlah unit harus lebih dari 0!', 'error');
       return;
     }
-    if (!pic) {
-      triggerToast('PIC Admin wajib diisi.', 'error');
+    if (!pic.trim()) {
+      triggerToast('Pilih PIC Admin yang bertanggung jawab!', 'error');
       return;
-    }
-
-    // Double check if drawing more than balance
-    if (type === 'KELUAR') {
-      const parentSummary = inventorySummary.find(item => item.sku === sku);
-      const currentBalance = parentSummary ? parentSummary.balance : 0;
-      if (quantity > currentBalance) {
-        if (!window.confirm(`Stok di rak admin untuk ${sku} hanya tersisa ${currentBalance} unit. Apakah Anda tetap ingin menarik keluar ${quantity} unit?`)) {
-          return;
-        }
-      }
     }
 
     setActionLoading(true);
-    const savePromise = addDoc(collection(db, 'stok_bundling_admin'), {
-      date,
-      sku: sku.trim(),
-      quantity,
-      type,
-      pic,
-      notes: notes.trim(),
-      createdBy: user?.uid || auth.currentUser?.uid || '',
-      createdAt: serverTimestamp(),
-      userEmail: user?.email || auth.currentUser?.email || ''
-    });
+    try {
+      const cleanSku = sku.trim().toUpperCase();
+      const currentStockItem = stockSummary.find(s => s.sku === cleanSku);
+      const currentBalance = currentStockItem ? currentStockItem.balance : 0;
 
-    // Save PIC preference
-    localStorage.setItem('selectedBundlingAdminPic', pic);
-
-    // Reset SKU, Quantity, Keterangan inputs immediately so the UI is ready for consecutive logs
-    setSku('');
-    setQuantity(1);
-    setNotes('');
-
-    // Stop loading immediately after 300ms since Firestore updates the lists instantly via onSnapshot latency compensation
-    setTimeout(() => {
-      setActionLoading(false);
-      triggerToast(`Stok ${sku} berhasil dicatat sebagai 【${type}】.`);
-      skuSelectRef.current?.focus();
-    }, 300);
-
-    // Track original write promise asynchronously in the background
-    savePromise.catch((err) => {
-      try {
-        handleFirestoreError(err, OperationType.WRITE, 'stok_bundling_admin');
-      } catch (firestoreErr: any) {
-        let msg = 'Gagal menyimpan log stok bundling.';
-        try {
-          const parsed = JSON.parse(firestoreErr.message);
-          msg += ` (${parsed.error || parsed})`;
-        } catch {
-          msg += ` (${firestoreErr.message || firestoreErr})`;
+      if (type === 'KELUAR' && quantity > currentBalance) {
+        if (!window.confirm(`Perhatian: Sisa stok saat ini (${currentBalance}) lebih kecil dari jumlah keluar (${quantity}). Tetap lanjutkan?`)) {
+          setActionLoading(false);
+          return;
         }
-        triggerToast(msg, 'error');
       }
-      console.error(err);
-    });
+
+      await addDoc(collection(db, 'stok_bundling_admin'), {
+        date,
+        sku: cleanSku,
+        quantity: Number(quantity),
+        type,
+        pic: pic.trim(),
+        notes: notes.trim(),
+        createdAt: serverTimestamp(),
+        createdBy: user?.displayName || user?.email || 'admin',
+        userEmail: user?.email || ''
+      });
+
+      triggerToast(`Berhasil mencatat mutasi ${type} untuk SKU: ${cleanSku}!`, 'success');
+      localStorage.setItem('selectedBundlingAdminPic', pic.trim());
+
+      setSku('');
+      setQuantity(1);
+      setNotes('');
+      if (skuSelectRef.current) {
+        skuSelectRef.current.focus();
+      }
+    } catch (err) {
+      console.error('Error submitting log:', err);
+      handleFirestoreError(err, OperationType.CREATE, 'stok_bundling_admin');
+      triggerToast('Gagal menyimpan mutasi. Silakan periksa koneksi.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  // Delete Log
   const handleDeleteLog = (log: BundlingLog) => {
-    const isAdminUser = userProfile?.role === 'admin' || user?.email === 'jgilbeth92@gmail.com';
-    const isOwner = user?.uid === log.createdBy;
-
-    if (!isAdminUser && !isOwner) {
-      triggerToast('Anda hanya diperbolehkan menghapus log yang Andat tulis sendiri.', 'error');
-      return;
-    }
     setDeleteConfirmId(log);
   };
 
   const confirmDelete = async () => {
     if (!deleteConfirmId) return;
-    setActionLoading(true);
     try {
       await deleteDoc(doc(db, 'stok_bundling_admin', deleteConfirmId.id));
-      triggerToast('Log transaksi stok berhasil dihapus.');
-    } catch (err) {
-      triggerToast('Gagal menghapus log transaksi.', 'error');
-      console.error(err);
-    } finally {
-      setActionLoading(false);
+      triggerToast('Log mutasi berhasil dihapus dari database.', 'success');
       setDeleteConfirmId(null);
+    } catch (err) {
+      console.error('Error deleting log:', err);
+      handleFirestoreError(err, OperationType.DELETE, `stok_bundling_admin/${deleteConfirmId.id}`);
+      triggerToast('Gagal menghapus log mutasi.', 'error');
     }
   };
 
-  // Excel Export
   const handleExportExcel = () => {
-    if (logs.length === 0) {
-      triggerToast('Tidak ada log transaksi untuk diexport.', 'error');
-      return;
+    try {
+      const wsData = [
+        ['No', 'Tanggal', 'SKU Barang Bundling', 'Tipe Alur', 'Jumlah', 'PIC Admin', 'Keterangan / Notes'],
+        ...logs.map((l, index) => [
+          index + 1,
+          l.date,
+          l.sku,
+          l.type,
+          l.quantity,
+          l.pic,
+          l.notes || '-'
+        ])
+      ];
+
+      const wsSummary = [
+        ['No', 'SKU Barang Bundling', 'Total Masuk (IN)', 'Total Keluar (OUT)', 'Sisa Stok Rak (OnHand)'],
+        ...stockSummary.map((s, index) => [
+          index + 1,
+          s.sku,
+          s.masuk,
+          s.keluar,
+          s.balance
+        ])
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.aoa_to_sheet(wsData);
+      const ws2 = XLSX.utils.aoa_to_sheet(wsSummary);
+
+      XLSX.utils.book_append_sheet(wb, ws2, 'Sisa Stok Rak');
+      XLSX.utils.book_append_sheet(wb, ws1, 'Riwayat Log Mutasi');
+
+      XLSX.writeFile(wb, `Stok_Bundling_Admin_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      triggerToast('File Excel Rekapitulasi Stok berhasil diunduh.', 'success');
+    } catch (err) {
+      console.error('Export excel error:', err);
+      triggerToast('Gagal membuat file Excel.', 'error');
     }
-
-    const wb = XLSX.utils.book_new();
-    
-    // Summary Sheet
-    const summaryData = inventorySummary.map((item, idx) => ({
-      "NO": idx + 1,
-      "SKU BUNDLING": item.sku,
-      "TOTAL MASUK (IN)": item.totalIn,
-      "TOTAL KELUAR (OUT)": item.totalOut,
-      "SISA STOK RAK": item.balance
-    }));
-    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-
-    // Ledger Log Sheet
-    const ledgerData = logs.map((log, idx) => ({
-      "NO": idx + 1,
-      "TANGGAL LOG": log.date,
-      "SKU BUNDLING": log.sku,
-      "TIPE ALUR": log.type,
-      "QTY": log.quantity,
-      "PIC ADMIN": log.pic,
-      "CATATAN / LOGISTIK": log.notes || '-',
-      "INPUT OLEH": log.userEmail
-    }));
-    const wsLedger = XLSX.utils.json_to_sheet(ledgerData);
-
-    // Style helper
-    const headStyle = {
-      font: { name: 'Inter', bold: true, color: { rgb: 'FFFFFF' }, size: 10 },
-      fill: { fgColor: { rgb: '312E81' } },
-      alignment: { horizontal: 'center' }
-    };
-
-    // Apply header style to both
-    ['A1', 'B1', 'C1', 'D1', 'E1'].forEach(c => { if (wsSummary[c]) wsSummary[c].s = headStyle; });
-    ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1'].forEach(c => { if (wsLedger[c]) wsLedger[c].s = headStyle; });
-
-    wsSummary['!cols'] = [
-      { wch: 8 },  // A
-      { wch: 42 }, // B
-      { wch: 24 }, // C
-      { wch: 24 }, // D
-      { wch: 24 }  // E
-    ];
-
-    wsLedger['!cols'] = [
-      { wch: 8 },  // A
-      { wch: 15 }, // B
-      { wch: 42 }, // C
-      { wch: 20 }, // D
-      { wch: 10 }, // E
-      { wch: 24 }, // F
-      { wch: 40 }, // G
-      { wch: 30 }  // H
-    ];
-
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan Stok Rak Admin");
-    XLSX.utils.book_append_sheet(wb, wsLedger, "Log Alur Keluar Masuk");
-
-    XLSX.writeFile(wb, `Stok_Bundling_Admin_Rak_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-    triggerToast('Stok berhasil diexport ke Excel!');
   };
 
-  // Handlers for quick adjusting quantities
-  const stepQuantity = (val: number) => {
-    setQuantity(prev => {
-      const next = prev + val;
-      return next < 1 ? 1 : next;
-    });
+  const stepQuantity = (delta: number) => {
+    setQuantity(prev => Math.max(1, prev + delta));
   };
-
-  // Pagination compute
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-  const paginatedLogs = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredLogs.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredLogs, currentPage, itemsPerPage]);
 
   return (
-    <div className="flex-1 w-full max-w-none mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 relative z-10">
-      
-      {/* Toast Alert */}
+    <div className="space-y-6 pb-20 animate-fade-in relative">
       <Toast 
         message={toast.message} 
         type={toast.type} 
@@ -396,272 +352,294 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
         onClose={() => setToast(prev => ({ ...prev, visible: false }))} 
       />
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/5 border border-white/10 p-6 sm:p-8 rounded-[30px] backdrop-blur-2xl relative overflow-hidden shadow-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 to-pink-500/10 opacity-30 pointer-events-none" />
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="w-14 h-14 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-500/30 shadow-lg shadow-indigo-950/25">
-            <Package className="w-7 h-7 text-indigo-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white leading-none tracking-tight">Stok Bundling Admin</h2>
-              <span className="hidden sm:inline-flex bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border border-indigo-500/30">Admin Shelf Tracker</span>
-            </div>
-            <p className="text-slate-400 text-xs sm:text-sm mt-1.5 max-w-3xl leading-relaxed">
-              Manajemen mutasi keluar/masuk barang fisik bundling di rak khusus ruangan admin. Admin dapat memantau stok bundling secara real-time dan mengambil barang langsung tanpa picker saat print bundling satuan.
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={handleExportExcel}
-          className="h-11 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl tracking-wider text-xs uppercase cursor-pointer transition-all flex items-center justify-center gap-2 relative z-10 shadow-lg shadow-emerald-950/40 active:scale-95 border border-emerald-400/20 group hover:border-emerald-400/40"
-        >
-          <FileSpreadsheet className="w-4 h-4 transition-transform group-hover:scale-110" />
-          Export Excel
-        </button>
-      </div>
-
-      {/* Running Text Marquee Notification */}
+      {/* Marquee reminder if applicable */}
       {showMarquee && (
-        <div className="relative w-full bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 overflow-hidden flex items-center gap-3 shadow-lg shadow-amber-950/20 z-20">
-          <div className="absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-[#120a32] via-[#120a32] to-transparent z-10 pointer-events-none flex items-center pl-4">
-            <AlertTriangle className="w-5 h-5 text-amber-400 animate-bounce" />
-          </div>
-          <div className="flex-1 overflow-hidden relative w-full h-5">
-            <div className="whitespace-nowrap absolute animate-marquee font-extrabold text-[11px] sm:text-xs text-amber-300 uppercase tracking-widest pl-10">
-              PENTING: Wajib melakukan pemotongan stok pada menu "Stok Bundling Admin" jika Anda mengambil barang bundling fisik dari rak admin. Bagi siapapun yang mengambil bundling, harap segera melakukan konfirmasi ke petugas Admin. Terima kasih atas kerja samanya.
-            </div>
+        <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-950 border border-purple-500/40 px-4 py-2 rounded-2xl overflow-hidden shadow-lg shadow-purple-950/40">
+          <div className="whitespace-nowrap animate-marquee flex items-center gap-6 text-xs font-bold text-purple-200">
+            <span className="flex items-center gap-1.5 text-pink-400">
+              <Sparkles className="w-4 h-4" /> PENGINGAT OPERASIONAL:
+            </span>
+            <span>Pastikan seluruh pergerakan barang bundling masuk &amp; keluar selalu dicatat secara real-time agar inventori rak tetap akurat.</span>
           </div>
         </div>
       )}
 
-      {/* Bento Stats Indicators Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-[#181140]/40 backdrop-blur-md border border-white/10 rounded-[28px] p-6 shadow-xl flex items-center gap-5">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center">
-            <Tag className="w-6 h-6 text-indigo-400" />
+      {/* Header Panel */}
+      <div className="bg-[#130b2e]/90 border border-purple-900/30 p-6 md:p-7 rounded-2xl shadow-xl relative overflow-hidden backdrop-blur-md">
+        <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-purple-600/10 blur-[130px] rounded-full pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-13 h-13 p-3.5 bg-gradient-to-tr from-purple-600/25 to-indigo-600/25 rounded-2xl flex items-center justify-center border border-purple-500/30 shadow-lg shadow-purple-950/50">
+              <Boxes className="w-7 h-7 text-purple-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Stok Bundling Admin</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40 tracking-wider uppercase">
+                  v2.6-BUNDLING
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-sm shadow-emerald-400" />
+                <p className="text-purple-300/80 text-xs font-bold uppercase tracking-widest">
+                  Live Inventori Rak &amp; Mutasi Fisik • {stockSummary.length} SKU Terdata
+                </p>
+              </div>
+            </div>
           </div>
+
+          <button
+            onClick={handleExportExcel}
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-950/40 flex items-center gap-2 text-xs"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export Rekap Excel</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 4 Summary KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Stock on Hand */}
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 p-5 rounded-2xl shadow-xl flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Macam SKU</span>
-            <p className="text-2xl font-black text-white tracking-tight mt-0.5">{inventorySummary.length}</p>
+            <span className="text-[10px] font-black text-purple-300/70 uppercase tracking-widest block mb-1">Total Stok di Rak</span>
+            <span className="text-2xl sm:text-3xl font-black text-white">{totalStockOnHand.toLocaleString()}</span>
+            <span className="text-[10px] text-purple-400/80 block mt-0.5 font-bold">Unit Fisik Tersedia</span>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+            <Package className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-[#181140]/40 backdrop-blur-md border border-white/10 rounded-[28px] p-6 shadow-xl flex items-center gap-5">
-          <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center">
-            <AlertTriangle className="w-6 h-6 text-rose-400" />
-          </div>
+        {/* Total Masuk */}
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 p-5 rounded-2xl shadow-xl flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#f59e0b]">Stok Menipis (≤ 2 Unit)</span>
-            <p className="text-2xl font-black text-rose-400 tracking-tight mt-0.5">
-              {inventorySummary.filter(item => item.balance <= 2).length} SKU
-            </p>
+            <span className="text-[10px] font-black text-emerald-400/80 uppercase tracking-widest block mb-1">Total Masuk (IN)</span>
+            <span className="text-2xl sm:text-3xl font-black text-emerald-400">+{totalMasukAll.toLocaleString()}</span>
+            <span className="text-[10px] text-emerald-300/60 block mt-0.5 font-bold">Akumulasi Mutasi Masuk</span>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <ArrowUpRight className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-[#181140]/40 backdrop-blur-md border border-white/10 rounded-[28px] p-6 shadow-xl flex items-center gap-5 sm:col-span-2 lg:col-span-1">
-          <div className="w-12 h-12 rounded-2xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
-            <Inbox className="w-6 h-6 text-violet-400" />
-          </div>
+        {/* Total Keluar */}
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 p-5 rounded-2xl shadow-xl flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Kumulatif Unit Terisi</span>
-            <p className="text-2xl font-black text-violet-400 tracking-tight mt-0.5">
-              {inventorySummary.reduce((sum, item) => sum + Math.max(0, item.balance), 0).toLocaleString('id-ID')} unit
-            </p>
+            <span className="text-[10px] font-black text-rose-400/80 uppercase tracking-widest block mb-1">Total Keluar (OUT)</span>
+            <span className="text-2xl sm:text-3xl font-black text-rose-400">-{totalKeluarAll.toLocaleString()}</span>
+            <span className="text-[10px] text-rose-300/60 block mt-0.5 font-bold">Akumulasi Mutasi Keluar</span>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+            <ArrowDownLeft className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* SKU Aktif */}
+        <div className="bg-[#130b2e]/90 border border-purple-900/30 p-5 rounded-2xl shadow-xl flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-black text-cyan-400/80 uppercase tracking-widest block mb-1">SKU Aktif</span>
+            <span className="text-2xl sm:text-3xl font-black text-cyan-400">{stockSummary.length}</span>
+            <span className="text-[10px] text-cyan-300/60 block mt-0.5 font-bold">Item Terdaftar di Rak</span>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+            <Tag className="w-6 h-6" />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* LEFT COLUMN: Input Form */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#181140]/45 border border-white/15 rounded-[32px] p-6 sm:p-7 relative overflow-hidden shadow-xl backdrop-blur-xl">
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-violet-500 via-indigo-500 to-pink-500" />
-            
-            <div className="flex items-center gap-3 mb-6">
-              <PlusCircle className="w-5 h-5 text-indigo-400" />
-              <h3 className="font-extrabold text-white text-base">Catat Mutasi Stok Ruang Admin</h3>
+      {/* Main Grid: Form Left, Balances & History Right */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Form Mutasi */}
+        <div className="lg:col-span-4 bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-5">
+          <div className="flex items-center gap-2 text-xs font-black text-purple-300 uppercase tracking-wider pb-3 border-b border-purple-900/30">
+            <PlusCircle className="w-4 h-4 text-purple-400" />
+            <span>Form Input Mutasi Rak</span>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Tanggal Mutasi */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Tanggal Info</label>
+              <div className="relative">
+                <input
+                  required
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs [color-scheme:dark]"
+                />
+                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60 pointer-events-none" />
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              
-              {/* Date Input */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Tanggal Transaksi</label>
-                <div id="div-date-container" className="relative">
-                  <input
-                    required
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-[#110931]/70 border border-white/10 rounded-2xl text-white font-semibold text-sm focus:outline-none focus:border-indigo-400 transition"
-                  />
-                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                </div>
+            {/* Tipe Mutasi: MASUK vs KELUAR */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Tipe Alur Mutasi</label>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setType('MASUK')}
+                  className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    type === 'MASUK' 
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50' 
+                      : 'text-purple-300/60 hover:text-purple-200'
+                  }`}
+                >
+                  <ArrowUpRight className="w-4 h-4" />
+                  <span>MASUK (IN)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setType('KELUAR')}
+                  className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    type === 'KELUAR' 
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-950/50' 
+                      : 'text-purple-300/60 hover:text-purple-200'
+                  }`}
+                >
+                  <ArrowDownLeft className="w-4 h-4" />
+                  <span>KELUAR (OUT)</span>
+                </button>
               </div>
+            </div>
 
-              {/* Alur Stock: MASUK vs KELUAR selector */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Tipe Mutasi</label>
-                <div id="tipe-mutasi-tabs" className="grid grid-cols-2 gap-2.5 p-1 bg-[#110931]/60 border border-white/10 rounded-2xl">
-                  <button
-                    type="button"
-                    onClick={() => setType('MASUK')}
-                    className={`h-11 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${type === 'MASUK' ? 'bg-[#5e43f3] text-white shadow-md border border-indigo-400/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                  >
-                    <ArrowUpRight className={`w-4 h-4 ${type === 'MASUK' ? 'text-emerald-400' : 'text-slate-500'}`} />
-                    MASUK (IN)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setType('KELUAR')}
-                    className={`h-11 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${type === 'KELUAR' ? 'bg-indigo-950/80 text-white shadow-md border border-indigo-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                  >
-                    <ArrowDownLeft className={`w-4 h-4 ${type === 'KELUAR' ? 'text-rose-400' : 'text-slate-500'}`} />
-                    KELUAR (OUT)
-                  </button>
-                </div>
-              </div>
+            {/* SKU Autocomplete Select */}
+            <div className="space-y-1.5">
+              <SearchableSelect
+                ref={skuSelectRef}
+                label="SKU Barang Bundling"
+                required
+                options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
+                value={sku}
+                onChange={setSku}
+                placeholder="Pilih atau ketik SKU..."
+                allowCustom={true}
+              />
+            </div>
 
-              {/* SKU Autocomplete Select */}
-              <div className="space-y-2">
-                <SearchableSelect
-                  ref={skuSelectRef}
-                  label="SKU BARANG BUNDLING *"
+            {/* Quantity adjustment with Plus and Minus triggers */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Jumlah Unit</label>
+              <div className="flex items-center bg-[#0c0620]/90 border border-purple-900/40 rounded-xl overflow-hidden p-1">
+                <button
+                  type="button"
+                  onClick={() => stepQuantity(-1)}
+                  className="w-9 h-9 flex items-center justify-center text-purple-300 hover:text-white hover:bg-purple-800/30 rounded-lg transition"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <input
                   required
-                  options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
-                  value={sku}
-                  onChange={setSku}
-                  placeholder="Cari atau ketik SKU..."
-                  allowCustom={true}
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="flex-1 bg-transparent text-center text-white font-mono font-bold text-sm focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => stepQuantity(1)}
+                  className="w-9 h-9 flex items-center justify-center text-purple-300 hover:text-white hover:bg-purple-800/30 rounded-lg transition"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
               </div>
-
-              {/* Quantity adjustment with Plus and Minus triggers */}
-              <div id="quantity-control-parent" className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Jumlah Unit *</label>
-                <div className="flex items-center bg-[#110931]/70 border border-white/10 rounded-2xl overflow-hidden p-1">
+              <div className="flex justify-between px-1">
+                {[-10, -5, +5, +10].map(val => (
                   <button
+                    key={val}
                     type="button"
-                    onClick={() => stepQuantity(-1)}
-                    className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition cursor-pointer"
+                    onClick={() => stepQuantity(val)}
+                    className="text-[10px] font-black text-purple-300 hover:text-white bg-purple-900/30 hover:bg-purple-900/50 border border-purple-700/30 px-2 py-0.5 rounded-md transition"
                   >
-                    <Minus className="w-4 h-4" />
+                    {val > 0 ? `+${val}` : val}
                   </button>
-                  <input
-                    required
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="flex-1 bg-transparent text-center text-white font-mono font-bold text-base focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => stepQuantity(1)}
-                    className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex justify-between px-1.5">
-                  {[-10, -5, +5, +10].map(val => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => stepQuantity(val)}
-                      className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition cursor-pointer bg-indigo-500/10 border border-indigo-400/10 hover:border-indigo-400/30 px-2 py-0.5 rounded-md mt-1"
-                    >
-                      {val > 0 ? `+${val}` : val}
-                    </button>
-                  ))}
-                </div>
+                ))}
               </div>
+            </div>
 
-              {/* PIC selection */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">PIC Admin *</label>
-                <SearchableSelect
-                  required
-                  options={masterData.pic_ginee || masterData.pic || []}
-                  value={pic}
-                  onChange={setPic}
-                  placeholder="Pilih PIC Admin..."
+            {/* PIC selection */}
+            <div className="space-y-1.5">
+              <SearchableSelect
+                label="PIC Admin Bertanggung Jawab"
+                required
+                options={masterData.pic_ginee || masterData.pic || []}
+                value={pic}
+                onChange={setPic}
+                placeholder="Pilih PIC Admin..."
+              />
+            </div>
+
+            {/* Notes input */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Keterangan / Tujuan Mutasi</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Contoh: Tambah stok rak, Kirim orderan..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white text-xs focus:ring-2 focus:ring-purple-500 outline-none placeholder-purple-400/30"
                 />
+                <Info className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/50" />
               </div>
+            </div>
 
-              {/* Notes input */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Keterangan / Tujuan</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Contoh: Tambah stok rak, Kirim orderan, dll."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-[#110931]/70 border border-white/10 rounded-2xl text-white text-sm focus:outline-none focus:border-indigo-400 transition"
-                  />
-                  <Info className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                </div>
-              </div>
-
-              {/* Submit button using elegant solid branding style */}
-              <button
-                type="submit"
-                disabled={actionLoading}
-                className="w-full bg-[#634be9] hover:bg-[#523ad4] text-white font-extrabold rounded-2xl py-3.5 text-sm transition-all shadow-lg shadow-indigo-950/40 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 border border-indigo-400/20 hover:border-indigo-400/40 mt-3"
-              >
-                {actionLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <PlusCircle className="w-5 h-5" />
-                    Simpan Perubahan Stok
-                  </>
-                )}
-              </button>
-
-            </form>
-          </div>
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={actionLoading}
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl py-3 text-xs uppercase tracking-wider transition-all shadow-lg shadow-purple-950/50 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+            >
+              {actionLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Simpan Mutasi Stok</span>
+                </>
+              )}
+            </button>
+          </form>
         </div>
 
-        {/* RIGHT COLUMN: Live inventories balance checklist & history logs */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          
-          {/* Section: Live Rak Inventory balances list */}
-          <div className="bg-[#181140]/45 border border-white/15 rounded-[32px] p-6 shadow-xl backdrop-blur-xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                  <Clipboard className="w-4 h-4 text-indigo-400" />
+        {/* Right Column: Sisa Stok Rak Chips & History Table */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Section 1: Sisa Stok Rak Khusus Admin */}
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <Clipboard className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-white text-base">Sisa Stok Rak Khusus Admin</h3>
-                  <p className="text-[10px] text-slate-400 leading-none mt-0.5">Live aggregated quantity on hand</p>
+                  <h3 className="font-black text-white text-sm">Sisa Stok Rak Khusus Admin</h3>
+                  <p className="text-[10px] text-purple-300/70">Klik chip untuk memilih SKU langsung</p>
                 </div>
               </div>
               
-              {/* Filter */}
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-60">
                 <input
                   type="text"
                   placeholder="Cari SKU di rak..."
                   value={summarySearch}
                   onChange={(e) => setSummarySearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-[#110931]/60 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-400 transition"
+                  className="w-full pl-9 pr-3 py-2 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-xs text-white placeholder-purple-400/30 focus:ring-2 focus:ring-purple-500 outline-none"
                 />
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-purple-400/50" />
               </div>
             </div>
 
-            {/* Balances scrollable bento-chips container */}
+            {/* Chips Container */}
             {filteredSummary.length === 0 ? (
-              <div className="border border-white/5 rounded-2xl bg-white/5 py-8 text-center text-slate-400 text-xs font-semibold">
-                Belum ada mutasi stok terdata di rak ini / pencarian tidak cocok.
+              <div className="border border-purple-900/30 rounded-xl bg-[#0c0620]/60 py-6 text-center text-purple-300/50 text-xs">
+                Belum ada data stok di rak atau pencarian tidak cocok.
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[195px] overflow-y-auto custom-scrollbar pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[190px] overflow-y-auto custom-scrollbar pr-1">
                 {filteredSummary.map((item) => (
                   <div
                     key={item.sku}
@@ -669,21 +647,21 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
                       setSku(item.sku);
                       triggerToast(`Dipilih SKU: ${item.sku}. Silakan input mutasi.`);
                     }}
-                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group active:scale-95 ${
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between group active:scale-95 ${
                       item.balance <= 0 
-                        ? 'bg-rose-500/5 border-rose-500/20 hover:bg-rose-500/10' 
+                        ? 'bg-rose-950/20 border-rose-500/30 hover:bg-rose-900/30' 
                         : item.balance <= 2 
-                        ? 'bg-[#ea580c]/10 border-[#ea580c]/30 hover:bg-[#ea580c]/20'
-                        : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                        ? 'bg-amber-950/20 border-amber-500/30 hover:bg-amber-900/30'
+                        : 'bg-[#0c0620]/90 border-purple-900/40 hover:border-purple-600/50 hover:bg-purple-950/30'
                     }`}
                   >
-                    <span className="text-[10px] font-mono font-bold text-slate-400 truncate group-hover:text-indigo-300 transition-colors" title={item.sku}>
+                    <span className="text-[10px] font-mono font-bold text-purple-200 truncate group-hover:text-white transition-colors" title={item.sku}>
                       {item.sku}
                     </span>
-                    <div className="flex items-baseline justify-between mt-2.5">
-                      <span className="text-xs font-semibold text-slate-400 leading-none">Aset</span>
-                      <span className={`text-base font-black font-mono leading-none ${
-                        item.balance <= 0 ? 'text-rose-400' : item.balance <= 2 ? 'text-[#f97316]' : 'text-emerald-400'
+                    <div className="flex items-baseline justify-between mt-2">
+                      <span className="text-[10px] font-medium text-purple-400/60">Sisa:</span>
+                      <span className={`text-sm font-black font-mono ${
+                        item.balance <= 0 ? 'text-rose-400' : item.balance <= 2 ? 'text-amber-400' : 'text-emerald-400'
                       }`}>
                         {item.balance}
                       </span>
@@ -694,36 +672,35 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
             )}
           </div>
 
-          {/* Section: Historical Ledger Logs Table */}
-          <div className="bg-[#181140]/45 border border-white/15 rounded-[32px] p-6 shadow-xl backdrop-blur-xl flex-1">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-indigo-400" />
+          {/* Section 2: Historis Mutasi Table */}
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <Calendar className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-white text-base">Historis Mutasi Keluar Masuk</h3>
-                  <p className="text-[10px] text-slate-400 leading-none mt-0.5">Kelola riwayat mutasi rak secara ringkas</p>
+                  <h3 className="font-black text-white text-sm">Riwayat Transaksi Mutasi</h3>
+                  <p className="text-[10px] text-purple-300/70">Daftar keluar masuk stok rak bundling</p>
                 </div>
               </div>
 
-              {/* History Search */}
-              <div className="relative w-full sm:w-72">
+              <div className="relative w-full sm:w-64">
                 <input
                   type="text"
-                  placeholder="Cari SKU, PIC, catatan logs..."
+                  placeholder="Cari SKU, PIC, catatan..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full pl-10 pr-10 py-2.5 bg-[#110931]/60 border border-white/10 rounded-2xl text-xs text-white focus:outline-none focus:border-indigo-400 transition"
+                  className="w-full pl-9 pr-8 py-2 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-xs text-white placeholder-purple-400/30 focus:ring-2 focus:ring-purple-500 outline-none"
                 />
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-purple-400/50" />
                 {searchTerm && (
                   <button 
                     onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white bg-white/5 hover:bg-rose-500/80 rounded-full transition-all flex items-center justify-center cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-purple-400 hover:text-white"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -731,71 +708,71 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
               </div>
             </div>
 
-            {/* List Table */}
-            <div className="overflow-x-auto rounded-2xl border border-white/10 shadow-lg relative bg-[#110931]/40">
-              <table className="w-full text-left border-collapse min-w-[700px]">
+            {/* Table */}
+            <div className="overflow-x-auto rounded-xl border border-purple-900/30 bg-[#0c0620]/90 shadow-md">
+              <table className="w-full text-left border-collapse min-w-[650px]">
                 <thead>
-                  <tr className="border-b border-white/10 bg-[#160e3a]/80 text-[#a89eff] font-black text-[10px] tracking-wider uppercase">
-                    <th className="py-4 px-4.5 text-center">No</th>
-                    <th className="py-4 px-4">Tanggal Info</th>
-                    <th className="py-4 px-4">SKU Barang Bundling</th>
-                    <th className="py-4 px-4 text-center">Tipe Alur</th>
-                    <th className="py-4 px-4 text-center">Jumlah Qty</th>
-                    <th className="py-4 px-4">PIC Admin</th>
-                    <th className="py-4 px-4">Keterangan</th>
-                    <th className="py-4 px-4 text-center">Aksi</th>
+                  <tr className="border-b border-purple-900/30 bg-[#0e0725] text-purple-300 font-black text-[10px] tracking-wider uppercase">
+                    <th className="py-3 px-3 text-center">No</th>
+                    <th className="py-3 px-3">Tanggal</th>
+                    <th className="py-3 px-3">SKU Barang</th>
+                    <th className="py-3 px-3 text-center">Tipe</th>
+                    <th className="py-3 px-3 text-center">Jumlah</th>
+                    <th className="py-3 px-3">PIC Admin</th>
+                    <th className="py-3 px-3">Keterangan</th>
+                    <th className="py-3 px-3 text-center">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 text-slate-200 text-xs">
+                <tbody className="divide-y divide-purple-900/20 text-xs">
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                      <td colSpan={8} className="py-8 text-center text-purple-300/50">
                         <div className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                          Memproses sinkronisasi real-time...
+                          <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                          <span>Sinkronisasi data real-time...</span>
                         </div>
                       </td>
                     </tr>
                   ) : paginatedLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold">
-                        Tidak ada log transaksi mutasi yang direkam.
+                      <td colSpan={8} className="py-8 text-center text-purple-300/50 font-medium">
+                        Tidak ada log mutasi yang ditemukan.
                       </td>
                     </tr>
                   ) : (
                     paginatedLogs.map((log, idx) => {
                       const rowNum = (currentPage - 1) * itemsPerPage + idx + 1;
                       return (
-                        <tr key={log.id} className="hover:bg-white/5 transition-all">
-                          <td className="py-3.5 px-4.5 text-center font-mono font-bold text-slate-400 max-w-[40px]">{rowNum}</td>
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-300">
+                        <tr key={log.id} className="hover:bg-purple-950/20 transition-colors">
+                          <td className="py-2.5 px-3 text-center font-mono font-bold text-purple-400/60">{rowNum}</td>
+                          <td className="py-2.5 px-3 font-mono font-semibold text-purple-200">
                             {format(new Date(log.date), 'dd MMM yyyy')}
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-white uppercase font-mono tracking-tight">{log.sku}</td>
-                          <td className="py-1.5 px-4 text-center">
-                            <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          <td className="py-2.5 px-3 font-bold text-white font-mono">{log.sku}</td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
                               log.type === 'MASUK' 
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+                                : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
                             }`}>
-                              {log.type === 'MASUK' ? 'MASUK (IN)' : 'KELUAR (OUT)'}
+                              {log.type === 'MASUK' ? 'MASUK' : 'KELUAR'}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-center font-mono font-extrabold text-white text-sm">{log.quantity}</td>
-                          <td className="py-3.5 px-4 font-bold text-indigo-200">
+                          <td className="py-2.5 px-3 text-center font-mono font-black text-white text-xs">{log.quantity}</td>
+                          <td className="py-2.5 px-3 font-medium text-purple-200">
                             <div className="flex items-center gap-1.5">
-                              <UserIcon className="w-3.5 h-3.5 text-indigo-400" />
-                              {log.pic}
+                              <UserIcon className="w-3.5 h-3.5 text-purple-400" />
+                              <span>{log.pic}</span>
                             </div>
                           </td>
-                          <td className="py-3.5 px-4 max-w-[200px] truncate text-slate-300 font-semibold italic" title={log.notes}>
+                          <td className="py-2.5 px-3 max-w-[180px] truncate text-purple-300/70 italic" title={log.notes}>
                             {log.notes || '-'}
                           </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-2.5 px-3 text-center">
                             <button
                               onClick={() => handleDeleteLog(log)}
-                              className="p-2 bg-rose-500/10 hover:bg-rose-500 hover:text-white border border-rose-500/15 text-rose-400 rounded-xl transition cursor-pointer"
-                              title="Hapus log"
+                              className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                              title="Hapus log mutasi"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -810,40 +787,37 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-5 px-1">
-                <span className="text-[11px] text-slate-400 font-bold">
-                  Menampilkan <span className="text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="text-white">{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</span> dari <span className="text-white">{filteredLogs.length}</span> rekam mutasi
+              <div className="flex items-center justify-between mt-4 px-1">
+                <span className="text-[11px] text-purple-300/70 font-medium">
+                  Menampilkan <span className="text-white font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="text-white font-bold">{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</span> dari <span className="text-white font-bold">{filteredLogs.length}</span> rekam
                 </span>
                 
                 <div className="flex items-center gap-2">
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    className="p-1 px-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-xs transition cursor-pointer disabled:opacity-30 flex items-center gap-1 font-bold"
+                    className="p-1 px-3 bg-[#0c0620] border border-purple-900/40 hover:bg-purple-900/30 text-white rounded-lg text-xs transition disabled:opacity-30 flex items-center gap-1 font-bold"
                   >
-                    <ChevronLeft className="w-4 h-4" /> Sebelum
+                    <ChevronLeft className="w-3.5 h-3.5" /> Sebelum
                   </button>
-                  <span className="text-xs font-black text-slate-300 font-mono">
+                  <span className="text-xs font-black text-purple-300 font-mono">
                     {currentPage} / {totalPages}
                   </span>
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    className="p-1 px-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-xs transition cursor-pointer disabled:opacity-30 flex items-center gap-1 font-bold"
+                    className="p-1 px-3 bg-[#0c0620] border border-purple-900/40 hover:bg-purple-900/30 text-white rounded-lg text-xs transition disabled:opacity-30 flex items-center gap-1 font-bold"
                   >
-                    Berikut <ChevronRight className="w-4 h-4" />
+                    Berikut <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
             )}
-
           </div>
-
         </div>
-
       </div>
 
-      {/* Delete Confirmation Modal using premium clean layout design */}
+      {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {deleteConfirmId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -852,7 +826,7 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setDeleteConfirmId(null)}
-              className="absolute inset-0 bg-[#0c061c]/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
             />
             
             <motion.div
@@ -860,31 +834,29 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               transition={{ type: 'spring', duration: 0.4 }}
-              className="relative w-full max-w-md bg-[#181140]/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden text-center"
+              className="relative w-full max-w-md bg-[#130b2e] border border-purple-800/40 rounded-3xl p-6 shadow-2xl overflow-hidden text-center shadow-purple-950/80"
             >
-              <div className="absolute top-0 left-0 w-full h-[3px] bg-rose-500" />
-              
-              <div className="mx-auto w-14 h-14 bg-rose-500/10 rounded-2xl flex items-center justify-center mb-4 border border-rose-500/20">
-                <Trash2 className="w-6 h-6 text-rose-400" />
+              <div className="mx-auto w-12 h-12 bg-rose-500/15 rounded-2xl flex items-center justify-center mb-4 border border-rose-500/30 text-rose-400">
+                <Trash2 className="w-6 h-6" />
               </div>
               
-              <h3 className="text-lg font-extrabold text-white mb-2">Konfirmasi Hapus</h3>
-              <p className="text-slate-300 text-xs sm:text-sm leading-relaxed mb-6">
-                Apakah Anda yakin ingin menghapus log mutasi stok bundling untuk SKU <span className="font-bold text-white font-mono">{deleteConfirmId.sku}</span> sebesar <span className="font-bold text-white">{deleteConfirmId.quantity}</span> unit? Mutasi ini akan terhapus dari logistik admin.
+              <h3 className="text-lg font-black text-white mb-2">Konfirmasi Hapus Log Mutasi</h3>
+              <p className="text-purple-300/80 text-xs leading-relaxed mb-6">
+                Apakah Anda yakin ingin menghapus mutasi <span className="font-bold text-white uppercase">{deleteConfirmId.type}</span> untuk SKU <span className="font-bold text-white font-mono">{deleteConfirmId.sku}</span> sebesar <span className="font-bold text-white">{deleteConfirmId.quantity}</span> unit?
               </p>
               
               <div className="flex gap-3 justify-center">
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-bold py-3 px-4 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+                  className="flex-1 bg-[#0c0620] border border-purple-900/40 hover:bg-purple-900/30 text-purple-300 font-bold py-2.5 px-4 rounded-xl text-xs transition"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
                   onClick={confirmDelete}
-                  className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-extrabold py-3 px-4 rounded-xl text-xs sm:text-sm transition shadow-lg shadow-rose-950/20 cursor-pointer flex items-center justify-center gap-2"
+                  className="flex-1 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black py-2.5 px-4 rounded-xl text-xs transition shadow-lg shadow-rose-950/50 flex items-center justify-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
                   Hapus Log
@@ -894,7 +866,6 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
           </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

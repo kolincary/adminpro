@@ -5,7 +5,12 @@ import { db, auth } from './firebase';
 import { Report, OperationType, UserProfile } from './types';
 import { handleFirestoreError, normalizeDate } from './utils';
 import Toast, { ToastType } from './Toast';
-import { Search, Filter, Trash2, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle, X, ChevronDown, Calendar, RotateCcw, CheckSquare, Square, Loader2, Edit2, Save, RefreshCcw, Download, Upload, Sparkles, Check, Eye, EyeOff, SlidersHorizontal } from 'lucide-react';
+import { 
+  Search, Filter, Trash2, ChevronLeft, ChevronRight, FileSpreadsheet, 
+  AlertTriangle, X, ChevronDown, Calendar, RotateCcw, CheckSquare, Square, 
+  Loader2, Edit2, Save, RefreshCcw, Download, Upload, Sparkles, Check, 
+  Eye, EyeOff, SlidersHorizontal, Database
+} from 'lucide-react';
 import { format, isSameDay, parseISO, isToday } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import XLSX from 'xlsx-js-style';
@@ -148,16 +153,15 @@ export default function ReportTable({
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json: any[] = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
-
-        if (json.length === 0) {
-          setImportStatus('File CSV/Excel kosong.');
-          setParsedData([]);
-        } else {
-          setParsedData(json);
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+        if (jsonData.length === 0) {
+          setImportStatus('File tidak memiliki data yang valid.');
+          return;
         }
+        setParsedData(jsonData);
       } catch (err: any) {
         setImportStatus('Gagal membaca file: ' + err.message);
       }
@@ -168,135 +172,36 @@ export default function ReportTable({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) processFile(file);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFile(e.dataTransfer.files[0]);
+    }
   };
 
-  // Helper fleksibel untuk mengekstrak nilai kolom CSV/Excel tanpa masalah kapitalisasi/spasi/tanda hubung
-  const getRowVal = (row: any, keys: string[]): string => {
-    if (!row || typeof row !== 'object') return '';
-    for (const k of keys) {
-      if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
-        return String(row[k]).trim();
-      }
-    }
+  const getRowVal = (row: any, keys: string[]) => {
     const rowKeys = Object.keys(row);
-    for (const targetKey of keys) {
-      const targetClean = targetKey.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const foundKey = rowKeys.find(rk => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === targetClean);
-      if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && String(row[foundKey]).trim() !== '') {
-        return String(row[foundKey]).trim();
+    for (const k of keys) {
+      const match = rowKeys.find(rk => rk.toLowerCase().trim() === k.toLowerCase().trim());
+      if (match && row[match] !== undefined && row[match] !== null) {
+        return String(row[match]).trim();
       }
     }
     return '';
   };
 
-  // Submit Import data dengan Anti-Duplikat Otomatis (Cek Referensi Invoice + SKU)
   const handleExecuteImportToFirestore = async () => {
-    if (parsedData.length === 0) return;
+    if (!parsedData || parsedData.length === 0) return;
     setIsImporting(true);
     setImportStatus(null);
 
-    const getRowKey = (inv: string, sku: string) => `${(inv || '').trim().toLowerCase()}_${(sku || '').trim().toLowerCase()}`;
-    const existingKeys = new Set<string>();
-
-    // 1. Kumpulkan kombinasi invoice + sku yang sudah ada di memori
-    initialReports.forEach((r: any) => {
-      if (r.invoiceNumber || r.sku) {
-        existingKeys.add(getRowKey(r.invoiceNumber || '', r.sku || ''));
-      }
-    });
-
-    // 2. Kumpulkan juga dari Supabase untuk memastikan 100% akurat
     try {
-      const { data: existingSp } = await supabaseCancelFisik
-        .from('cancel_fisik_reports')
-        .select('referensi_invoice, sku');
-      if (existingSp) {
-        existingSp.forEach((r: any) => {
-          if (r.referensi_invoice || r.sku) {
-            existingKeys.add(getRowKey(r.referensi_invoice || '', r.sku || ''));
-          }
-        });
-      }
-    } catch (e) {}
+      const uniquePayloads: any[] = [];
+      const seenSet = new Set<string>();
+      let skippedDuplicates = 0;
 
-    // Filter file import hanya untuk baris yang belum ada di database
-    let skippedDuplicates = 0;
-    const uniquePayloads: any[] = [];
-    const uniqueRawRows: any[] = [];
-
-    parsedData.forEach(row => {
-      const inv = getRowVal(row, ['referensi_invoice', 'referensi invoice', 'referensi/no pesanan/invoice', 'invoice', 'invoice_ref', 'invoice_number', 'inv / pemesanan', 'inv']);
-      const sku = getRowVal(row, ['sku', 'sku_id', 'sku / barcode', 'barcode', 'item_code']);
-      const qtyRaw = getRowVal(row, ['qty', 'quantity', 'jumlah']);
-      const qty = Number(qtyRaw) || 1;
-
-      const rawDate = getRowVal(row, ['tanggal_log', 'tanggal log', 'log_date', 'inputdate', 'input_date', 'timestamp', 'tanggal', 'date']) || format(new Date(), 'yyyy-MM-dd');
-      const logDate = normalizeDate(rawDate);
-
-      const rawGineeDate = getRowVal(row, ['tgl_input_ginee', 'tgl input ginee', 'sinkron ginee', 'ginee_date']);
-      const gineeDate = rawGineeDate ? normalizeDate(rawGineeDate) : null;
-
-      const pic = getRowVal(row, ['analis_pic', 'analis (pic)', 'analis', 'pic_input_ginee', 'pic input ginee', 'pic ginee', 'pic']) || user?.email || 'DevMode';
-      const mp = getRowVal(row, ['marketplace', 'pasar']) || 'Shopee';
-      const desc = getRowVal(row, ['product_name', 'nama produk', 'keterangan barang', 'status/keterangan', 'keterangan', 'notes', 'itemdescription']) || '';
-      const loc = getRowVal(row, ['location_rak', 'lokasi / rak', 'lokasi', 'rak', 'location']) || '';
-
-      const key = getRowKey(inv, sku);
-      if (inv && sku && existingKeys.has(key)) {
-        skippedDuplicates++;
-        return; // Skip duplikat!
-      }
-      if (inv && sku) existingKeys.add(key); // Cegah duplikat di dalam file itu sendiri
-
-      uniqueRawRows.push(row);
-      uniquePayloads.push({
-        tanggal_log: logDate,
-        tgl_input_ginee: gineeDate,
-        pic_input_ginee: pic,
-        marketplace: mp,
-        analis_pic: pic,
-        modul_fisik: 'Cancel Fisik',
-        referensi_invoice: inv,
-        location_rak: loc,
-        sku: sku,
-        product_name: desc,
-        status_aset: 'Cancel Fisik',
-        qty: qty,
-        keterangan: desc,
-        created_by: user?.email || user?.uid || 'DevMode User'
-      });
-    });
-
-    if (uniquePayloads.length === 0) {
-      showToast(`ℹ️ Semua ${parsedData.length} baris data dalam file sudah ada di database (0 duplikat di-import).`, 'error');
-      setIsImportModalOpen(false);
-      setParsedData([]);
-      setExcelFile(null);
-      setIsImporting(false);
-      return;
-    }
-
-    let successCount = 0;
-    try {
-      // 1. Simpan ke Supabase Cancel Fisik
-      try {
-        const { error: spErr } = await supabaseCancelFisik
-          .from('cancel_fisik_reports')
-          .insert(uniquePayloads);
-
-        if (!spErr) successCount = uniquePayloads.length;
-        else console.warn("Supabase import insert warn:", spErr);
-      } catch (eSp) {
-        console.warn("Supabase import exception:", eSp);
-      }
-
-      // 2. Simpan ke Firestore (collection reports)
-      for (const row of uniqueRawRows) {
-        const inv = getRowVal(row, ['referensi_invoice', 'referensi invoice', 'referensi/no pesanan/invoice', 'invoice', 'invoice_ref', 'invoice_number', 'inv / pemesanan', 'inv']);
-        const sku = getRowVal(row, ['sku', 'sku_id', 'sku / barcode', 'barcode', 'item_code']);
-        const qtyRaw = getRowVal(row, ['qty', 'quantity', 'jumlah']);
+      for (const row of parsedData) {
+        const inv = getRowVal(row, ['referensi_invoice', 'referensi invoice', 'invoice', 'invoice_ref', 'inv / pemesanan', 'no pesanan', 'id pesanan', 'nomor resi']);
+        const sku = getRowVal(row, ['sku', 'sku_id', 'sku / barcode', 'barcode', 'msku']);
+        const qtyRaw = getRowVal(row, ['qty', 'quantity', 'jumlah', 'unit']);
         const qty = Number(qtyRaw) || 1;
 
         const rawDate = getRowVal(row, ['tanggal_log', 'tanggal log', 'log_date', 'inputdate', 'input_date', 'timestamp', 'tanggal', 'date']) || format(new Date(), 'yyyy-MM-dd');
@@ -331,20 +236,32 @@ export default function ReportTable({
           created_at: serverTimestamp()
         };
 
+        const uniqueKey = `${logDate}_${inv}_${sku}_${qty}`;
+        if (seenSet.has(uniqueKey)) {
+          skippedDuplicates++;
+          continue;
+        }
+        seenSet.add(uniqueKey);
+        uniquePayloads.push(firestorePayload);
+      }
+
+      // Batch write
+      let successCount = 0;
+      for (const payload of uniquePayloads) {
         try {
-          await addDoc(collection(db, 'reports'), firestorePayload);
-          if (successCount === 0) successCount++;
+          await addDoc(collection(db, 'reports'), payload);
+          successCount++;
         } catch (eFs) {}
       }
 
       const dupMsg = skippedDuplicates > 0 ? ` (${skippedDuplicates} data duplikat dilewati)` : '';
-      showToast(`✅ Sukses meng-import ${uniquePayloads.length} data baru!${dupMsg}`, 'success');
+      showToast(`✅ Sukses meng-import ${successCount} data baru!${dupMsg}`, 'success');
       setIsImportModalOpen(false);
       setParsedData([]);
       setExcelFile(null);
 
-      if (uniquePayloads.length > 0 && uniquePayloads[0].tanggal_log) {
-        setStartDate(uniquePayloads[0].tanggal_log);
+      if (uniquePayloads.length > 0 && uniquePayloads[0].inputDate) {
+        setStartDate(uniquePayloads[0].inputDate);
       }
       setTimeout(() => window.location.reload(), 1200);
     } catch (err: any) {
@@ -394,7 +311,7 @@ export default function ReportTable({
       await addDoc(collection(db, 'backups'), {
         originalData: reportToDelete,
         deletedAt: serverTimestamp(),
-        deletedBy: user.uid
+        deletedBy: user?.uid || 'admin'
       });
 
       // 2. Delete Original
@@ -433,13 +350,11 @@ export default function ReportTable({
       for (const id of selectedIds) {
         const reportToDelete = initialReports.find(r => r.id === id);
         if (reportToDelete) {
-          // Create backup
           backupPromises.push(addDoc(collection(db, 'backups'), {
             originalData: reportToDelete,
             deletedAt: serverTimestamp(),
-            deletedBy: user.uid
+            deletedBy: user?.uid || 'admin'
           }));
-          // Add to delete batch
           const source = (reportToDelete as any)._source || 'reports';
           batch.delete(doc(db, source, id));
         }
@@ -550,35 +465,22 @@ export default function ReportTable({
       const reportStatus = report.normalizedStatus || report.status || '';
       const reportCategory = report.category || '';
 
-      // 1. Search Filter (hande search later)
-
-      // 2. Category Filter (Highly Inclusive fallback)
       const matchesExactlyByStatus = lowerStatusFilter && (reportStatus.toLowerCase().trim() === lowerStatusFilter);
 
-      // If we are looking for a specific category, allow it if either category matches or status implies it
       if (category) {
         const isStokLT3 = category === 'stok_lt3';
         const isRusakInternal = category === 'rusak_internal' || category === 'eliminasi_rusak';
 
-        // STO LT3 Logic: Must be explicitly stok_lt3 or have status 'Rusak Fisik'
         const isActuallyLT3 = reportCategory === 'stok_lt3' || reportStatus === 'Rusak Fisik';
-
-        // INTERNAL Logic: Must be explicitly internal/eliminasi or have 'Eliminasi Stok Rusak' status OR type 'OUT'
-        // [MODIFIKASI]: Includekan status 'Rusak Fisik' juga di Log Barang Rusak sesuai permintaan user agar data terlihat
         const isActuallyInternal = reportCategory === 'rusak_internal' ||
           reportCategory === 'eliminasi_rusak' ||
           reportStatus === 'Eliminasi Stok Rusak' ||
-          reportStatus === 'Rusak Fisik' || // Include Physical Damage here too
+          reportStatus === 'Rusak Fisik' ||
           report.type === 'OUT';
 
         const isRetur2 = category === 'retur2' || lowerStatusFilter === 'cancel fisik';
         const isActuallyRetur2 = reportCategory === 'retur2' || reportStatus === 'Cancel Fisik' || (report as any).modul_fisik === 'Cancel Fisik';
 
-        // Match if:
-        // 1. Explicit request for LT3 and item is LT3
-        // 2. Explicit request for Internal and item is Internal
-        // 3. Explicit request for Retur2/Cancel Fisik
-        // 4. User specifically filtered for this EXACT status (override)
         const categoryMatch = (isStokLT3 && isActuallyLT3) ||
           (isRusakInternal && isActuallyInternal) ||
           (isRetur2 && isActuallyRetur2);
@@ -586,12 +488,10 @@ export default function ReportTable({
         if (!categoryMatch && !matchesExactlyByStatus) return false;
       }
 
-      // 3. Status Filter
       if (lowerStatusFilter) {
         if (reportStatus.toLowerCase().trim() !== lowerStatusFilter) return false;
       }
 
-      // 4. Search Filter - Optimize by checking lowercase
       if (lowerSearch) {
         const matchesSearch =
           (report.invoiceNumber?.toLowerCase() || '').includes(lowerSearch) ||
@@ -601,14 +501,11 @@ export default function ReportTable({
         if (!matchesSearch) return false;
       }
 
-      // 5. Marketplace Filter
       if (filterMarketplace && report.marketplace !== filterMarketplace) return false;
 
-      // 6. Analyst Filter (User Request: Remove 'analis system' / 'SYSTEM')
       const creator = (report.createdBy || report.picGinee || (report as any).analis || '').toUpperCase();
       if (creator.includes('SYSTEM')) return false;
 
-      // 7. Date Filter
       if (dateFilter && typeof report.inputDate === 'string') {
         const normalized = normalizeDate(report.inputDate);
         if (dateFilter.includes('/')) {
@@ -620,33 +517,10 @@ export default function ReportTable({
         }
       }
 
-      // 8. User Request: Deduplicate "Eksplorasi Laporan" and handle exclusions
       if (!category && !statusFilter) {
-        const physicalStatuses = [
-          'Retur Fisik',
-          'Cancel Fisik',
-          'Rusak Fisik',
-          'Bundling Fisik',
-          'Afkir Fisik',
-          'Afkir Fisik (LT3)'
-        ];
-
-        const source = (report as any)._source || 'reports';
-        const reportStatus = report.normalizedStatus || report.status || '';
-        const reportCategory = report.category || '';
-
-        // A. Handle Physical Data Deduplication
-        // [MODIFIKASI]: User ingin semua data fisik tetap muncul di Eksplorasi Laporan.
-        // Sebelumnya di sini ada filter source === 'reports' yang menyembunyikan data fisik, sekarang dihapus.
-
-        // B. Handle Special Categories (Eliminasi/Internal)
-        // These are purely for tracking and should not clog the main exploration report.
         if (reportCategory === 'rusak_internal' || reportCategory === 'eliminasi_rusak' || reportStatus === 'Eliminasi Stok Rusak') {
           return false;
         }
-
-        // C. Sembunyikan Marketplace 'Umum'
-        // Data dengan marketplace 'Umum' disembunyikan dari Eksplorasi Laporan sesuai permintaan.
         const mp = (report.marketplace || '').toUpperCase();
         if (mp === 'UMUM') {
           return false;
@@ -657,7 +531,7 @@ export default function ReportTable({
     });
   }, [initialReports, category, statusFilter, searchTerm, filterMarketplace, dateFilter]);
 
-  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage) || 1;
   const currentData = filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const isPhysicalStatusMenu = statusFilter === 'Retur Fisik' || statusFilter === 'Cancel Fisik' || statusFilter === 'Rusak Fisik' || statusFilter === 'Bundling Fisik' || statusFilter === 'Afkir Fisik' || forcePhysicalLayout;
@@ -672,7 +546,6 @@ export default function ReportTable({
       }
     }
 
-    // Sort data
     const sortedReports = [...exportDataList].sort((a, b) => {
       if (a.invoiceNumber < b.invoiceNumber) return -1;
       if (a.invoiceNumber > b.invoiceNumber) return 1;
@@ -702,23 +575,12 @@ export default function ReportTable({
         'Keterangan': r.itemDescription || (r as any).notes || (r as any).keterangan || ''
       }));
       wscols = [
-        { wch: 15 }, // Tanggal Log
-        { wch: 15 }, // Tgl Input Ginee
-        { wch: 18 }, // PIC Input Ginee
-        { wch: 15 }, // Marketplace
-        { wch: 18 }, // Analis (PIC)
-        { wch: 15 }, // Modul Fisik
-        { wch: 32 }, // Referensi Invoice
-        { wch: 15 }, // Lokasi / Rak
-        { wch: 35 }, // SKU / Barcode
-        { wch: 40 }, // Nama Produk
-        { wch: 18 }, // Status Aset
-        { wch: 8 },  // QTY
-        { wch: 35 }, // Keterangan
+        { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
+        { wch: 15 }, { wch: 32 }, { wch: 15 }, { wch: 35 }, { wch: 40 },
+        { wch: 18 }, { wch: 8 },  { wch: 35 }
       ];
       invoiceColIndex = 6;
     } else {
-      // Original format for Eksplorasi Laporan and others
       data = sortedReports.map(r => ({
         'Timestamp': r.inputDate,
         'Sinkron Ginee': r.gineeInputDate || '-',
@@ -738,7 +600,6 @@ export default function ReportTable({
 
     const worksheet = XLSX.utils.json_to_sheet(data);
 
-    // Merges
     const merges: XLSX.Range[] = [];
     if (sortedReports.length > 0) {
       for (let i = 0; i < sortedReports.length; i++) {
@@ -748,7 +609,6 @@ export default function ReportTable({
           j++;
         }
         if (j - i > 1) {
-          // Merge based on layout
           const colsToMerge = isPhysicalStatusMenu ? [0, 3] : [0, 1, 2, 3, 4];
           colsToMerge.forEach(col => {
             merges.push({
@@ -800,57 +660,66 @@ export default function ReportTable({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center glass-card p-4 rounded-[32px] border-white/5 sticky top-[116px] z-[60] shadow-2xl backdrop-blur-xl mb-4">
-        <div className="absolute inset-0 overflow-hidden rounded-[32px] pointer-events-none">
-          <div className="absolute top-0 left-0 w-32 h-32 bg-indigo-500/5 blur-[50px] rounded-full -ml-16 -mt-16" />
-        </div>
-
+    <div className="space-y-5 animate-fade-in pb-16 relative">
+      {/* Top Filter & Actions Panel */}
+      <div className="bg-[#130b2e]/90 border border-purple-900/30 p-4 rounded-2xl shadow-xl backdrop-blur-md sticky top-0 z-40 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+        {/* Search Input */}
         <div className="relative flex-1 w-full group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60 group-focus-within:text-purple-300 transition-colors" />
           <input
             type="text"
-            placeholder="Pencarian Cerdas..."
+            placeholder="Pencarian Cerdas (Invoice, SKU, PIC, Status)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-sm font-medium"
+            className="w-full pl-10 pr-9 py-2.5 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white placeholder-purple-400/40 focus:ring-2 focus:ring-purple-500 outline-none text-xs font-medium"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-all"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-purple-400 hover:text-white"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap md:flex-nowrap gap-3 w-full md:w-auto items-center">
-          <div className="flex bg-[#0f172a] border border-white/10 rounded-2xl p-1 gap-1">
+        {/* Date Filter & Options */}
+        <div className="flex flex-wrap md:flex-nowrap gap-2.5 w-full md:w-auto items-center">
+          {/* Single / Range toggle */}
+          <div className="flex bg-[#0c0620]/90 border border-purple-900/40 rounded-xl p-1 gap-1">
             <button
               onClick={() => setIsRangeMode(false)}
-              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all ${!isRangeMode ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                !isRangeMode 
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-950/40' 
+                  : 'text-purple-300/60 hover:text-white'
+              }`}
             >
               Single
             </button>
             <button
               onClick={() => setIsRangeMode(true)}
-              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all ${isRangeMode ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                isRangeMode 
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-950/40' 
+                  : 'text-purple-300/60 hover:text-white'
+              }`}
             >
               Range
             </button>
           </div>
 
-          <div className="relative flex-1 md:w-auto flex gap-2">
+          {/* Date Picker Inputs */}
+          <div className="relative flex-1 md:w-auto flex gap-1.5 items-center">
             <div className="relative flex-1 group">
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full pl-9 pr-2 py-2.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-xs font-medium cursor-pointer [color-scheme:dark] text-center"
+                className="w-full pl-8 pr-2 py-2 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs font-medium cursor-pointer [color-scheme:dark] text-center"
                 placeholder="Mulai"
               />
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
+              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-purple-400/60 pointer-events-none" />
             </div>
 
             {isRangeMode && (
@@ -859,51 +728,56 @@ export default function ReportTable({
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full pl-9 pr-2 py-2.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-xs font-medium cursor-pointer [color-scheme:dark] text-center"
+                  className="w-full pl-8 pr-2 py-2 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs font-medium cursor-pointer [color-scheme:dark] text-center"
                   placeholder="Selesai"
                 />
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
+                <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-purple-400/60 pointer-events-none" />
               </div>
             )}
 
-            <div className="flex gap-1">
+            {/* Today Button */}
+            <button
+              onClick={() => {
+                const today = format(new Date(), 'yyyy-MM-dd');
+                setStartDate(today);
+                if (isRangeMode) setEndDate(today);
+                if (category === 'rusak_internal') {
+                  localStorage.setItem('selectedDateFilter_rusak_internal', today);
+                }
+              }}
+              className={`px-2.5 py-2 bg-[#0c0620] border rounded-xl text-[10px] font-bold transition-all ${
+                startDate === format(new Date(), 'yyyy-MM-dd') && (!isRangeMode || endDate === startDate)
+                  ? 'border-purple-500 text-purple-300 bg-purple-950/30'
+                  : 'border-purple-900/40 text-purple-300/70 hover:text-white hover:bg-purple-900/20'
+              }`}
+            >
+              Today
+            </button>
+
+            {(startDate || endDate) && (
               <button
                 onClick={() => {
-                  const today = format(new Date(), 'yyyy-MM-dd');
-                  setStartDate(today);
-                  if (isRangeMode) setEndDate(today);
+                  setStartDate('');
+                  setEndDate('');
                   if (category === 'rusak_internal') {
-                    localStorage.setItem('selectedDateFilter_rusak_internal', today);
+                    localStorage.removeItem('selectedDateFilter_rusak_internal');
                   }
                 }}
-                className={`px-2 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition-all ${startDate === format(new Date(), 'yyyy-MM-dd') && (!isRangeMode || endDate === startDate) ? 'border-indigo-500 text-indigo-400' : ''}`}
+                className="p-2 bg-[#0c0620] border border-purple-900/40 rounded-xl text-purple-400 hover:text-rose-400"
+                title="Hapus Tanggal"
               >
-                Today
+                <X className="w-3.5 h-3.5" />
               </button>
-              {(startDate || endDate) && (
-                <button
-                  onClick={() => {
-                    setStartDate('');
-                    setEndDate('');
-                    if (category === 'rusak_internal') {
-                      localStorage.removeItem('selectedDateFilter_rusak_internal');
-                    }
-                  }}
-                  className="p-2.5 bg-white/5 border border-white/10 rounded-2xl text-slate-500 hover:text-rose-400"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
+          {/* Marketplace Select */}
           {!isStokLT3 && (
-            <div className="relative flex-1 md:w-44 group">
-              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+            <div className="relative flex-1 md:w-36 group">
               <select
                 value={filterMarketplace}
                 onChange={(e) => setFilterMarketplace(e.target.value)}
-                className="w-full pl-10 pr-8 py-2.5 bg-[#0f172a] border border-white/10 rounded-2xl text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none appearance-none text-sm font-medium cursor-pointer"
+                className="w-full pl-3 pr-7 py-2 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none appearance-none text-xs font-medium cursor-pointer"
               >
                 <option value="">Marketplace</option>
                 <option value="Shopee">Shopee</option>
@@ -912,141 +786,116 @@ export default function ReportTable({
                 <option value="TikTok Shop">TikTok Shop</option>
                 <option value="Blibli">Blibli</option>
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                <ChevronDown className="w-3.5 h-3.5" />
-              </div>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-purple-400/60 pointer-events-none" />
             </div>
           )}
 
+          {/* Reset All Filters */}
           <button
             onClick={() => {
               setFilterMarketplace('');
               setSearchTerm('');
-              handleDateChange(''); // Clear date filter entirely on reset
+              handleDateChange('');
               if (category === 'rusak_internal') {
                 localStorage.removeItem('selectedDateFilter_rusak_internal');
               }
             }}
-            className="p-2.5 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+            className="p-2 bg-[#0c0620] border border-purple-900/40 rounded-xl text-purple-400 hover:text-white hover:bg-purple-900/30 transition-all"
             title="Reset Semua Filter"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
+
+          {/* Export Button */}
           <button
             onClick={exportToExcel}
-            className="glow-btn flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-emerald-900/20 text-[10px] uppercase tracking-widest"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-950/40 text-xs"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden lg:inline">Ekspor</span>
+            <span>Ekspor</span>
           </button>
 
-          {isDevModeUnlocked && (
-            <>
-              <button
-                onClick={() => setIsImportModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-emerald-900/20 text-[10px] uppercase tracking-widest cursor-pointer animate-pulse"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Import Data (DevMode)</span>
-              </button>
-
-              <button
-                onClick={exportToExcel}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-cyan-900/20 text-[10px] uppercase tracking-widest cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Ekspor Original</span>
-              </button>
-            </>
-          )}
-
+          {/* Bulk Delete Button */}
           {selectedIds.size > 0 && (
             <button
               onClick={() => setBulkDeleteModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-rose-900/20 text-[10px] uppercase tracking-widest animate-in zoom-in duration-300"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold rounded-xl transition-all shadow-md shadow-rose-950/40 text-xs animate-in zoom-in duration-200"
             >
               <Trash2 className="w-4 h-4" />
-              <span className="hidden lg:inline">Hapus ({selectedIds.size})</span>
+              <span>Hapus ({selectedIds.size})</span>
             </button>
           )}
         </div>
       </div>
 
-      <div className="glass-card rounded-[32px] border-white/5 overflow-hidden shadow-2xl relative">
-        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-350px)] custom-scrollbar relative">
-          <table className="w-full text-left border-collapse table-auto">
-            <thead className="sticky top-0 z-40">
-              <tr className="bg-[#0f172a] border-b border-white/5">
-                <th className="sticky left-0 z-50 bg-[#0f172a] px-3 py-3 w-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+      {/* Main Table Card */}
+      <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md relative">
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-270px)] custom-scrollbar relative">
+          <table className="w-full text-left border-collapse table-auto min-w-[900px]">
+            <thead className="sticky top-0 z-30">
+              <tr className="bg-[#0c0620] border-b border-purple-900/40 text-purple-300 font-black text-[10px] tracking-wider uppercase">
+                <th className="sticky left-0 z-40 bg-[#0e0725] px-3 py-3 w-10 border-r border-purple-900/40 shadow-[4px_0_12px_rgba(0,0,0,0.4)]">
                   <button
                     onClick={toggleSelectAll}
-                    className="p-1 hover:bg-white/10 rounded-lg transition-all text-slate-500 hover:text-indigo-400"
+                    className="p-1 hover:bg-purple-800/30 rounded-lg transition-all text-purple-400"
                   >
                     {selectedIds.size === currentData.length && currentData.length > 0 ? (
-                      <CheckSquare className="w-4 h-4 text-indigo-500" />
+                      <CheckSquare className="w-4 h-4 text-purple-400" />
                     ) : (
                       <Square className="w-4 h-4" />
                     )}
                   </button>
                 </th>
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Timestamp</th>
+                <th className="px-3 py-3">Timestamp</th>
                 {isExplorationMenu && (
-                  <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Waktu</th>
+                  <th className="px-3 py-3">Waktu</th>
                 )}
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Sinkron Ginee</th>
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Analis</th>
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Marketplace</th>
-                <th className="sticky left-10 z-50 bg-[#0f172a] px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
-                  {isPhysicalStatusMenu ? 'INV / PEMESANAN' : 'Referensi/no pesanan/invoice'}
+                <th className="px-3 py-3">Sinkron Ginee</th>
+                <th className="px-3 py-3">Analis</th>
+                <th className="px-3 py-3">Marketplace</th>
+                <th className="sticky left-10 z-40 bg-[#0e0725] px-3 py-3 border-r border-purple-900/40 shadow-[4px_0_12px_rgba(0,0,0,0.4)]">
+                  {isPhysicalStatusMenu ? 'INV / PEMESANAN' : 'Referensi/Invoice'}
                 </th>
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Status/Keterangan</th>
+                <th className="px-3 py-3">Status/Keterangan</th>
                 {statusFilter === 'Retur Fisik' && (
-                  <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Type</th>
+                  <th className="px-3 py-3">Tipe</th>
                 )}
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Keterangan Barang</th>
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">SKU</th>
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-center">Qty</th>
-                <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right">Ops</th>
+                <th className="px-3 py-3">Keterangan Barang</th>
+                <th className="px-3 py-3">SKU Barang</th>
+                <th className="px-3 py-3 text-center">Qty</th>
+                <th className="px-3 py-3 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.03]">
+            <tbody className="divide-y divide-purple-900/20 text-xs">
               {externalLoading ? (
-                Array.from({ length: 12 }).map((_, i) => (
-                  <tr key={`skeleton-${i}`} className="animate-pulse border-b border-white/[0.02]">
-                    <td className="sticky left-0 z-30 bg-[#0f172a] px-3 py-4 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
-                      <div className="w-4 h-4 bg-slate-800 rounded" />
-                    </td>
-                    <td className="px-3 py-4"><div className="h-3 w-20 bg-slate-800 rounded" /></td>
-                    {isExplorationMenu && (
-                      <td className="px-3 py-4"><div className="h-3 w-12 bg-slate-800 rounded" /></td>
-                    )}
-                    <td className="px-3 py-4"><div className="h-3 w-20 bg-slate-800 rounded" /></td>
-                    <td className="px-3 py-4"><div className="h-3 w-16 bg-slate-800 rounded" /></td>
-                    <td className="px-3 py-4"><div className="h-4 w-12 bg-slate-800 rounded-full" /></td>
-                    <td className="sticky left-10 z-30 bg-[#0f172a] px-3 py-4 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
-                      <div className="h-3 w-24 bg-slate-800 rounded" />
-                    </td>
-                    <td className="px-3 py-4"><div className="h-3 w-20 bg-slate-800 rounded" /></td>
-                    {statusFilter === 'Retur Fisik' && (
-                      <td className="px-3 py-4"><div className="h-3 w-12 bg-slate-800 rounded" /></td>
-                    )}
-                    <td className="px-3 py-4"><div className="h-3 w-24 bg-slate-800 rounded" /></td>
-                    <td className="px-3 py-4"><div className="h-3 w-24 bg-slate-800 rounded" /></td>
-                    <td className="px-3 py-4 text-center"><div className="h-3 w-8 bg-slate-800 rounded mx-auto" /></td>
-                    <td className="px-3 py-4 text-right"><div className="h-6 w-6 bg-slate-800 rounded-lg ml-auto" /></td>
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`skeleton-${i}`} className="animate-pulse">
+                    <td className="sticky left-0 z-20 bg-[#0e0725] px-3 py-3.5"><div className="w-4 h-4 bg-purple-900/30 rounded" /></td>
+                    <td className="px-3 py-3.5"><div className="h-3 w-16 bg-purple-900/30 rounded" /></td>
+                    {isExplorationMenu && <td className="px-3 py-3.5"><div className="h-3 w-12 bg-purple-900/30 rounded" /></td>}
+                    <td className="px-3 py-3.5"><div className="h-3 w-16 bg-purple-900/30 rounded" /></td>
+                    <td className="px-3 py-3.5"><div className="h-3 w-16 bg-purple-900/30 rounded" /></td>
+                    <td className="px-3 py-3.5"><div className="h-4 w-12 bg-purple-900/30 rounded-full" /></td>
+                    <td className="sticky left-10 z-20 bg-[#0e0725] px-3 py-3.5"><div className="h-3 w-20 bg-purple-900/30 rounded" /></td>
+                    <td className="px-3 py-3.5"><div className="h-3 w-16 bg-purple-900/30 rounded" /></td>
+                    {statusFilter === 'Retur Fisik' && <td className="px-3 py-3.5"><div className="h-3 w-12 bg-purple-900/30 rounded" /></td>}
+                    <td className="px-3 py-3.5"><div className="h-3 w-20 bg-purple-900/30 rounded" /></td>
+                    <td className="px-3 py-3.5"><div className="h-3 w-20 bg-purple-900/30 rounded" /></td>
+                    <td className="px-3 py-3.5 text-center"><div className="h-3 w-6 bg-purple-900/30 rounded mx-auto" /></td>
+                    <td className="px-3 py-3.5 text-right"><div className="h-5 w-5 bg-purple-900/30 rounded ml-auto" /></td>
                   </tr>
                 ))
               ) : filteredReports.length === 0 ? (
                 <tr>
-                  <td colSpan={isExplorationMenu ? 16 : 15} className="px-8 py-24 text-center">
-                    <div className="flex flex-col items-center gap-6 max-w-sm mx-auto">
-                      <div className="w-20 h-20 bg-slate-800/20 rounded-[32px] flex items-center justify-center text-slate-700 border border-white/5">
-                        <Search className="w-10 h-10" />
+                  <td colSpan={isExplorationMenu ? 16 : 15} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
+                      <div className="w-14 h-14 bg-purple-900/20 rounded-2xl flex items-center justify-center text-purple-400 border border-purple-700/30">
+                        <Search className="w-7 h-7" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-black text-white mb-2 tracking-tight">Data Tidak Ditemukan</h3>
-                        <p className="text-slate-500 text-xs font-medium leading-relaxed uppercase tracking-widest">
-                          Tidak ada rekaman yang cocok dengan filter saat ini. Coba hapus filter tanggal atau kata kunci pencarian.
+                        <h3 className="text-base font-black text-white mb-1">Data Tidak Ditemukan</h3>
+                        <p className="text-purple-300/60 text-xs">
+                          Tidak ada rekaman data yang cocok dengan filter tanggal atau pencarian saat ini.
                         </p>
                       </div>
                       <button
@@ -1055,75 +904,82 @@ export default function ReportTable({
                           handleDateChange('');
                           setFilterMarketplace('');
                         }}
-                        className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-900/20 text-[10px] uppercase tracking-[0.2em]"
+                        className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider shadow-md shadow-purple-950/50"
                       >
-                        Hapus Semua Filter
+                        Hapus Filter
                       </button>
                     </div>
                   </td>
                 </tr>
               ) : (
                 currentData.map((report) => (
-                  <tr key={report.id} className={`hover:bg-white/[0.04] transition-all group ${selectedIds.has(report.id!) ? 'bg-indigo-500/5' : ''}`}>
-                    <td className="sticky left-0 z-30 bg-[#0f172a] px-3 py-3 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+                  <tr 
+                    key={report.id} 
+                    className={`hover:bg-purple-950/25 transition-colors group ${selectedIds.has(report.id!) ? 'bg-purple-600/15' : ''}`}
+                  >
+                    <td className="sticky left-0 z-20 bg-[#0e0725] group-hover:bg-[#150a36] px-3 py-2.5 border-r border-purple-900/40 shadow-[4px_0_12px_rgba(0,0,0,0.4)] transition-colors">
                       <button
                         onClick={() => report.id && toggleSelectRow(report.id)}
-                        className="p-1 hover:bg-white/10 rounded-lg transition-all text-slate-500 hover:text-indigo-400"
+                        className="p-1 hover:bg-purple-800/30 rounded-lg transition-all text-purple-400/60 hover:text-purple-300"
                       >
                         {selectedIds.has(report.id!) ? (
-                          <CheckSquare className="w-4 h-4 text-indigo-500" />
+                          <CheckSquare className="w-4 h-4 text-purple-400" />
                         ) : (
                           <Square className="w-4 h-4" />
                         )}
                       </button>
                     </td>
-                    <td className="px-3 py-3 text-[10px] text-slate-400 font-medium whitespace-nowrap">
+
+                    {/* Timestamp */}
+                    <td className="px-3 py-2.5 text-[11px] text-purple-300/80 font-medium whitespace-nowrap">
                       {editingId === report.id ? (
-                        <div className="relative group">
-                          <input
-                            type="date"
-                            value={editForm.inputDate || ''}
-                            onChange={(e) => setEditForm({ ...editForm, inputDate: e.target.value })}
-                            className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white w-32 pl-8 appearance-none cursor-pointer [color-scheme:dark]"
-                          />
-                          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
-                        </div>
+                        <input
+                          type="date"
+                          value={editForm.inputDate || ''}
+                          onChange={(e) => setEditForm({ ...editForm, inputDate: e.target.value })}
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs [color-scheme:dark]"
+                        />
                       ) : report.inputDate}
                     </td>
+
+                    {/* Exploration time */}
                     {isExplorationMenu && (
-                      <td className="px-3 py-3 text-[10px] text-indigo-300 font-semibold whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-[11px] text-purple-300 font-mono whitespace-nowrap">
                         {formatReportTime(report)}
                       </td>
                     )}
-                    <td className="px-3 py-3 text-[10px] text-slate-500 whitespace-nowrap">
+
+                    {/* Sinkron Ginee */}
+                    <td className="px-3 py-2.5 text-[11px] text-purple-400/70 whitespace-nowrap">
                       {editingId === report.id ? (
-                        <div className="relative group">
-                          <input
-                            type="date"
-                            value={editForm.gineeInputDate || ''}
-                            onChange={(e) => setEditForm({ ...editForm, gineeInputDate: e.target.value })}
-                            className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white w-32 pl-8 appearance-none cursor-pointer [color-scheme:dark]"
-                          />
-                          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
-                        </div>
+                        <input
+                          type="date"
+                          value={editForm.gineeInputDate || ''}
+                          onChange={(e) => setEditForm({ ...editForm, gineeInputDate: e.target.value })}
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs [color-scheme:dark]"
+                        />
                       ) : (report.gineeInputDate || '---')}
                     </td>
-                    <td className="px-3 py-3 text-[10px] text-slate-200 font-bold whitespace-nowrap">
+
+                    {/* Analis */}
+                    <td className="px-3 py-2.5 text-[11px] text-white font-bold whitespace-nowrap">
                       {editingId === report.id ? (
                         <input
                           type="text"
                           value={editForm.picGinee || ''}
                           onChange={(e) => setEditForm({ ...editForm, picGinee: e.target.value })}
-                          className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white w-20"
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs"
                         />
                       ) : (report.picGinee || report.createdBy || '---')}
                     </td>
-                    <td className="px-3 py-3">
+
+                    {/* Marketplace */}
+                    <td className="px-3 py-2.5">
                       {editingId === report.id ? (
                         <select
                           value={editForm.marketplace || ''}
                           onChange={(e) => setEditForm({ ...editForm, marketplace: e.target.value })}
-                          className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white text-[10px]"
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs"
                         >
                           <option value="Shopee">Shopee</option>
                           <option value="Tokopedia">Tokopedia</option>
@@ -1132,47 +988,54 @@ export default function ReportTable({
                           <option value="Lainnya">Lainnya</option>
                         </select>
                       ) : (
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border
-                          ${report.marketplace === 'Shopee' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                            report.marketplace === 'Tokopedia' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                              report.marketplace === 'Lazada' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                report.marketplace === 'TikTok Shop' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                                  'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
+                          report.marketplace === 'Shopee' ? 'bg-orange-500/15 text-orange-300 border-orange-500/30' :
+                          report.marketplace === 'Tokopedia' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
+                          report.marketplace === 'Lazada' ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' :
+                          report.marketplace === 'TikTok Shop' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' :
+                          'bg-purple-950/40 text-purple-300 border-purple-800/30'
+                        }`}>
                           {report.marketplace}
                         </span>
                       )}
                     </td>
-                    <td className="sticky left-10 z-30 bg-[#0f172a] px-3 py-3 text-[10px] font-mono text-indigo-300/80 font-bold shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+
+                    {/* Invoice */}
+                    <td className="sticky left-10 z-20 bg-[#0e0725] group-hover:bg-[#150a36] px-3 py-2.5 text-[11px] font-mono text-purple-300 font-bold border-r border-purple-900/40 shadow-[4px_0_12px_rgba(0,0,0,0.4)] transition-colors whitespace-nowrap">
                       {editingId === report.id ? (
                         <input
                           type="text"
                           value={editForm.invoiceNumber || ''}
                           onChange={(e) => setEditForm({ ...editForm, invoiceNumber: e.target.value })}
-                          className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white w-24"
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs font-mono"
                         />
                       ) : report.invoiceNumber}
                     </td>
-                    <td className="px-3 py-3 text-[10px] text-slate-400 font-medium whitespace-nowrap">
+
+                    {/* Status / Keterangan */}
+                    <td className="px-3 py-2.5 text-[11px] text-purple-200 font-medium whitespace-nowrap">
                       {editingId === report.id ? (
                         <input
                           type="text"
                           value={editForm.status || ''}
                           onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                          className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white w-24"
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs"
                         />
                       ) : (
-                        <div className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded-md bg-purple-950/40 text-purple-300 border border-purple-800/30 text-[10px] font-bold">
                           {report.assetStatus || report.status || '---'}
-                        </div>
+                        </span>
                       )}
                     </td>
+
+                    {/* Type for Retur Fisik */}
                     {statusFilter === 'Retur Fisik' && (
-                      <td className="px-3 py-3 text-[10px] text-emerald-400 font-bold whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-[11px] text-emerald-400 font-bold whitespace-nowrap">
                         {editingId === report.id ? (
                           <select
                             value={editForm.type || ''}
                             onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
-                            className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white text-[10px]"
+                            className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs"
                           >
                             <option value="">Standard</option>
                             <option value="COD">COD</option>
@@ -1180,55 +1043,63 @@ export default function ReportTable({
                         ) : (report.type || 'Standard')}
                       </td>
                     )}
-                    <td className="px-3 py-3">
+
+                    {/* Keterangan Barang */}
+                    <td className="px-3 py-2.5">
                       {editingId === report.id ? (
                         <input
                           type="text"
                           value={editForm.itemDescription || ''}
                           onChange={(e) => setEditForm({ ...editForm, itemDescription: e.target.value })}
-                          className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white w-24"
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs"
                         />
                       ) : (
-                        <div className="text-[9px] text-slate-600 font-medium line-clamp-1 max-w-[100px] leading-relaxed italic" title={report.itemDescription}>
+                        <div className="text-[10px] text-purple-300/70 italic line-clamp-1 max-w-[120px]" title={report.itemDescription}>
                           {report.itemDescription || '---'}
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-[10px] font-black text-indigo-400 tracking-tight whitespace-nowrap">
+
+                    {/* SKU */}
+                    <td className="px-3 py-2.5 text-[11px] font-bold text-white font-mono tracking-tight whitespace-nowrap">
                       {editingId === report.id ? (
                         <input
                           type="text"
                           value={editForm.sku || ''}
                           onChange={(e) => setEditForm({ ...editForm, sku: e.target.value })}
-                          className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white w-24"
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs font-mono"
                         />
                       ) : report.sku}
                     </td>
-                    <td className="px-3 py-3 text-[10px] font-black text-white text-center">
+
+                    {/* Qty */}
+                    <td className="px-3 py-2.5 text-xs font-black text-purple-300 text-center">
                       {editingId === report.id ? (
                         <input
                           type="number"
                           value={editForm.quantity || 0}
                           onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) })}
-                          className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white w-12"
+                          className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs w-12 text-center"
                         />
                       ) : report.quantity}
                     </td>
-                    <td className="px-3 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+
+                    {/* Ops / Actions */}
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         {editingId === report.id ? (
                           <>
                             <button
                               onClick={handleSaveEdit}
                               disabled={isSaving}
-                              className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all border border-transparent hover:border-emerald-500/20"
+                              className="p-1 text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-all"
                               title="Simpan"
                             >
                               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                             </button>
                             <button
                               onClick={handleCancelEdit}
-                              className="p-1 text-slate-400 hover:bg-white/10 rounded-lg transition-all border border-transparent hover:border-white/20"
+                              className="p-1 text-purple-400 hover:bg-purple-900/30 rounded-lg transition-all"
                               title="Batal"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -1238,15 +1109,15 @@ export default function ReportTable({
                           <>
                             <button
                               onClick={() => handleEditClick(report)}
-                              className="p-1 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all border border-transparent hover:border-indigo-500/20"
-                              title="Edit"
+                              className="p-1 text-purple-400/70 hover:text-purple-300 hover:bg-purple-900/30 rounded-lg transition-all"
+                              title="Edit Data"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => report.id && handleDeleteClick(report.id)}
-                              className="p-1 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all border border-transparent hover:border-rose-500/20"
-                              title="Hapus"
+                              className="p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+                              title="Hapus Data"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1261,84 +1132,77 @@ export default function ReportTable({
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="px-8 py-6 bg-white/[0.01] border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <div className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">
-              Rekaman <span className="text-slate-400">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> dari <span className="text-slate-400">{filteredReports.length}</span> Komitmen
-            </div>
+        {/* Pagination Footer */}
+        <div className="px-6 py-3.5 bg-[#0c0620]/95 border-t border-purple-900/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-[11px] text-purple-300/70 font-medium">
+            Menampilkan <span className="text-white font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="text-white font-bold">{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> dari <span className="text-white font-bold">{filteredReports.length}</span> rekam
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-2">
             <button
               disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => prev - 1)}
-              className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 disabled:opacity-20 transition-all text-slate-400 hover:text-white"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              className="p-1 px-3 bg-[#130b2e] border border-purple-900/40 hover:bg-purple-900/30 text-white rounded-lg transition disabled:opacity-30 flex items-center gap-1 font-bold text-xs"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-3.5 h-3.5" /> Sebelum
             </button>
-            <div className="flex items-center gap-1.5 px-4 font-black text-xs">
-              <span className="text-indigo-400">{currentPage}</span>
-              <span className="text-slate-800">/</span>
-              <span className="text-slate-600">{totalPages || 1}</span>
-            </div>
+            <span className="text-xs font-black text-purple-300 font-mono">
+              {currentPage} / {totalPages}
+            </span>
             <button
               disabled={currentPage === totalPages || totalPages === 0}
-              onClick={() => setCurrentPage(prev => prev + 1)}
-              className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 disabled:opacity-20 transition-all text-slate-400 hover:text-white"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              className="p-1 px-3 bg-[#130b2e] border border-purple-900/40 hover:bg-purple-900/30 text-white rounded-lg transition disabled:opacity-30 flex items-center gap-1 font-bold text-xs"
             >
-              <ChevronRight className="w-5 h-5" />
+              Berikut <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Modern Dark Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {(deleteModal.show || bulkDeleteModal) && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 30 }}
-              className="bg-[#0f172a] w-full max-w-md rounded-[48px] shadow-3xl overflow-hidden border border-white/10"
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-[#130b2e] w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-purple-800/40 p-6 text-center shadow-purple-950/80"
             >
-              <div className="p-10 text-center relative overflow-hidden">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-rose-500/10 blur-[60px] rounded-full -mt-20" />
-                <div className="w-20 h-20 bg-rose-500/10 rounded-[32px] flex items-center justify-center mx-auto mb-8 border border-rose-500/20 shadow-lg shadow-rose-900/10">
-                  <AlertTriangle className="w-10 h-10 text-rose-500" />
-                </div>
-                <h3 className="text-2xl font-black text-white mb-4 tracking-tight">
-                  {bulkDeleteModal ? 'Penghapusan Massal' : 'Pencabutan Akses'}
-                </h3>
-                <p className="text-slate-400 text-sm leading-relaxed mb-6 font-medium">
-                  {bulkDeleteModal
-                    ? `Konfirmasi penghapusan permanen ${selectedIds.size} rekaman data terpilih. Tindakan ini tidak dapat dibatalkan.`
-                    : 'Konfirmasi penghapusan permanen rekaman data terpilih. Tindakan ini tidak dapat dibatalkan.'}
-                </p>
+              <div className="w-12 h-12 bg-rose-500/15 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-500/30 text-rose-400">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black text-white mb-2">
+                {bulkDeleteModal ? 'Konfirmasi Hapus Massal' : 'Konfirmasi Hapus Data'}
+              </h3>
+              <p className="text-purple-300/80 text-xs leading-relaxed mb-6">
+                {bulkDeleteModal
+                  ? `Apakah Anda yakin ingin menghapus permanen ${selectedIds.size} baris data yang dipilih?`
+                  : 'Apakah Anda yakin ingin menghapus permanen baris data rekaman ini?'}
+              </p>
 
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => {
-                      setDeleteModal({ show: false, id: null });
-                      setBulkDeleteModal(false);
-                    }}
-                    className="flex-1 py-4 px-6 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-black rounded-2xl transition-all border border-white/5 text-xs uppercase tracking-widest"
-                  >
-                    BATAL
-                  </button>
-                  <button
-                    onClick={bulkDeleteModal ? handleBulkDelete : confirmDelete}
-                    disabled={isDeleting}
-                    className="flex-1 py-4 px-6 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:opacity-50 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-2xl shadow-rose-900/30 text-xs uppercase tracking-widest"
-                  >
-                    {isDeleting ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <X className="w-5 h-5" />
-                    )}
-                    HAPUS {bulkDeleteModal ? 'SEMUA' : 'DATA'}
-                  </button>
-                </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setDeleteModal({ show: false, id: null });
+                    setBulkDeleteModal(false);
+                  }}
+                  className="flex-1 py-2.5 px-4 bg-[#0c0620] hover:bg-purple-900/30 text-purple-300 font-bold rounded-xl transition-all border border-purple-900/40 text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={bulkDeleteModal ? handleBulkDelete : confirmDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-2.5 px-4 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 disabled:opacity-50 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-950/50 text-xs uppercase tracking-wider"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  <span>Hapus {bulkDeleteModal ? 'Semua' : 'Data'}</span>
+                </button>
               </div>
             </motion.div>
           </div>
@@ -1351,162 +1215,6 @@ export default function ReportTable({
         type={toastConfig.type}
         onClose={() => setToastConfig(prev => ({ ...prev, isVisible: false }))}
       />
-      {/* MODAL IMPORT DATA CSV / EXCEL (DEV MODE) - Render via Portal */}
-      {isImportModalOpen && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 w-screen h-screen">
-          <div className="bg-[#120a32] border border-white/20 rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] relative z-[100000]">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-[#1a0f44]">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-500/30">
-                  <FileSpreadsheet className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    Import Data CSV / Excel ke Firestore
-                    <span className="px-2 py-0.5 text-[9px] bg-emerald-500/20 text-emerald-300 rounded-full font-mono border border-emerald-400/30">
-                      DEV MODE
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Drag & Drop file CSV/Excel atau pilih dari explorer untuk dimasukkan ke Firestore.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsImportModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10">
-                <div>
-                  <h4 className="text-sm font-bold text-white">Template Format Data</h4>
-                  <p className="text-xs text-slate-400">Download template format kolom CSV / Excel yang didukung.</p>
-                </div>
-                <button
-                  onClick={handleDownloadTemplate}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-colors shadow-md cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download Template</span>
-                </button>
-              </div>
-
-              {/* Drag & Drop Zone */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-3xl p-8 text-center transition-all flex flex-col items-center justify-center cursor-pointer ${
-                  isDragOver ? 'border-emerald-400 bg-emerald-500/10 scale-[1.01]' : 'border-white/20 bg-white/5 hover:border-white/40'
-                }`}
-                onClick={() => document.getElementById('report-table-excel-input')?.click()}
-              >
-                <input
-                  id="report-table-excel-input"
-                  type="file"
-                  accept=".csv, .xlsx, .xls"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) processFile(file);
-                  }}
-                />
-                <Upload className={`w-12 h-12 mb-3 ${isDragOver ? 'text-emerald-400 animate-bounce' : 'text-slate-400'}`} />
-                <p className="text-sm font-bold text-white mb-1">
-                  {excelFile ? excelFile.name : 'Tarik & Lepas File CSV / Excel di sini, atau klik untuk memilih'}
-                </p>
-                <p className="text-xs text-slate-400">Format yang didukung: .csv, .xlsx, .xls</p>
-              </div>
-
-              {importStatus && (
-                <div className="p-4 bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-2xl text-xs font-bold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>{importStatus}</span>
-                </div>
-              )}
-
-              {parsedData.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                      Preview Data ({parsedData.length} baris terdeteksi)
-                    </h4>
-                    <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                      <Check className="w-4 h-4" /> Siap dimasukkan ke Firestore
-                    </span>
-                  </div>
-
-                  <div className="max-h-48 overflow-auto rounded-2xl border border-white/10 bg-black/40">
-                    <table className="w-full text-left text-xs text-slate-300">
-                      <thead className="bg-[#1a0f44] text-slate-400 sticky top-0">
-                        <tr>
-                          <th className="p-3 border-b border-white/10">No</th>
-                          <th className="p-3 border-b border-white/10">Referensi Invoice</th>
-                          <th className="p-3 border-b border-white/10">SKU / Barcode</th>
-                          <th className="p-3 border-b border-white/10">Nama Produk</th>
-                          <th className="p-3 border-b border-white/10">QTY</th>
-                          <th className="p-3 border-b border-white/10">Modul Fisik</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 font-mono">
-                        {parsedData.slice(0, 10).map((row, idx) => (
-                          <tr key={idx} className="hover:bg-white/5">
-                            <td className="p-3">{idx + 1}</td>
-                            <td className="p-3 font-bold text-white">{getRowVal(row, ['referensi_invoice', 'referensi invoice', 'invoice', 'invoice_ref', 'inv / pemesanan']) || '-'}</td>
-                            <td className="p-3 text-indigo-400">{getRowVal(row, ['sku', 'sku_id', 'sku / barcode', 'barcode']) || '-'}</td>
-                            <td className="p-3 truncate max-w-[200px]">{getRowVal(row, ['product_name', 'nama produk', 'keterangan barang', 'status/keterangan', 'keterangan']) || '-'}</td>
-                            <td className="p-3">{getRowVal(row, ['qty', 'quantity', 'jumlah']) || 1}</td>
-                            <td className="p-3 text-rose-400">{getRowVal(row, ['modul_fisik', 'status_aset', 'status']) || 'Cancel Fisik'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {parsedData.length > 10 && (
-                    <p className="text-[11px] text-slate-400 text-center italic">
-                      + Menampilkan 10 dari total {parsedData.length} baris data CSV/Excel.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-white/10 flex items-center justify-between bg-[#1a0f44]">
-              <button
-                onClick={() => setIsImportModalOpen(false)}
-                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleExecuteImportToFirestore}
-                disabled={parsedData.length === 0 || isImporting}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Mengimport ke Firestore...</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    <span>Import {parsedData.length} Data ke Firestore</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 }

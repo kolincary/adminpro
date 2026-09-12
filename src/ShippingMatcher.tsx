@@ -4,7 +4,7 @@ import {
   FileSpreadsheet, Search, RefreshCw, Layers, ArrowRightLeft, 
   CheckCircle2, AlertTriangle, HelpCircle, Clipboard, Trash2,
   Check, ArrowUpDown, ChevronLeft, ChevronRight, BarChart3, Database,
-  ArrowUpRight, ArrowDownLeft, X, Package, ShieldCheck
+  ArrowUpRight, ArrowDownLeft, X, Package, ShieldCheck, Sparkles
 } from 'lucide-react';
 import XLSX from 'xlsx-js-style';
 import { format } from 'date-fns';
@@ -212,7 +212,7 @@ export default function ShippingMatcher() {
   };
 
   return (
-    <div className="flex-1 w-full max-w-none mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 relative z-10">
+    <div className="flex-1 w-full max-w-none mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* Dynamic Toast Alert inside panel */}
       <AnimatePresence>
@@ -221,12 +221,12 @@ export default function ShippingMatcher() {
             initial={{ opacity: 0, y: -20, x: '-50%' }}
             animate={{ opacity: 1, y: 0, x: '-50%' }}
             exit={{ opacity: 0, y: -20, x: '-50%' }}
-            className={`fixed top-6 left-1/2 z-50 px-5 py-3 rounded-2xl shadow-2xl font-black text-xs tracking-wider uppercase border flex items-center gap-2 ${
+            className={`fixed top-6 left-1/2 z-50 px-5 py-3 rounded-2xl shadow-2xl font-black text-xs tracking-wider uppercase border flex items-center gap-2 backdrop-blur-xl ${
               toastMessage.type === 'error' 
-                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' 
+                ? 'bg-rose-950/90 text-rose-300 border-rose-500/40 shadow-rose-950/50' 
                 : toastMessage.type === 'info'
-                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-400/40'
-                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                ? 'bg-purple-950/90 text-purple-300 border-purple-400/40 shadow-purple-950/50'
+                : 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40 shadow-emerald-950/50'
             }`}
           >
             <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -235,107 +235,110 @@ export default function ShippingMatcher() {
         )}
       </AnimatePresence>
 
-      {/* Title Header Block */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/5 border border-white/10 p-6 sm:p-8 rounded-[30px] backdrop-blur-2xl relative overflow-hidden shadow-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-indigo-500/10 opacity-30 pointer-events-none" />
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="w-14 h-14 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-500/30 shadow-lg shadow-indigo-950/25">
-            <ArrowRightLeft className="w-7 h-7 text-indigo-400" />
+      {/* Title Header Card */}
+      <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 sm:p-8 backdrop-blur-md relative overflow-hidden shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-xl shadow-purple-950/40 shrink-0">
+            <ArrowRightLeft className="w-7 h-7 text-white" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white leading-none tracking-tight">Pencocok Pengiriman Logistik</h2>
-              <span className="hidden sm:inline-flex bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border border-indigo-500/30">Logistic Scanner Link</span>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">Pencocok Pengiriman Logistik</h2>
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                <Sparkles className="w-3 h-3 text-purple-400" />
+                Logistic Scanner Link
+              </span>
             </div>
-            <p className="text-slate-400 text-xs sm:text-sm mt-1.5 max-w-3xl leading-relaxed">
-              Mengecek silang (cross-match) data barcode yang discan oleh divisi logistik internal seller (saat bungkus barang) dengan log scan fisik yang diterbitkan ekspedisi/kurir saat pick-up. Mendeteksi barang tertinggal dan selisih resi dalam hitungan detik.
+            <p className="text-purple-300/60 text-xs sm:text-sm font-semibold mt-1 max-w-3xl leading-relaxed">
+              Mengecek silang (cross-match) data barcode yang discan oleh divisi logistik internal seller (saat bungkus barang) dengan log scan fisik ekspedisi/kurir saat pick-up.
             </p>
           </div>
         </div>
         <button
           onClick={handleExportExcel}
-          className="h-11 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl tracking-wider text-xs uppercase cursor-pointer transition-all flex items-center justify-center gap-2 relative z-10 shadow-lg shadow-emerald-950/40 active:scale-95 border border-emerald-400/20 group hover:border-emerald-400/40"
+          className="h-11 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl tracking-wider text-xs uppercase cursor-pointer transition-all flex items-center justify-center gap-2 relative z-10 shadow-xl shadow-emerald-950/40 active:scale-95 border border-emerald-400/20 group"
         >
           <FileSpreadsheet className="w-4 h-4 transition-transform group-hover:scale-110" />
           Export Koreksi Excel
         </button>
       </div>
 
-      {/* KPI Cards bento design block */}
+      {/* KPI Cards Bento Grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-[#181140]/40 backdrop-blur-md border border-white/10 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5">
-          <div className="w-9 h-9 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
+        <div className="bg-[#130b2e]/90 backdrop-blur-md border border-purple-900/30 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
             <ArrowUpRight className="w-5 h-5 text-indigo-400" />
           </div>
           <div className="min-w-0">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block truncate">Total Internal</span>
-            <p className="text-lg font-black text-white tracking-tight mt-0.5">{stats.internalCount}</p>
+            <span className="text-[9px] font-black uppercase tracking-widest text-purple-300/60 block truncate">Total Internal</span>
+            <p className="text-xl font-black text-white tracking-tight mt-0.5">{stats.internalCount}</p>
           </div>
         </div>
 
-        <div className="bg-[#181140]/40 backdrop-blur-md border border-white/10 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5">
-          <div className="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <ArrowDownLeft className="w-5 h-5 text-emerald-400" />
+        <div className="bg-[#130b2e]/90 backdrop-blur-md border border-purple-900/30 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0">
+            <ArrowDownLeft className="w-5 h-5 text-purple-400" />
           </div>
           <div className="min-w-0">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block truncate">Total Kurir</span>
-            <p className="text-lg font-black text-white tracking-tight mt-0.5">{stats.courierCount}</p>
+            <span className="text-[9px] font-black uppercase tracking-widest text-purple-300/60 block truncate">Total Kurir</span>
+            <p className="text-xl font-black text-white tracking-tight mt-0.5">{stats.courierCount}</p>
           </div>
         </div>
 
-        <div className="bg-[#181140]/40 backdrop-blur-md border border-white/10 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5">
-          <div className="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
+        <div className="bg-[#130b2e]/90 backdrop-blur-md border border-purple-900/30 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
           </div>
           <div className="min-w-0">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block truncate">Sesuai / Match</span>
-            <p className="text-lg font-black text-emerald-400 tracking-tight mt-0.5">{stats.matchCount}</p>
+            <span className="text-[9px] font-black uppercase tracking-widest text-purple-300/60 block truncate">Sesuai / Match</span>
+            <p className="text-xl font-black text-emerald-400 tracking-tight mt-0.5">{stats.matchCount}</p>
           </div>
         </div>
 
-        <div className="bg-[#181140]/40 backdrop-blur-md border border-rose-500/20 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5">
-          <div className="w-9 h-9 rounded-lg bg-rose-500/15 border border-rose-500/20 flex items-center justify-center shrink-0">
+        <div className="bg-[#130b2e]/90 backdrop-blur-md border border-rose-500/20 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0">
             <AlertTriangle className="w-5 h-5 text-rose-400" />
           </div>
           <div className="min-w-0">
-            <span className="text-[9px] font-black uppercase tracking-widest text-[#f43f5e] block truncate">Tertinggal (Internal Only)</span>
-            <p className="text-lg font-black text-rose-400 tracking-tight mt-0.5">{stats.internalOnlyCount}</p>
+            <span className="text-[9px] font-black uppercase tracking-widest text-rose-300/70 block truncate">Tertinggal (Internal)</span>
+            <p className="text-xl font-black text-rose-400 tracking-tight mt-0.5">{stats.internalOnlyCount}</p>
           </div>
         </div>
 
-        <div className="bg-[#181140]/40 backdrop-blur-md border border-amber-500/20 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5 col-span-2 md:col-span-1">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center shrink-0">
+        <div className="bg-[#130b2e]/90 backdrop-blur-md border border-amber-500/20 rounded-2xl p-4.5 shadow-xl flex items-center gap-3.5 col-span-2 md:col-span-1">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
             <Database className="w-5 h-5 text-amber-400" />
           </div>
           <div className="min-w-0">
-            <span className="text-[9px] font-black uppercase tracking-widest text-[#f59e0b] block truncate">Ganjil (Courier Only)</span>
-            <p className="text-lg font-black text-amber-400 tracking-tight mt-0.5">{stats.courierOnlyCount}</p>
+            <span className="text-[9px] font-black uppercase tracking-widest text-amber-300/70 block truncate">Ganjil (Kurir Only)</span>
+            <p className="text-xl font-black text-amber-400 tracking-tight mt-0.5">{stats.courierOnlyCount}</p>
           </div>
         </div>
       </div>
 
-      {/* Main comparative engine columns */}
+      {/* Main Comparative Engine */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* Left column: raw paste textareas */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-[#181140]/45 border border-white/11 rounded-[32px] p-6 relative overflow-hidden shadow-xl backdrop-blur-xl">
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-emerald-500 via-indigo-500 to-rose-500" />
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 relative overflow-hidden shadow-xl backdrop-blur-md">
             
             <div className="flex flex-row items-center justify-between mb-5">
-              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Input Logs Pengiriman</span>
+              <span className="text-[10px] font-black text-purple-300 uppercase tracking-widest">Input Logs Pengiriman</span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleLoadDemoDataset}
-                  className="px-2.5 py-1 bg-indigo-500/20 border border-indigo-400/25 hover:border-indigo-400/50 text-[10px] font-black text-indigo-300 rounded-lg uppercase tracking-wider transition cursor-pointer"
+                  className="px-3 py-1 bg-purple-500/15 border border-purple-500/30 hover:border-purple-500/50 text-[10px] font-black text-purple-300 rounded-lg uppercase tracking-wider transition cursor-pointer"
                 >
                   Contoh Demo
                 </button>
                 <button
                   type="button"
                   onClick={handleClearInputs}
-                  className="p-1 text-slate-500 hover:text-white transition cursor-pointer"
+                  className="p-1 text-purple-400/60 hover:text-rose-400 transition cursor-pointer"
                   title="Clear inputs"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -348,38 +351,38 @@ export default function ShippingMatcher() {
               {/* Internal Logs Barcodes Textarea input */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                  <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">
                     1. Log Scan Divisi Logistik (Internal Seller)
                   </label>
-                  <span className="text-[10px] font-mono font-bold text-indigo-300">
+                  <span className="text-[10px] font-mono font-black text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 rounded-full">
                     {parseBarcodes(internalRawInput).length} Resi
                   </span>
                 </div>
                 <div className="relative">
                   <textarea
-                    placeholder="Whip out scanner, scan resi di sini / atau copy paste log resi baris per baris..."
+                    placeholder="Scan resi di sini / atau copy paste log resi baris per baris..."
                     value={internalRawInput}
                     onChange={(e) => {
                       setInternalRawInput(e.target.value);
                       setCurrentPage(1);
                     }}
                     rows={6}
-                    className="w-full p-4 bg-[#110931]/70 border border-white/10 rounded-2xl text-white font-mono text-xs focus:outline-none focus:border-indigo-400 transition resize-none custom-scrollbar"
+                    className="w-full p-4 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 transition resize-none custom-scrollbar placeholder-purple-400/30"
                   />
-                  <Clipboard className="absolute right-4.5 bottom-4.5 w-4 h-4 text-slate-500 pointer-events-none" />
+                  <Clipboard className="absolute right-4 bottom-4 w-4 h-4 text-purple-500/40 pointer-events-none" />
                 </div>
-                <p className="text-[10px] text-slate-400 leading-normal italic">
-                  * Tips: Scanner Logistik memancarkan data secara linear. Cukup letakkan kursor dalam box di atas, lalu scan berkali-kali.
+                <p className="text-[10px] text-purple-300/50 leading-normal italic font-medium">
+                  * Tips: Letakkan kursor dalam kotak di atas, lalu scan berkali-kali menggunakan barcode scanner.
                 </p>
               </div>
 
               {/* Courier Logs Barcodes Textarea input */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                  <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">
                     2. Log Manifest Kurir (Ekspedisi Scan)
                   </label>
-                  <span className="text-[10px] font-mono font-bold text-emerald-400">
+                  <span className="text-[10px] font-mono font-black text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
                     {parseBarcodes(courierRawInput).length} Resi
                   </span>
                 </div>
@@ -392,9 +395,9 @@ export default function ShippingMatcher() {
                       setCurrentPage(1);
                     }}
                     rows={6}
-                    className="w-full p-4 bg-[#110931]/70 border border-white/10 rounded-2xl text-white font-mono text-xs focus:outline-none focus:border-emerald-400 transition resize-none custom-scrollbar"
+                    className="w-full p-4 bg-[#0c0620] border border-purple-900/40 rounded-xl text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 transition resize-none custom-scrollbar placeholder-purple-400/30"
                   />
-                  <Clipboard className="absolute right-4.5 bottom-4.5 w-4 h-4 text-slate-500 pointer-events-none" />
+                  <Clipboard className="absolute right-4 bottom-4 w-4 h-4 text-purple-500/40 pointer-events-none" />
                 </div>
               </div>
 
@@ -405,16 +408,16 @@ export default function ShippingMatcher() {
 
         {/* Right column: live matching list and discrepancies highlights */}
         <div className="lg:col-span-7 flex flex-col gap-6">
-          <div className="bg-[#181140]/45 border border-white/11 rounded-[32px] p-6 shadow-xl backdrop-blur-xl flex-1 flex flex-col">
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl backdrop-blur-md flex-1 flex flex-col">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-purple-300" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-white text-base">Hasil Koreksi Logistik</h3>
-                  <p className="text-[10px] text-slate-400 leading-none mt-0.5">Live comparisons of scanned packages</p>
+                  <h3 className="font-black text-white text-base tracking-tight">Hasil Koreksi Logistik</h3>
+                  <p className="text-[10px] text-purple-300/60 uppercase tracking-widest font-semibold mt-0.5">Live comparisons of scanned packages</p>
                 </div>
               </div>
 
@@ -428,14 +431,14 @@ export default function ShippingMatcher() {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full pl-9 pr-4 py-2 bg-[#110931]/60 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-400 transition"
+                  className="w-full pl-9 pr-4 py-2 bg-[#0c0620] border border-purple-900/40 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition placeholder-purple-400/30 font-semibold"
                 />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400/60" />
               </div>
             </div>
 
             {/* Filter category state Tabs */}
-            <div className="grid grid-cols-4 gap-1 p-1 bg-[#110931]/50 border border-white/10 rounded-2xl mb-4.5 text-center">
+            <div className="grid grid-cols-4 gap-1 p-1 bg-[#0c0620] border border-purple-900/40 rounded-xl mb-4.5 text-center">
               {[
                 { id: 'ALL', label: 'Semua' },
                 { id: 'MATCH', label: 'Match' },
@@ -448,7 +451,11 @@ export default function ShippingMatcher() {
                     setSelectedStatusFilter(tab.id as any);
                     setCurrentPage(1);
                   }}
-                  className={`py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition cursor-pointer ${selectedStatusFilter === tab.id ? 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition cursor-pointer ${
+                    selectedStatusFilter === tab.id 
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-950/40' 
+                      : 'text-purple-300/60 hover:text-white'
+                  }`}
                 >
                   {tab.label}
                 </button>
@@ -456,21 +463,21 @@ export default function ShippingMatcher() {
             </div>
 
             {/* Listings table diff list */}
-            <div className="overflow-x-auto rounded-2xl border border-white/10 shadow-lg relative bg-[#110931]/40 flex-1 min-h-[300px]">
+            <div className="overflow-x-auto rounded-xl border border-purple-900/30 relative bg-[#0c0620]/60 flex-1 min-h-[300px] custom-scrollbar">
               <table className="w-full text-left border-collapse min-w-[500px]">
                 <thead>
-                  <tr className="border-b border-white/10 bg-[#160e3a]/80 text-[#a89eff] font-black text-[10px] tracking-wider uppercase">
-                    <th className="py-3 px-4.5 text-center">No</th>
+                  <tr className="border-b border-purple-900/40 bg-[#0c0620] text-purple-300 font-black text-[10px] tracking-wider uppercase">
+                    <th className="py-3 px-4 text-center">No</th>
                     <th className="py-3 px-4">Nomor Resi / Barcode</th>
                     <th className="py-3 px-4 text-center">Scan Seller</th>
                     <th className="py-3 px-4 text-center">Scan Kurir</th>
                     <th className="py-3 px-4 text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 text-slate-200 text-xs">
+                <tbody className="divide-y divide-purple-900/20 text-slate-200 text-xs">
                   {paginatedListings.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-slate-400 font-semibold">
+                      <td colSpan={5} className="py-16 text-center text-purple-300/40 font-black text-xs uppercase tracking-widest">
                         Masukkan list scan resi logistik di sebelah kiri untuk menampilkan analisis pembandingan.
                       </td>
                     </tr>
@@ -478,31 +485,31 @@ export default function ShippingMatcher() {
                     paginatedListings.map((item, idx) => {
                       const rowNum = (currentPage - 1) * itemsPerPage + idx + 1;
                       return (
-                        <tr key={item.barcode} className="hover:bg-white/5 transition-all">
-                          <td className="py-3.5 px-4.5 text-center font-mono font-bold text-slate-400 max-w-[40px]">{rowNum}</td>
-                          <td className="py-3.5 px-4 font-mono font-bold text-white uppercase tracking-tight">{item.barcode}</td>
-                          <td className="py-3.5 px-4 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded font-mono font-black text-[9px] ${item.inInternal ? 'bg-indigo-500/20 text-indigo-300' : 'bg-transparent text-slate-600'}`}>
+                        <tr key={item.barcode} className="hover:bg-purple-500/10 transition-all">
+                          <td className="py-3 px-4 text-center font-mono font-bold text-purple-400/60 max-w-[40px]">{rowNum}</td>
+                          <td className="py-3 px-4 font-mono font-bold text-purple-100 uppercase tracking-tight">{item.barcode}</td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full font-mono font-black text-[9px] ${item.inInternal ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-transparent text-purple-500/30'}`}>
                               {item.inInternal ? 'SCANNED' : 'UNSCANNED'}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded font-mono font-black text-[9px] ${item.inCourier ? 'bg-emerald-500/20 text-emerald-400' : 'bg-transparent text-slate-600'}`}>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full font-mono font-black text-[9px] ${item.inCourier ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-transparent text-purple-500/30'}`}>
                               {item.inCourier ? 'SCANNED' : 'UNSCANNED'}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3 px-4 text-center">
                             {item.status === 'MATCH' ? (
-                              <span className="inline-flex items-center gap-1 text-emerald-400 font-extrabold text-[9px] bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                                <CheckCircle2 className="w-3 h-3" /> MATCH
+                              <span className="inline-flex items-center gap-1 text-emerald-300 font-black text-[9px] bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" /> MATCH
                               </span>
                             ) : item.status === 'INTERNAL_ONLY' ? (
-                              <span className="inline-flex items-center gap-1 text-rose-400 font-extrabold text-[9px] bg-rose-500/10 border border-rose-500/20 px-2 a.5 py-0.5 rounded-full" title="Packed & scanned but expedistion has not picked up">
-                                <AlertTriangle className="w-3 h-3 animate-pulse" /> TERTINGGAL (INTERNAL)
+                              <span className="inline-flex items-center gap-1 text-rose-300 font-black text-[9px] bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 rounded-full">
+                                <AlertTriangle className="w-3 h-3 text-rose-400 animate-pulse" /> TERTINGGAL (INTERNAL)
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-amber-400 font-extrabold text-[9px] bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full" title="Courier scanned but seller never registered scan">
-                                <HelpCircle className="w-3 h-3" /> GANJIL (KURIR ONLY)
+                              <span className="inline-flex items-center gap-1 text-amber-300 font-black text-[9px] bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
+                                <HelpCircle className="w-3 h-3 text-amber-400" /> GANJIL (KURIR ONLY)
                               </span>
                             )}
                           </td>
@@ -517,7 +524,7 @@ export default function ShippingMatcher() {
             {/* Pagination block */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-5 px-1">
-                <span className="text-[10px] text-slate-400 font-bold">
+                <span className="text-[10px] text-purple-300/60 font-bold">
                   Menampilkan <span className="text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="text-white">{Math.min(currentPage * itemsPerPage, filteredListings.length)}</span> dari <span className="text-white">{filteredListings.length}</span> entries
                 </span>
                 
@@ -525,17 +532,17 @@ export default function ShippingMatcher() {
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    className="p-1 px-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-[11px] transition cursor-pointer disabled:opacity-30 flex items-center gap-1 font-bold"
+                    className="p-1 px-3 bg-[#0c0620] border border-purple-900/40 hover:bg-purple-950/40 text-purple-200 rounded-xl text-[11px] transition cursor-pointer disabled:opacity-30 flex items-center gap-1 font-bold"
                   >
                     <ChevronLeft className="w-4 h-4" /> Sebelum
                   </button>
-                  <span className="text-xs font-black text-slate-300 font-mono">
+                  <span className="text-xs font-black text-purple-300 font-mono">
                     {currentPage} / {totalPages}
                   </span>
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    className="p-1 px-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-[11px] transition cursor-pointer disabled:opacity-30 flex items-center gap-1 font-bold"
+                    className="p-1 px-3 bg-[#0c0620] border border-purple-900/40 hover:bg-purple-950/40 text-purple-200 rounded-xl text-[11px] transition cursor-pointer disabled:opacity-30 flex items-center gap-1 font-bold"
                   >
                     Berikut <ChevronRight className="w-4 h-4" />
                   </button>

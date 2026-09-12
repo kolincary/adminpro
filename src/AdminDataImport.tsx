@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CloudDownload, AlertTriangle, Loader2, Trash2, Layers, Package, Search, X, Database, Users, Clock, CheckCircle2, RotateCcw, Filter, FolderOutput, ArrowRight, Copy, Check } from 'lucide-react';
+import { CloudDownload, AlertTriangle, Loader2, Trash2, Layers, Package, Search, X, Database, Users, Clock, CheckCircle2, RotateCcw, Filter, FolderOutput, ArrowRight, Copy, Check, Sparkles } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 // ------------------------------------------
@@ -62,14 +62,6 @@ export default function AdminDataImport({ user }: { user?: any }) {
    const [copiedColumn, setCopiedColumn] = useState<string | null>(null);
 
    const TARGET_MOVED_COLUMNS = ['ID Pesanan', 'Status', 'Alasan Pembatalan', 'MSKU', 'Jumlah'];
-   const ADMIN_DATA_COLUMNS = ['timestamp', 'barcode', 'employee_name', 'shift', 'role', 'status'];
-
-   const handleCopyColumnData = (colName: string, dataList: any[]) => {
-      const textToCopy = dataList.map(item => item[colName] || '').join('\n');
-      navigator.clipboard.writeText(textToCopy);
-      setCopiedColumn(colName);
-      setTimeout(() => setCopiedColumn(null), 2000);
-   };
 
    const handleCopyFullTable = (dataList: any[], columns: string[], type: string) => {
       const rows = dataList.map(item => {
@@ -125,7 +117,6 @@ export default function AdminDataImport({ user }: { user?: any }) {
       const { collection, query, where, getDocs, writeBatch } = await import('firebase/firestore');
       const { db } = await import('./firebaseClient'); 
       
-      // Ambil data milik device ini yang tanggalnya BUKAN hari ini
       const q = query(collection(db, collectionName), where("deviceId", "==", deviceId));
       const snapshot = await getDocs(q);
       
@@ -153,7 +144,7 @@ export default function AdminDataImport({ user }: { user?: any }) {
             }
          }
          if (count % 400 !== 0) await currentBatch.commit();
-         return true; // Indicates it was cleared
+         return true;
       }
       return false;
    };
@@ -161,7 +152,7 @@ export default function AdminDataImport({ user }: { user?: any }) {
    const fetchAdminImportData = async () => {
       setIsAdminFetching(true);
       try {
-         const cleared = await checkAutoClear('admin_data_import');
+         await checkAutoClear('admin_data_import');
          
          const { collection, query, where, getDocs } = await import('firebase/firestore');
          const { db } = await import('./firebaseClient'); 
@@ -172,7 +163,7 @@ export default function AdminDataImport({ user }: { user?: any }) {
          
          const data: any[] = [];
          snapshot.forEach(doc => {
-            data.push({ id: doc.id, ...doc.data() }); // Simpan Doc ID buat delete nanti
+            data.push({ id: doc.id, ...doc.data() });
          });
          
          data.sort((a, b) => {
@@ -364,7 +355,7 @@ export default function AdminDataImport({ user }: { user?: any }) {
 
          alert(`Berhasil mengimpor ${currentProcessed} baris ke Firestore untuk device ini!`);
          setAdminExcelFile(null);
-         fetchAdminImportData(); // Re-fetch untuk mendapat document IDs
+         fetchAdminImportData();
          
       } catch (err: any) {
          setAdminImportError("Gagal simpan ke Firestore: " + (err.message || String(err)));
@@ -402,7 +393,7 @@ export default function AdminDataImport({ user }: { user?: any }) {
                }
                return (a.importedAt || '') > (a.importedAt || '') ? 1 : -1;
             }
-            return (a.movedAt || '') > (b.movedAt || '') ? -1 : 1; // Terakhir dipindah di atas
+            return (a.movedAt || '') > (b.movedAt || '') ? -1 : 1;
          });
          setMovedExcelData(data);
          if (data.length > 0) {
@@ -437,7 +428,6 @@ export default function AdminDataImport({ user }: { user?: any }) {
       setIsMoving(true);
       
       try {
-         // Temukan semua baris di state saat ini yang punya ID Pesanan sama
          const rowsToMove = adminExcelData.filter(r => r['ID Pesanan'] === idPesanan);
          if (rowsToMove.length === 0) {
             setIsMoving(false);
@@ -456,13 +446,10 @@ export default function AdminDataImport({ user }: { user?: any }) {
          const batch = writeBatch(db);
          
          rowsToMove.forEach(row => {
-            // Hapus dari import collection
             if (row.id) {
                batch.delete(doc(importCol, row.id));
             }
-            // Tambah ke moved collection
             const newDocRef = doc(movedCol);
-            // Salin data tanpa ID aslinya
             const { id, ...cleanRow } = row;
             batch.set(newDocRef, {
                ...cleanRow,
@@ -475,7 +462,6 @@ export default function AdminDataImport({ user }: { user?: any }) {
          
          await batch.commit();
          
-         // Update Local State Optimistically
          setAdminExcelData(prev => prev.filter(r => r['ID Pesanan'] !== idPesanan));
          setSelectedImportIds(prev => prev.filter(id => id !== idPesanan));
          
@@ -581,37 +567,49 @@ export default function AdminDataImport({ user }: { user?: any }) {
    ) : movedExcelData;
 
    return (
-      <div className="w-full h-full flex flex-col bg-[#120a32] relative rounded-2xl overflow-hidden shadow-sm">
+      <div className="flex-1 w-full max-w-none mx-auto flex flex-col bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
          {/* TABS HEADER */}
-         <div className="w-full bg-[#1a0f44] relative shrink-0 z-20 shadow-sm border-gray-200 dark:border-white/10 overflow-x-auto">
-            <div className="flex bg-black/20 min-w-max">
+         <div className="w-full bg-[#0c0620] border-b border-purple-900/40 p-2.5 flex items-center justify-between overflow-x-auto">
+            <div className="flex items-center gap-2 min-w-max">
                <button
                   onClick={() => setAdminDataTab('DATA')}
-                  className={`px-8 py-4 text-sm font-black tracking-wider uppercase transition-all duration-300 flex items-center gap-2 border-gray-200 dark:border-white/10 ${adminDataTab === 'DATA' ? 'text-pink-400 bg-[#120a32] border-b-pink-500' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                  className={`px-6 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${
+                     adminDataTab === 'DATA' 
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' 
+                        : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'
+                  }`}
                >
-                  <Database size={16} /> Data Admin
+                  <Database size={15} /> Data Admin (Supabase)
                </button>
                <button
                   onClick={() => setAdminDataTab('IMPORT')}
-                  className={`px-8 py-4 text-sm font-black tracking-wider uppercase transition-all duration-300 flex items-center gap-2 border-gray-200 dark:border-white/10 ${adminDataTab === 'IMPORT' ? 'text-pink-400 bg-[#120a32] border-b-pink-500' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                  className={`px-6 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${
+                     adminDataTab === 'IMPORT' 
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' 
+                        : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'
+                  }`}
                >
-                  <CloudDownload size={16} /> Import Excel
+                  <CloudDownload size={15} /> Import Excel
                </button>
                <button
                   onClick={() => setAdminDataTab('MOVED')}
-                  className={`px-8 py-4 text-sm font-black tracking-wider uppercase transition-all duration-300 flex items-center gap-2 ${adminDataTab === 'MOVED' ? 'text-pink-400 bg-[#120a32] border-b-pink-500' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                  className={`px-6 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${
+                     adminDataTab === 'MOVED' 
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40' 
+                        : 'text-purple-300/60 hover:text-white hover:bg-purple-950/40'
+                  }`}
                >
-                  <FolderOutput size={16} /> Data Terpilih
+                  <FolderOutput size={15} /> Data Terpilih
                </button>
             </div>
          </div>
 
          {/* Peringatan Auto-Clear untuk Import & Moved */}
          {(adminDataTab === 'IMPORT' || adminDataTab === 'MOVED') && (
-            <div className="bg-amber-500/10 border-amber-200 dark:border-amber-500/20 px-4 py-2 flex items-center gap-2 shrink-0">
-               <AlertTriangle size={14} className="text-amber-400" />
+            <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center gap-2 shrink-0">
+               <AlertTriangle size={14} className="text-amber-400 shrink-0" />
                <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wide">
-                  Info: Data import & terpilih spesifik untuk perangkat ini. Data akan OTOMATIS TERHAPUS jika berganti hari (Zona Waktu WIB).
+                  Info: Data import & terpilih bersifat spesifik untuk sesi browser perangkat ini dan ter-refresh otomatis setiap pergantian hari (WIB).
                </p>
             </div>
          )}
@@ -620,101 +618,108 @@ export default function AdminDataImport({ user }: { user?: any }) {
          {/* TAB 1: DATA ADMIN */}
          {/* ---------------------------------------------------------------------------------------- */}
          {adminDataTab === 'DATA' && (
-            <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#120a32]">
-               <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 border-gray-200 dark:border-white/10 bg-white/5">
-                  <div className="p-5 border-gray-200 dark:border-white/10 flex items-center justify-between group">
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 border-b border-purple-900/30 bg-[#0e0728]/60">
+                  <div className="bg-[#0c0620] p-4.5 rounded-xl border border-purple-900/30 flex items-center justify-between">
                      <div>
-                        <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Total Scans
+                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span> Total Scans
                         </div>
-                        <h4 className="text-3xl font-black text-white group-hover:scale-105 transition-transform origin-left">
+                        <h4 className="text-2xl font-black text-white">
                            {filteredScans.length.toLocaleString()}
                         </h4>
                      </div>
-                     <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 shadow-inner">
-                        <Package size={24} />
+                     <div className="w-11 h-11 bg-indigo-500/15 border border-indigo-500/30 rounded-xl flex items-center justify-center text-indigo-300">
+                        <Package size={22} />
                      </div>
                   </div>
-                  <div className="p-5 border-gray-200 dark:border-white/10 flex items-center justify-between group">
+                  <div className="bg-[#0c0620] p-4.5 rounded-xl border border-purple-900/30 flex items-center justify-between">
                      <div>
-                        <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                           <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span> Active Staff
+                        <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                           <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> Active Staff
                         </div>
-                        <h4 className="text-3xl font-black text-white group-hover:scale-105 transition-transform origin-left">
+                        <h4 className="text-2xl font-black text-white">
                            {new Set(filteredScans.map(i => i.employee_name).filter(Boolean)).size.toLocaleString()}
                         </h4>
                      </div>
-                     <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 shadow-inner">
-                        <Users size={24} />
+                     <div className="w-11 h-11 bg-purple-500/15 border border-purple-500/30 rounded-xl flex items-center justify-center text-purple-300">
+                        <Users size={22} />
                      </div>
                   </div>
-                  <div className="p-5 flex items-center justify-between group">
+                  <div className="bg-[#0c0620] p-4.5 rounded-xl border border-purple-900/30 flex items-center justify-between">
                      <div>
-                        <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Latest Scan
+                        <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Latest Scan
                         </div>
-                        <h4 className="text-sm font-bold text-white group-hover:scale-105 transition-transform origin-left line-clamp-1">
+                        <h4 className="text-sm font-bold text-white line-clamp-1 mt-1 font-mono">
                            {scannedItems[0] ? new Date(scannedItems[0].timestamp).toLocaleString('id-ID') : '-'}
                         </h4>
                      </div>
-                     <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 shadow-inner">
-                        <Clock size={24} />
+                     <div className="w-11 h-11 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center text-emerald-300">
+                        <Clock size={22} />
                      </div>
                   </div>
                </div>
+
                {/* Toolbar Data Admin */}
-               <div className="p-4 border-gray-200 dark:border-white/10 flex items-center justify-between gap-4 flex-wrap bg-[#1a0f44]">
+               <div className="p-4 border-b border-purple-900/30 flex items-center justify-between gap-4 flex-wrap bg-[#0c0620]">
                   <div className="flex items-center gap-2">
-                     <button onClick={fetchScannedItems} className="p-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg transition-colors" title="Refresh">
-                        <RotateCcw size={18} className={isScansLoading ? "animate-spin" : ""} />
+                     <button onClick={fetchScannedItems} className="p-2 bg-[#130b2e] hover:bg-purple-950/40 text-purple-200 rounded-xl border border-purple-900/40 transition-colors" title="Refresh">
+                        <RotateCcw size={16} className={isScansLoading ? "animate-spin" : ""} />
                      </button>
-                     <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
-                        <Filter size={16} className="text-gray-400" />
-                        <input type="date" value={scansDateFilter} onChange={(e) => { setScansDateFilter(e.target.value); setScansCurrentPage(1); }} className="bg-transparent text-sm font-bold text-slate-200 outline-none" />
+                     <div className="flex items-center gap-2 bg-[#130b2e] px-3 py-1.5 rounded-xl border border-purple-900/40">
+                        <Filter size={14} className="text-purple-400" />
+                        <input type="date" value={scansDateFilter} onChange={(e) => { setScansDateFilter(e.target.value); setScansCurrentPage(1); }} className="bg-transparent text-xs font-bold text-purple-200 outline-none cursor-pointer [color-scheme:dark]" />
                      </div>
-                     <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
-                        <Filter size={16} className="text-gray-400" />
+                     <div className="flex items-center gap-2 bg-[#130b2e] px-3 py-1.5 rounded-xl border border-purple-900/40">
+                        <Filter size={14} className="text-purple-400" />
                         <select 
                            value={scansStaffFilter} 
                            onChange={(e) => { setScansStaffFilter(e.target.value); setScansCurrentPage(1); }} 
-                           className="bg-transparent text-sm font-bold text-slate-200 outline-none w-32"
+                           className="bg-transparent text-xs font-bold text-purple-200 outline-none w-32 cursor-pointer"
                         >
-                           <option value="" className="bg-[#0f172a]">Semua Staff</option>
+                           <option value="" className="bg-[#0c0620]">Semua Staff</option>
                            {Array.from(new Set(scannedItems.map(i => i.employee_name).filter(Boolean))).map(staff => (
-                              <option key={staff} value={staff} className="bg-[#0f172a]">{staff}</option>
+                              <option key={staff} value={staff} className="bg-[#0c0620]">{staff}</option>
                            ))}
                         </select>
                      </div>
                   </div>
                   <div className="flex items-center gap-3">
                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <input type="text" value={scansSearch} onChange={(e) => { setScansSearch(e.target.value); setScansCurrentPage(1); }} placeholder="Cari barcode, nama..." className="w-64 pl-9 pr-8 py-1.5 bg-black/30 border border-white/10 rounded-lg text-xs font-bold focus:ring-2 focus:ring-indigo-500 text-white outline-none transition-all" />
-                        {scansSearch && <button onClick={() => { setScansSearch(""); setScansCurrentPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"><X size={14} /></button>}
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400/60" size={14} />
+                        <input type="text" value={scansSearch} onChange={(e) => { setScansSearch(e.target.value); setScansCurrentPage(1); }} placeholder="Cari barcode, staff..." className="w-56 pl-8 pr-7 py-1.5 bg-[#130b2e] border border-purple-900/40 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-purple-500 text-white outline-none transition-all placeholder-purple-400/30" />
+                        {scansSearch && <button onClick={() => { setScansSearch(""); setScansCurrentPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-purple-400 hover:text-white"><X size={14} /></button>}
                      </div>
                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-400">Tampilkan:</span>
-                        <select className="bg-black/30 border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500" value={scansPageSize} onChange={(e) => { setScansPageSize(Number(e.target.value)); setScansCurrentPage(1); }}>
-                           <option value={100}>100</option>
-                           <option value={200}>200</option>
-                           <option value={500}>500</option>
+                        <span className="text-xs font-bold text-purple-300/60">Tampilkan:</span>
+                        <select className="bg-[#130b2e] border border-purple-900/40 text-purple-200 rounded-xl px-2 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500" value={scansPageSize} onChange={(e) => { setScansPageSize(Number(e.target.value)); setScansCurrentPage(1); }}>
+                           <option value={100} className="bg-[#0c0620]">100</option>
+                           <option value={200} className="bg-[#0c0620]">200</option>
+                           <option value={500} className="bg-[#0c0620]">500</option>
                         </select>
                      </div>
                   </div>
                </div>
+
                {/* Table Data Admin */}
-               <div className="flex-1 overflow-auto bg-[#120a32]">
+               <div className="flex-1 overflow-auto custom-scrollbar">
                   {isScansLoading ? (
-                     <div className="p-10 text-center flex flex-col items-center justify-center h-full"><Loader2 className="animate-spin text-indigo-500 mb-4" size={40} /><p className="text-slate-400 font-bold">Memuat Data Scans...</p></div>
+                     <div className="p-16 text-center flex flex-col items-center justify-center h-full">
+                        <Loader2 className="animate-spin text-purple-400 mb-3" size={36} />
+                        <p className="text-purple-300 font-bold text-xs">Memuat Data Scans...</p>
+                     </div>
                   ) : filteredScans.length === 0 ? (
-                     <div className="p-10 text-gray-500 dark:text-slate-400 font-bold">Tidak ada data scan ditemukan.</div>
+                     <div className="p-16 text-center text-purple-300/40 font-black text-xs uppercase tracking-widest">
+                        Tidak ada data scan ditemukan.
+                     </div>
                   ) : (
-                     <table className="w-full text-left whitespace-nowrap text-sm">
-                        <thead className="bg-[#1a0f44] border-gray-200 dark:border-white/10 sticky top-0 z-10 shadow-sm">
+                     <table className="w-full text-left whitespace-nowrap text-xs border-collapse">
+                        <thead className="bg-[#0c0620] border-b border-purple-900/40 sticky top-0 z-10 text-purple-300 font-black text-[10px] uppercase tracking-wider">
                            <tr>
-                              <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-gray-200 dark:border-white/5">No.</th>
-                              <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-gray-200 dark:border-white/5">Timestamp</th>
-                              <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-gray-200 dark:border-white/5">
+                              <th className="p-3.5 border-r border-purple-900/30">No.</th>
+                              <th className="p-3.5 border-r border-purple-900/30">Timestamp</th>
+                              <th className="p-3.5 border-r border-purple-900/30">
                                  <div className="flex items-center justify-between">
                                     <span>Barcode Data</span>
                                     <button 
@@ -724,35 +729,35 @@ export default function AdminDataImport({ user }: { user?: any }) {
                                           setIsBarcodesCopied(true);
                                           setTimeout(() => setIsBarcodesCopied(false), 2000);
                                        }}
-                                       className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-300 rounded transition-colors border border-white/10"
+                                       className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 rounded-lg transition-colors border border-purple-500/30 text-[9px]"
                                        title="Salin semua barcode"
                                     >
-                                       {isBarcodesCopied ? <><Check size={12} /> Disalin</> : <><Copy size={12} /> Copy All</>}
+                                       {isBarcodesCopied ? <><Check size={11} /> Disalin</> : <><Copy size={11} /> Copy All</>}
                                     </button>
                                  </div>
                               </th>
-                              <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-gray-200 dark:border-white/5">Staff</th>
-                              <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-gray-200 dark:border-white/5">Shift</th>
-                              <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-gray-200 dark:border-white/5">Role</th>
-                              <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                              <th className="p-3.5 border-r border-purple-900/30">Staff</th>
+                              <th className="p-3.5 border-r border-purple-900/30">Shift</th>
+                              <th className="p-3.5 border-r border-purple-900/30">Role</th>
+                              <th className="p-3.5">Status</th>
                            </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                        <tbody className="divide-y divide-purple-900/20 text-slate-200">
                            {filteredScans.slice((scansCurrentPage - 1) * scansPageSize, scansCurrentPage * scansPageSize).map((item, idx) => {
                               const absoluteIdx = (scansCurrentPage - 1) * scansPageSize + idx + 1;
                               return (
-                                 <tr key={item.id || idx} className="hover:bg-white/5 transition-colors">
-                                    <td className="p-4 border-gray-100 dark:border-white/5 text-slate-500 font-mono font-medium">{absoluteIdx}</td>
-                                    <td className="p-4 border-gray-100 dark:border-white/5 text-slate-300 font-mono">{new Date(item.timestamp).toLocaleString('id-ID')}</td>
-                                    <td className="p-4 border-gray-100 dark:border-white/5 font-black text-indigo-400 font-mono tracking-wider">{item.barcode}</td>
-                                    <td className="p-4 border-gray-100 dark:border-white/5 text-slate-200 font-bold">{item.employee_name}</td>
-                                    <td className="p-4 border-gray-100 dark:border-white/5 text-slate-400 font-medium">{item.shift || '-'}</td>
-                                    <td className="p-4 border-gray-100 dark:border-white/5 text-slate-400 font-medium"><span className="px-2 py-1 bg-white/10 rounded-md text-[10px] uppercase font-bold tracking-wider">{item.role}</span></td>
-                                    <td className="p-4">
+                                 <tr key={item.id || idx} className="hover:bg-purple-500/10 transition-colors">
+                                    <td className="p-3.5 border-r border-purple-900/20 text-purple-400/60 font-mono font-bold">{absoluteIdx}</td>
+                                    <td className="p-3.5 border-r border-purple-900/20 text-purple-200 font-mono">{new Date(item.timestamp).toLocaleString('id-ID')}</td>
+                                    <td className="p-3.5 border-r border-purple-900/20 font-black text-indigo-300 font-mono tracking-wider">{item.barcode}</td>
+                                    <td className="p-3.5 border-r border-purple-900/20 text-purple-100 font-bold">{item.employee_name}</td>
+                                    <td className="p-3.5 border-r border-purple-900/20 text-purple-300/70 font-medium">{item.shift || '-'}</td>
+                                    <td className="p-3.5 border-r border-purple-900/20"><span className="px-2 py-0.5 bg-purple-500/15 border border-purple-500/30 text-purple-300 rounded-md text-[9px] uppercase font-black tracking-wider">{item.role}</span></td>
+                                    <td className="p-3.5">
                                        {item.status === 'COMPLETED' ? (
-                                          <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold uppercase tracking-wider w-fit border border-emerald-500/20"><CheckCircle2 size={12} /> Selesai</span>
+                                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-500/15 text-emerald-300 rounded-full text-[9px] font-black uppercase tracking-wider border border-emerald-500/30"><CheckCircle2 size={12} className="text-emerald-400" /> Selesai</span>
                                        ) : (
-                                          <span className="px-2 py-1 bg-white/5 text-slate-400 rounded border border-white/10 text-xs font-bold">{item.status}</span>
+                                          <span className="px-2 py-0.5 bg-purple-950/40 text-purple-300 rounded-md border border-purple-900/30 text-[9px] font-black uppercase">{item.status}</span>
                                        )}
                                     </td>
                                  </tr>
@@ -762,12 +767,13 @@ export default function AdminDataImport({ user }: { user?: any }) {
                      </table>
                   )}
                </div>
+
                {filteredScans.length > 0 && (
-                  <div className="bg-[#1a0f44] border-gray-200 dark:border-white/10 p-3 flex items-center justify-between shrink-0">
-                     <span className="text-gray-500 dark:text-slate-400 font-bold">Menampilkan {(scansCurrentPage - 1) * scansPageSize + 1} - {Math.min(scansCurrentPage * scansPageSize, filteredScans.length)} dari {filteredScans.length}</span>
+                  <div className="bg-[#0c0620] border-t border-purple-900/30 p-3 px-4 flex items-center justify-between shrink-0">
+                     <span className="text-[10px] text-purple-300/60 font-bold">Menampilkan {(scansCurrentPage - 1) * scansPageSize + 1} - {Math.min(scansCurrentPage * scansPageSize, filteredScans.length)} dari {filteredScans.length}</span>
                      <div className="flex gap-2">
-                        <button onClick={() => setScansCurrentPage(p => Math.max(1, p - 1))} disabled={scansCurrentPage === 1} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-white/10 text-white">Prev</button>
-                        <button onClick={() => setScansCurrentPage(p => Math.min(Math.ceil(filteredScans.length / scansPageSize), p + 1))} disabled={scansCurrentPage * scansPageSize >= filteredScans.length} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-white/10 text-white">Next</button>
+                        <button onClick={() => setScansCurrentPage(p => Math.max(1, p - 1))} disabled={scansCurrentPage === 1} className="px-3 py-1 bg-[#130b2e] border border-purple-900/40 rounded-xl text-xs font-bold disabled:opacity-30 hover:bg-purple-950/40 text-purple-200">Prev</button>
+                        <button onClick={() => setScansCurrentPage(p => Math.min(Math.ceil(filteredScans.length / scansPageSize), p + 1))} disabled={scansCurrentPage * scansPageSize >= filteredScans.length} className="px-3 py-1 bg-[#130b2e] border border-purple-900/40 rounded-xl text-xs font-bold disabled:opacity-30 hover:bg-purple-950/40 text-purple-200">Next</button>
                      </div>
                   </div>
                )}
@@ -779,16 +785,16 @@ export default function AdminDataImport({ user }: { user?: any }) {
          {/* TAB 2: IMPORT EXCEL */}
          {/* ---------------------------------------------------------------------------------------- */}
          {adminDataTab === 'IMPORT' && (
-            <div className="flex-1 flex flex-col overflow-hidden bg-[#120a32] p-4">
-               <div className="flex flex-col h-full overflow-y-auto bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+            <div className="flex-1 flex flex-col overflow-hidden p-6">
+               <div className="flex flex-col h-full overflow-y-auto">
                   <div className="flex justify-between items-center mb-6">
-                     <h3 className="text-lg font-black text-white flex items-center gap-2">
-                        <CloudDownload size={22} className="text-indigo-400" /> Data Admin Import (Device Session)
+                     <h3 className="text-base font-black text-white flex items-center gap-2 tracking-tight">
+                        <CloudDownload size={20} className="text-purple-400" /> Data Admin Import (Device Session)
                      </h3>
-                     <div className="flex gap-3">
-                        <button onClick={fetchAdminImportData} disabled={isAdminFetching} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"><RotateCcw size={16} className={isAdminFetching ? "animate-spin" : ""} /></button>
+                     <div className="flex gap-2">
+                        <button onClick={fetchAdminImportData} disabled={isAdminFetching} className="p-2 bg-[#0c0620] hover:bg-purple-950/40 text-purple-200 rounded-xl border border-purple-900/40 transition-colors"><RotateCcw size={16} className={isAdminFetching ? "animate-spin" : ""} /></button>
                         {adminExcelData.length > 0 && (
-                           <button onClick={() => clearCollectionByDevice('admin_data_import')} disabled={isAdminImporting || isAdminClearing} className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold rounded-xl text-sm transition-colors border border-rose-500/20 disabled:opacity-50"><Trash2 size={16} /> Clear Session Data</button>
+                           <button onClick={() => clearCollectionByDevice('admin_data_import')} disabled={isAdminImporting || isAdminClearing} className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 font-black rounded-xl text-xs transition-colors border border-rose-500/30 disabled:opacity-30"><Trash2 size={14} /> Clear Session</button>
                         )}
                      </div>
                   </div>
@@ -800,17 +806,17 @@ export default function AdminDataImport({ user }: { user?: any }) {
                   )}
 
                   {isAdminFetching || isAdminImporting || isAdminClearing || isMoving ? (
-                     <div className="flex flex-col items-center justify-center flex-1 border-dashed border-white/10 rounded-2xl min-h-[300px]">
-                        <Loader2 size={48} className="text-indigo-400 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">{isAdminClearing ? 'Menghapus Data...' : isMoving ? 'Memindah Data...' : isAdminImporting ? `Mengimpor: ${adminImportProgress.current} / ${adminImportProgress.total}` : 'Memuat Data...'}</p>
+                     <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-purple-900/40 rounded-2xl min-h-[300px] bg-[#0c0620]/40">
+                        <Loader2 size={40} className="text-purple-400 animate-spin mb-3" />
+                        <p className="text-purple-300 font-bold text-xs">{isAdminClearing ? 'Menghapus Data...' : isMoving ? 'Memindah Data...' : isAdminImporting ? `Mengimpor: ${adminImportProgress.current} / ${adminImportProgress.total}` : 'Memuat Data...'}</p>
                      </div>
                   ) : adminExcelData.length === 0 ? (
                      <div className="grid grid-cols-1 gap-6 mb-6 shrink-0 max-w-2xl mx-auto w-full">
-                        <div onDragOver={handleAdminDragOver} onDragLeave={handleAdminDragLeave} onDrop={handleAdminDrop} className={`p-10 rounded-2xl border-dashed flex flex-col items-center justify-center min-h-[260px] transition-all duration-300 cursor-pointer ${isAdminDragOver ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-500/10 shadow-lg shadow-indigo-500/10 scale-[1.01]' : 'border-white/20 hover:border-indigo-500 dark:hover:border-indigo-400 hover:bg-indigo-500/5'}`}>
-                           <div className="p-5 bg-indigo-500/10 rounded-full shadow-inner mb-5 animate-pulse"><CloudDownload size={48} className="text-indigo-400" /></div>
-                           <h4 className="font-bold text-gray-900 dark:text-white mb-2">Pilih atau Tarik File Excel</h4>
-                           <p className="text-gray-500 dark:text-center mb-6">Mendukung format .xlsx dan .xls</p>
-                           <label className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 dark:from-indigo-600 dark:to-violet-600 dark:hover:from-indigo-500 dark:hover:to-violet-500 text-white px-8 py-3 rounded-xl cursor-pointer transition-all duration-300 shadow-lg hover:shadow-indigo-500/20 text-sm font-bold active:scale-[0.98]">
+                        <div onDragOver={handleAdminDragOver} onDragLeave={handleAdminDragLeave} onDrop={handleAdminDrop} className={`p-10 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center min-h-[260px] transition-all duration-300 cursor-pointer ${isAdminDragOver ? 'border-purple-400 bg-purple-500/15 scale-[1.01]' : 'border-purple-900/40 bg-[#0c0620]/60 hover:border-purple-500/50 hover:bg-[#0c0620]/90'}`}>
+                           <div className="p-4 bg-purple-500/15 rounded-2xl border border-purple-500/30 mb-4 animate-pulse"><CloudDownload size={40} className="text-purple-300" /></div>
+                           <h4 className="font-black text-white text-base mb-1">Pilih atau Tarik File Excel</h4>
+                           <p className="text-purple-300/60 text-xs font-semibold text-center mb-5">Mendukung format .xlsx dan .xls</p>
+                           <label className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-7 py-3 rounded-xl cursor-pointer transition-all shadow-xl shadow-purple-950/40 text-xs font-black uppercase tracking-wider active:scale-[0.98]">
                               Browse File
                               <input type="file" accept=".xlsx, .xls" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleAdminExcelUpload(file); }} className="hidden" />
                            </label>
@@ -819,57 +825,57 @@ export default function AdminDataImport({ user }: { user?: any }) {
                   ) : (
                      <div className="flex flex-col flex-grow">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 shrink-0">
-                           <div className="bg-indigo-500/10 p-4 rounded-2xl border border-indigo-500/20 flex items-center justify-between">
-                              <div><p className="text-[10px] uppercase tracking-wider font-bold text-indigo-400 mb-1">Total Baris (Item)</p><h4 className="text-2xl font-black text-white">{adminExcelData.length.toLocaleString()}</h4></div>
-                              <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-300"><Layers size={20} /></div>
+                           <div className="bg-[#0c0620] p-4 rounded-xl border border-purple-900/30 flex items-center justify-between">
+                              <div><p className="text-[9px] uppercase tracking-wider font-black text-indigo-400 mb-0.5">Total Baris (Item)</p><h4 className="text-xl font-black text-white">{adminExcelData.length.toLocaleString()}</h4></div>
+                              <div className="w-9 h-9 bg-indigo-500/15 border border-indigo-500/30 rounded-xl flex items-center justify-center text-indigo-300"><Layers size={18} /></div>
                            </div>
-                           <div className="bg-purple-500/10 p-4 rounded-2xl border border-purple-500/20 flex items-center justify-between">
-                              <div><p className="text-[10px] uppercase tracking-wider font-bold text-purple-400 mb-1">Total Resi/Orderan</p><h4 className="text-2xl font-black text-white">{new Set(adminExcelData.map(r => String(r['NO.'] || '').trim()).filter(Boolean)).size.toLocaleString()}</h4></div>
-                              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-300"><Package size={20} /></div>
+                           <div className="bg-[#0c0620] p-4 rounded-xl border border-purple-900/30 flex items-center justify-between">
+                              <div><p className="text-[9px] uppercase tracking-wider font-black text-purple-400 mb-0.5">Total Resi/Orderan</p><h4 className="text-xl font-black text-white">{new Set(adminExcelData.map(r => String(r['NO.'] || '').trim()).filter(Boolean)).size.toLocaleString()}</h4></div>
+                              <div className="w-9 h-9 bg-purple-500/15 border border-purple-500/30 rounded-xl flex items-center justify-center text-purple-300"><Package size={18} /></div>
                            </div>
-                           <div className="col-span-2 flex items-center justify-end gap-3 flex-wrap">
+                           <div className="col-span-2 flex items-center justify-end gap-2 flex-wrap">
                                {selectedImportIds.length > 0 && (
                                   <button 
                                      onClick={moveSelectedDataBulk}
                                      disabled={isMoving}
-                                     className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors border border-indigo-600 text-xs font-bold shadow-md shadow-indigo-500/20"
+                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl transition-all border border-purple-400/30 text-xs font-black uppercase tracking-wider shadow-lg shadow-purple-950/40"
                                   >
-                                     <ArrowRight size={14} /> Pindah {selectedImportIds.length} Terpilih
+                                     <ArrowRight size={13} /> Pindah {selectedImportIds.length} Terpilih
                                   </button>
                                )}
                               <button 
                                  onClick={() => handleCopyFullTable(filteredImportData, adminExcelColumns, 'import_full')}
-                                 className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg transition-colors border border-white/10 text-xs font-bold"
+                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0c0620] hover:bg-purple-950/40 text-purple-200 rounded-xl transition-colors border border-purple-900/40 text-xs font-bold"
                               >
-                                 {copiedColumn === 'import_full' ? <><Check size={14} /> Disalin</> : <><Copy size={14} /> Copy Tabel</>}
+                                 {copiedColumn === 'import_full' ? <><Check size={13} /> Disalin</> : <><Copy size={13} /> Copy Tabel</>}
                               </button>
                               <div className="relative flex-grow max-w-xs">
-                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                 <input type="text" value={adminImportSearch} onChange={(e) => { setAdminImportSearch(e.target.value); setAdminCurrentPage(1); }} placeholder="Cari ID Pesanan, AWB, MSKU..." className="w-full pl-9 pr-8 py-1.5 bg-[#0f172a] border border-white/10 rounded-lg text-xs font-bold focus:ring-2 focus:ring-indigo-500 text-white outline-none" />
-                                 {adminImportSearch && <button onClick={() => { setAdminImportSearch(""); setAdminCurrentPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"><X size={14} /></button>}
+                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400/60" size={14} />
+                                 <input type="text" value={adminImportSearch} onChange={(e) => { setAdminImportSearch(e.target.value); setAdminCurrentPage(1); }} placeholder="Cari ID Pesanan, AWB, MSKU..." className="w-full pl-8 pr-7 py-1.5 bg-[#0c0620] border border-purple-900/40 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-purple-500 text-white outline-none placeholder-purple-400/30" />
+                                 {adminImportSearch && <button onClick={() => { setAdminImportSearch(""); setAdminCurrentPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-purple-400 hover:text-white"><X size={14} /></button>}
                               </div>
                               <div className="flex items-center gap-2">
-                                 <span className="text-xs font-bold text-slate-400">Tampilkan:</span>
-                                 <select className="bg-[#0f172a] border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500" value={adminPageSize} onChange={(e) => { setAdminPageSize(Number(e.target.value)); setAdminCurrentPage(1); }}>
-                                    <option value={100}>100 Baris</option>
-                                    <option value={150}>150 Baris</option>
-                                    <option value={200}>200 Baris</option>
-                                    <option value={500}>500 Baris</option>
-                                    <option value={100000}>Semua Data</option>
+                                 <span className="text-xs font-bold text-purple-300/60">Tampilkan:</span>
+                                 <select className="bg-[#0c0620] border border-purple-900/40 text-purple-200 rounded-xl px-2 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500" value={adminPageSize} onChange={(e) => { setAdminPageSize(Number(e.target.value)); setAdminCurrentPage(1); }}>
+                                    <option value={100} className="bg-[#0c0620]">100 Baris</option>
+                                    <option value={150} className="bg-[#0c0620]">150 Baris</option>
+                                    <option value={200} className="bg-[#0c0620]">200 Baris</option>
+                                    <option value={500} className="bg-[#0c0620]">500 Baris</option>
+                                    <option value={100000} className="bg-[#0c0620]">Semua Data</option>
                                  </select>
                               </div>
                            </div>
                         </div>
 
-                        <div className="flex flex-col flex-grow min-h-[300px] border border-white/10 rounded-2xl overflow-hidden shadow-sm bg-[#0a0520] relative">
-                           <div className="overflow-auto flex-grow relative">
+                        <div className="flex flex-col flex-grow min-h-[300px] border border-purple-900/30 rounded-2xl overflow-hidden shadow-xl bg-[#0c0620]/60 relative">
+                           <div className="overflow-auto flex-grow relative custom-scrollbar">
                               <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-max">
-                                 <thead className="bg-[#120a32] border-gray-200 dark:border-white/10 sticky top-0 z-10 shadow-sm">
+                                 <thead className="bg-[#0c0620] border-b border-purple-900/40 sticky top-0 z-10 text-purple-300 font-black text-[10px] uppercase tracking-wider">
                                     <tr>
-                                       <th className="px-4 py-3 border-r border-white/5 text-slate-400 font-bold bg-[#120a32] w-10 text-center">
+                                       <th className="px-4 py-3 border-r border-purple-900/30 w-10 text-center">
                                           <input 
                                              type="checkbox" 
-                                             className="rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                                             className="rounded border-purple-800 bg-[#130b2e] text-purple-600 focus:ring-purple-500 cursor-pointer"
                                              checked={
                                                 filteredImportData.length > 0 && 
                                                 new Set(filteredImportData.map(r => r['ID Pesanan'])).size > 0 &&
@@ -886,25 +892,25 @@ export default function AdminDataImport({ user }: { user?: any }) {
                                              }}
                                           />
                                        </th>
-                                       <th className="px-4 py-3 border-r border-white/5 text-slate-400 font-bold bg-[#120a32]">Action</th>
-                                       <th className="px-4 py-3 border-r border-white/5 text-slate-400 font-bold bg-[#120a32]">#</th>
+                                       <th className="px-4 py-3 border-r border-purple-900/30">Action</th>
+                                       <th className="px-4 py-3 border-r border-purple-900/30">#</th>
                                        {adminExcelColumns.map(col => (
-                                          <th key={col} className="px-4 py-3 border-r border-white/5 text-slate-400 font-bold bg-[#120a32]">{col}</th>
+                                          <th key={col} className="px-4 py-3 border-r border-purple-900/30">{col}</th>
                                        ))}
                                     </tr>
                                  </thead>
-                                 <tbody>
+                                 <tbody className="divide-y divide-purple-900/20 text-slate-200">
                                     {filteredImportData.slice((adminCurrentPage - 1) * adminPageSize, adminCurrentPage * adminPageSize).map((row, idx) => {
                                        const absoluteIdx = (adminCurrentPage - 1) * adminPageSize + idx;
                                        const isMergedCol = absoluteIdx === 0 || String(filteredImportData[absoluteIdx - 1]['NO.']) !== String(row['NO.']);
                                        
                                        return (
-                                          <tr key={idx} className={`border-gray-100 dark:border-white/5 hover:bg-white/5 transition-colors ${selectedImportIds.includes(row['ID Pesanan']) ? 'bg-indigo-500/10' : ''}`}>
-                                             <td className="px-4 py-2.5 border-gray-100 dark:border-white/5 text-center">
+                                          <tr key={idx} className={`hover:bg-purple-500/10 transition-colors ${selectedImportIds.includes(row['ID Pesanan']) ? 'bg-purple-500/15' : ''}`}>
+                                             <td className="px-4 py-2.5 border-r border-purple-900/20 text-center">
                                                 {isMergedCol && (
                                                    <input 
                                                       type="checkbox" 
-                                                      className="rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                                                      className="rounded border-purple-800 bg-[#130b2e] text-purple-600 focus:ring-purple-500 cursor-pointer"
                                                       checked={selectedImportIds.includes(row['ID Pesanan'])}
                                                       onChange={(e) => {
                                                          if (e.target.checked) {
@@ -916,21 +922,21 @@ export default function AdminDataImport({ user }: { user?: any }) {
                                                    />
                                                 )}
                                              </td>
-                                             <td className="px-4 py-2.5 border-gray-100 dark:border-white/5">
+                                             <td className="px-4 py-2.5 border-r border-purple-900/20">
                                                 {isMergedCol && (
                                                    <button 
                                                       onClick={() => moveDataToSelected(row['ID Pesanan'])}
-                                                      className="flex items-center gap-1.5 px-3 py-1 bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg text-[10px] font-bold uppercase transition-colors border border-white/10"
+                                                      className="flex items-center gap-1 px-2.5 py-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 rounded-lg text-[10px] font-bold uppercase transition-colors border border-purple-500/30"
                                                    >
                                                       <ArrowRight size={12} /> Pindah
                                                    </button>
                                                 )}
                                              </td>
-                                             <td className="px-4 py-2.5 border-gray-100 dark:border-white/5 text-slate-500 font-mono font-medium">{absoluteIdx + 1}</td>
+                                             <td className="px-4 py-2.5 border-r border-purple-900/20 text-purple-400/60 font-mono font-bold">{absoluteIdx + 1}</td>
                                              {adminExcelColumns.map(col => {
                                                 const showValue = col !== 'NO.' || isMergedCol;
                                                 return (
-                                                   <td key={col} className="px-4 py-2.5 border-gray-100 dark:border-white/5 text-slate-300 font-mono">
+                                                   <td key={col} className="px-4 py-2.5 border-r border-purple-900/20 text-purple-200 font-mono">
                                                       {showValue ? String(row[col] ?? '') : ''}
                                                    </td>
                                                 );
@@ -943,11 +949,11 @@ export default function AdminDataImport({ user }: { user?: any }) {
                            </div>
                            
                            {filteredImportData.length > 0 && adminPageSize < filteredImportData.length && (
-                              <div className="bg-[#120a32] border-gray-200 dark:border-white/10 p-3 flex items-center justify-between sticky bottom-0 z-10">
-                                 <span className="text-gray-500 dark:text-slate-400 font-bold">Menampilkan {(adminCurrentPage - 1) * adminPageSize + 1} - {Math.min(adminCurrentPage * adminPageSize, filteredImportData.length)} dari {filteredImportData.length} baris</span>
+                              <div className="bg-[#0c0620] border-t border-purple-900/30 p-3 px-4 flex items-center justify-between sticky bottom-0 z-10">
+                                 <span className="text-[10px] text-purple-300/60 font-bold">Menampilkan {(adminCurrentPage - 1) * adminPageSize + 1} - {Math.min(adminCurrentPage * adminPageSize, filteredImportData.length)} dari {filteredImportData.length} baris</span>
                                  <div className="flex gap-2">
-                                    <button onClick={() => setAdminCurrentPage(p => Math.max(1, p - 1))} disabled={adminCurrentPage === 1} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-white/10 text-white">Prev</button>
-                                    <button onClick={() => setAdminCurrentPage(p => Math.min(Math.ceil(filteredImportData.length / adminPageSize), p + 1))} disabled={adminCurrentPage * adminPageSize >= filteredImportData.length} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-white/10 text-white">Next</button>
+                                    <button onClick={() => setAdminCurrentPage(p => Math.max(1, p - 1))} disabled={adminCurrentPage === 1} className="px-3 py-1 bg-[#130b2e] border border-purple-900/40 rounded-xl text-xs font-bold disabled:opacity-30 hover:bg-purple-950/40 text-purple-200">Prev</button>
+                                    <button onClick={() => setAdminCurrentPage(p => Math.min(Math.ceil(filteredImportData.length / adminPageSize), p + 1))} disabled={adminCurrentPage * adminPageSize >= filteredImportData.length} className="px-3 py-1 bg-[#130b2e] border border-purple-900/40 rounded-xl text-xs font-bold disabled:opacity-30 hover:bg-purple-950/40 text-purple-200">Next</button>
                                  </div>
                               </div>
                            )}
@@ -963,87 +969,87 @@ export default function AdminDataImport({ user }: { user?: any }) {
          {/* TAB 3: DATA TERPILIH (MOVED) */}
          {/* ---------------------------------------------------------------------------------------- */}
          {adminDataTab === 'MOVED' && (
-            <div className="flex-1 flex flex-col overflow-hidden bg-[#120a32] p-4">
-               <div className="flex flex-col h-full overflow-y-auto bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+            <div className="flex-1 flex flex-col overflow-hidden p-6">
+               <div className="flex flex-col h-full overflow-y-auto">
                   <div className="flex justify-between items-center mb-6">
-                     <h3 className="text-lg font-black text-white flex items-center gap-2">
-                        <FolderOutput size={22} className="text-indigo-400" /> Data Terpilih / Pindahan (Device Session)
+                     <h3 className="text-base font-black text-white flex items-center gap-2 tracking-tight">
+                        <FolderOutput size={20} className="text-purple-400" /> Data Terpilih / Pindahan (Device Session)
                      </h3>
-                     <div className="flex gap-3">
-                        <button onClick={fetchMovedData} disabled={isMovedFetching} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"><RotateCcw size={16} className={isMovedFetching ? "animate-spin" : ""} /></button>
+                     <div className="flex gap-2">
+                        <button onClick={fetchMovedData} disabled={isMovedFetching} className="p-2 bg-[#0c0620] hover:bg-purple-950/40 text-purple-200 rounded-xl border border-purple-900/40 transition-colors"><RotateCcw size={16} className={isMovedFetching ? "animate-spin" : ""} /></button>
                         {movedExcelData.length > 0 && (
-                           <button onClick={() => clearCollectionByDevice('admin_data_moved')} disabled={isAdminClearing} className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold rounded-xl text-sm transition-colors border border-rose-500/20 disabled:opacity-50"><Trash2 size={16} /> Clear Selected Data</button>
+                           <button onClick={() => clearCollectionByDevice('admin_data_moved')} disabled={isAdminClearing} className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 font-black rounded-xl text-xs transition-colors border border-rose-500/30 disabled:opacity-30"><Trash2 size={14} /> Clear Selected</button>
                         )}
                      </div>
                   </div>
 
                   {isMovedFetching || isAdminClearing ? (
-                     <div className="flex flex-col items-center justify-center flex-1 border-dashed border-white/10 rounded-2xl min-h-[300px]">
-                        <Loader2 size={48} className="text-indigo-400 animate-spin mb-4" />
-                        <p className="text-slate-400 font-bold">{isAdminClearing ? 'Menghapus Data...' : 'Memuat Data...'}</p>
+                     <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-purple-900/40 rounded-2xl min-h-[300px] bg-[#0c0620]/40">
+                        <Loader2 size={40} className="text-purple-400 animate-spin mb-3" />
+                        <p className="text-purple-300 font-bold text-xs">{isAdminClearing ? 'Menghapus Data...' : 'Memuat Data...'}</p>
                      </div>
                   ) : movedExcelData.length === 0 ? (
-                     <div className="flex flex-col items-center justify-center flex-1 border-dashed border-white/10 rounded-2xl min-h-[300px]">
-                        <FolderOutput size={48} className="text-slate-600 mb-4" />
-                        <p className="text-slate-400 font-bold">Belum ada data yang dipilih/dipindah.</p>
+                     <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-purple-900/40 rounded-2xl min-h-[300px] bg-[#0c0620]/40">
+                        <FolderOutput size={40} className="text-purple-400/40 mb-3" />
+                        <p className="text-purple-300/60 font-bold text-xs uppercase tracking-widest">Belum ada data yang dipilih/dipindah.</p>
                      </div>
                   ) : (
                      <div className="flex flex-col flex-grow">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 shrink-0">
-                           <div className="bg-indigo-500/10 p-4 rounded-2xl border border-indigo-500/20 flex items-center justify-between">
-                              <div><p className="text-[10px] uppercase tracking-wider font-bold text-indigo-400 mb-1">Total Baris (Item)</p><h4 className="text-2xl font-black text-white">{movedExcelData.length.toLocaleString()}</h4></div>
-                              <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-300"><Layers size={20} /></div>
+                           <div className="bg-[#0c0620] p-4 rounded-xl border border-purple-900/30 flex items-center justify-between">
+                              <div><p className="text-[9px] uppercase tracking-wider font-black text-indigo-400 mb-0.5">Total Baris (Item)</p><h4 className="text-xl font-black text-white">{movedExcelData.length.toLocaleString()}</h4></div>
+                              <div className="w-9 h-9 bg-indigo-500/15 border border-indigo-500/30 rounded-xl flex items-center justify-center text-indigo-300"><Layers size={18} /></div>
                            </div>
-                           <div className="bg-purple-500/10 p-4 rounded-2xl border border-purple-500/20 flex items-center justify-between">
-                              <div><p className="text-[10px] uppercase tracking-wider font-bold text-purple-400 mb-1">Total Resi/Orderan</p><h4 className="text-2xl font-black text-white">{new Set(movedExcelData.map(r => String(r['NO.'] || '').trim()).filter(Boolean)).size.toLocaleString()}</h4></div>
-                              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-300"><Package size={20} /></div>
+                           <div className="bg-[#0c0620] p-4 rounded-xl border border-purple-900/30 flex items-center justify-between">
+                              <div><p className="text-[9px] uppercase tracking-wider font-black text-purple-400 mb-0.5">Total Resi/Orderan</p><h4 className="text-xl font-black text-white">{new Set(movedExcelData.map(r => String(r['NO.'] || '').trim()).filter(Boolean)).size.toLocaleString()}</h4></div>
+                              <div className="w-9 h-9 bg-purple-500/15 border border-purple-500/30 rounded-xl flex items-center justify-center text-purple-300"><Package size={18} /></div>
                            </div>
-                           <div className="col-span-2 flex items-center justify-end gap-3 flex-wrap">
+                           <div className="col-span-2 flex items-center justify-end gap-2 flex-wrap">
                               <button 
                                  onClick={() => handleCopyFullTable(filteredMovedData, TARGET_MOVED_COLUMNS, 'moved_full')}
-                                 className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg transition-colors border border-white/10 text-xs font-bold"
+                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0c0620] hover:bg-purple-950/40 text-purple-200 rounded-xl transition-colors border border-purple-900/40 text-xs font-bold"
                               >
-                                 {copiedColumn === 'moved_full' ? <><Check size={14} /> Disalin</> : <><Copy size={14} /> Copy Tabel</>}
+                                 {copiedColumn === 'moved_full' ? <><Check size={13} /> Disalin</> : <><Copy size={13} /> Copy Tabel</>}
                               </button>
                               <div className="relative flex-grow max-w-xs">
-                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                 <input type="text" value={movedSearch} onChange={(e) => { setMovedSearch(e.target.value); setMovedCurrentPage(1); }} placeholder="Cari ID Pesanan, AWB, MSKU..." className="w-full pl-9 pr-8 py-1.5 bg-[#0f172a] border border-white/10 rounded-lg text-xs font-bold focus:ring-2 focus:ring-indigo-500 text-white outline-none" />
-                                 {movedSearch && <button onClick={() => { setMovedSearch(""); setMovedCurrentPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"><X size={14} /></button>}
+                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400/60" size={14} />
+                                 <input type="text" value={movedSearch} onChange={(e) => { setMovedSearch(e.target.value); setMovedCurrentPage(1); }} placeholder="Cari ID Pesanan, AWB, MSKU..." className="w-full pl-8 pr-7 py-1.5 bg-[#0c0620] border border-purple-900/40 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-purple-500 text-white outline-none placeholder-purple-400/30" />
+                                 {movedSearch && <button onClick={() => { setMovedSearch(""); setMovedCurrentPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-purple-400 hover:text-white"><X size={14} /></button>}
                               </div>
                               <div className="flex items-center gap-2">
-                                 <span className="text-xs font-bold text-slate-400">Tampilkan:</span>
-                                 <select className="bg-[#0f172a] border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500" value={movedPageSize} onChange={(e) => { setMovedPageSize(Number(e.target.value)); setMovedCurrentPage(1); }}>
-                                    <option value={100}>100 Baris</option>
-                                    <option value={150}>150 Baris</option>
-                                    <option value={200}>200 Baris</option>
-                                    <option value={500}>500 Baris</option>
-                                    <option value={100000}>Semua Data</option>
+                                 <span className="text-xs font-bold text-purple-300/60">Tampilkan:</span>
+                                 <select className="bg-[#0c0620] border border-purple-900/40 text-purple-200 rounded-xl px-2 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500" value={movedPageSize} onChange={(e) => { setMovedPageSize(Number(e.target.value)); setMovedCurrentPage(1); }}>
+                                    <option value={100} className="bg-[#0c0620]">100 Baris</option>
+                                    <option value={150} className="bg-[#0c0620]">150 Baris</option>
+                                    <option value={200} className="bg-[#0c0620]">200 Baris</option>
+                                    <option value={500} className="bg-[#0c0620]">500 Baris</option>
+                                    <option value={100000} className="bg-[#0c0620]">Semua Data</option>
                                  </select>
                               </div>
                            </div>
                         </div>
 
-                        <div className="flex flex-col flex-grow min-h-[300px] border border-white/10 rounded-2xl overflow-hidden shadow-sm bg-[#0a0520] relative">
-                           <div className="overflow-auto flex-grow relative">
+                        <div className="flex flex-col flex-grow min-h-[300px] border border-purple-900/30 rounded-2xl overflow-hidden shadow-xl bg-[#0c0620]/60 relative">
+                           <div className="overflow-auto flex-grow relative custom-scrollbar">
                               <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-max">
-                                 <thead className="bg-[#120a32] border-gray-200 dark:border-white/10 sticky top-0 z-10 shadow-sm">
+                                 <thead className="bg-[#0c0620] border-b border-purple-900/40 sticky top-0 z-10 text-purple-300 font-black text-[10px] uppercase tracking-wider">
                                     <tr>
-                                       <th className="px-4 py-3 border-r border-white/5 text-slate-400 font-bold bg-[#120a32]">#</th>
+                                       <th className="px-4 py-3 border-r border-purple-900/30">#</th>
                                        {TARGET_MOVED_COLUMNS.map(col => (
-                                          <th key={col} className="px-4 py-3 border-r border-white/5 text-slate-400 font-bold bg-[#120a32]">{col}</th>
+                                          <th key={col} className="px-4 py-3 border-r border-purple-900/30">{col}</th>
                                        ))}
                                     </tr>
                                  </thead>
-                                 <tbody>
+                                 <tbody className="divide-y divide-purple-900/20 text-slate-200">
                                     {filteredMovedData.slice((movedCurrentPage - 1) * movedPageSize, movedCurrentPage * movedPageSize).map((row, idx) => {
                                        const absoluteIdx = (movedCurrentPage - 1) * movedPageSize + idx;
                                        
                                        return (
-                                          <tr key={idx} className="border-gray-100 dark:border-white/5 hover:bg-white/5 transition-colors">
-                                             <td className="px-4 py-2.5 border-gray-100 dark:border-white/5 text-slate-500 font-mono font-medium">{absoluteIdx + 1}</td>
+                                          <tr key={idx} className="hover:bg-purple-500/10 transition-colors">
+                                             <td className="px-4 py-2.5 border-r border-purple-900/20 text-purple-400/60 font-mono font-bold">{absoluteIdx + 1}</td>
                                              {TARGET_MOVED_COLUMNS.map(col => {
                                                 return (
-                                                   <td key={col} className="px-4 py-2.5 border-gray-100 dark:border-white/5 text-slate-300 font-mono">
+                                                   <td key={col} className="px-4 py-2.5 border-r border-purple-900/20 text-purple-200 font-mono">
                                                       {String(row[col] ?? '')}
                                                    </td>
                                                 );
@@ -1056,11 +1062,11 @@ export default function AdminDataImport({ user }: { user?: any }) {
                            </div>
                            
                            {filteredMovedData.length > 0 && movedPageSize < filteredMovedData.length && (
-                              <div className="bg-[#120a32] border-gray-200 dark:border-white/10 p-3 flex items-center justify-between sticky bottom-0 z-10">
-                                 <span className="text-gray-500 dark:text-slate-400 font-bold">Menampilkan {(movedCurrentPage - 1) * movedPageSize + 1} - {Math.min(movedCurrentPage * movedPageSize, filteredMovedData.length)} dari {filteredMovedData.length} baris</span>
+                              <div className="bg-[#0c0620] border-t border-purple-900/30 p-3 px-4 flex items-center justify-between sticky bottom-0 z-10">
+                                 <span className="text-[10px] text-purple-300/60 font-bold">Menampilkan {(movedCurrentPage - 1) * movedPageSize + 1} - {Math.min(movedCurrentPage * movedPageSize, filteredMovedData.length)} dari {filteredMovedData.length} baris</span>
                                  <div className="flex gap-2">
-                                    <button onClick={() => setMovedCurrentPage(p => Math.max(1, p - 1))} disabled={movedCurrentPage === 1} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-white/10 text-white">Prev</button>
-                                    <button onClick={() => setMovedCurrentPage(p => Math.min(Math.ceil(filteredMovedData.length / movedPageSize), p + 1))} disabled={movedCurrentPage * movedPageSize >= filteredMovedData.length} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-white/10 text-white">Next</button>
+                                    <button onClick={() => setMovedCurrentPage(p => Math.max(1, p - 1))} disabled={movedCurrentPage === 1} className="px-3 py-1 bg-[#130b2e] border border-purple-900/40 rounded-xl text-xs font-bold disabled:opacity-30 hover:bg-purple-950/40 text-purple-200">Prev</button>
+                                    <button onClick={() => setMovedCurrentPage(p => Math.min(Math.ceil(filteredMovedData.length / movedPageSize), p + 1))} disabled={movedCurrentPage * movedPageSize >= filteredMovedData.length} className="px-3 py-1 bg-[#130b2e] border border-purple-900/40 rounded-xl text-xs font-bold disabled:opacity-30 hover:bg-purple-950/40 text-purple-200">Next</button>
                                  </div>
                               </div>
                            )}
