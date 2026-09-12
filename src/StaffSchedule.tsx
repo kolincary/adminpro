@@ -764,7 +764,7 @@ export default function StaffScheduleComponent({ user }: StaffScheduleProps) {
           onMouseUp={onMouseUp}
           onMouseMove={onMouseMove}
         >
-          <table className="w-full border-collapse text-left min-w-max select-none">
+          <table className="w-full border-collapse text-left min-w-max">
             <thead>
               <tr className="bg-[#0c0620]">
                 <th className="sticky left-0 z-20 bg-[#0e0725] border-b border-r border-purple-900/40 p-3 md:p-4 min-w-[140px] md:min-w-[210px] shadow-[4px_0_15px_rgba(0,0,0,0.5)]">

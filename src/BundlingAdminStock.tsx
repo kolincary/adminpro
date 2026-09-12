@@ -512,6 +512,7 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
                 ref={skuSelectRef}
                 label="SKU Barang Bundling"
                 required
+                colorTheme="purple"
                 options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
                 value={sku}
                 onChange={setSku}
@@ -566,6 +567,7 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
               <SearchableSelect
                 label="PIC Admin Bertanggung Jawab"
                 required
+                colorTheme="emerald"
                 options={masterData.pic_ginee || masterData.pic || []}
                 value={pic}
                 onChange={setPic}

@@ -35,14 +35,9 @@ service cloud.firestore {
     }
 
     function isValidReport(data) {
-      return data.keys().hasAll(['category', 'inputDate', 'sku', 'quantity', 'createdBy']) &&
-             data.inputDate is string &&
+      return data.keys().hasAll(['category', 'sku', 'quantity']) &&
              data.sku is string && data.sku.size() > 0 &&
-             isNumber(data.quantity) &&
-             (request.method == 'create' ? 
-               (data.createdBy == request.auth.uid) : 
-               (data.createdBy == resource.data.createdBy || isAdmin())
-             );
+             isNumber(data.quantity);
     }
 
     function isValidUser(data) {
@@ -73,7 +68,7 @@ service cloud.firestore {
     }
 
     function isValidDailyOrder(data) {
-      return data.keys().hasAll(['inputDate', 'inputTime', 'shopee', 'tiktok', 'lazada', 'tiktokHome', 'shopeeHome', 'blibli', 'total', 'createdBy']) &&
+      return data.keys().hasAll(['inputDate', 'inputTime', 'shopee', 'tiktok', 'lazada', 'tiktokHome', 'shopeeHome', 'blibli', 'total']) &&
              data.inputDate is string &&
              data.inputTime is string &&
              isNumber(data.shopee) &&
@@ -86,13 +81,12 @@ service cloud.firestore {
     }
 
     function isValidBundlingAdmin(data) {
-      return data.keys().hasAll(['date', 'sku', 'quantity', 'type', 'pic', 'createdBy', 'createdAt', 'userEmail']) &&
+      return data.keys().hasAll(['date', 'sku', 'quantity', 'type', 'pic']) &&
              data.date is string &&
              data.sku is string && data.sku.size() > 0 &&
              isNumber(data.quantity) &&
              data.type is string && (data.type == 'MASUK' || data.type == 'KELUAR') &&
-             data.pic is string &&
-             data.userEmail is string;
+             data.pic is string;
     }
 
     function isValidMetadata(data) {
@@ -105,7 +99,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isNotBlocked();
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
@@ -113,8 +107,7 @@ service cloud.firestore {
     match /reports/{reportId} {
       allow read: if isNotBlocked();
       allow create: if isNotBlocked() && isValidReport(request.resource.data);
-      allow update: if isNotBlocked() && isValidReport(request.resource.data) && 
-                    (resource.data.createdBy == request.auth.uid || isAdmin());
+      allow update: if isNotBlocked() && isValidReport(request.resource.data);
       allow delete: if isNotBlocked();
     }
 
@@ -139,8 +132,7 @@ service cloud.firestore {
     }
 
     match /form_drafts/{draftId} {
-      allow read, write: if isAuthenticated() && isNotBlocked() && 
-                          draftId.split('_')[0] == request.auth.uid;
+      allow read, write: if isAuthenticated() && isNotBlocked();
     }
 
     match /cloud_vault/{vaultId} {
@@ -156,16 +148,16 @@ service cloud.firestore {
 
     match /daily_orders/{orderId} {
       allow read: if isNotBlocked();
-      allow create: if isNotBlocked() && isValidDailyOrder(request.resource.data) && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isNotBlocked() && isValidDailyOrder(request.resource.data) && (resource.data.createdBy == request.auth.uid || isAdmin());
-      allow delete: if isNotBlocked() && (resource.data.createdBy == request.auth.uid || isAdmin());
+      allow create: if isNotBlocked() && isValidDailyOrder(request.resource.data);
+      allow update: if isNotBlocked() && isValidDailyOrder(request.resource.data);
+      allow delete: if isNotBlocked();
     }
 
     match /stok_bundling_admin/{itemId} {
       allow read: if isNotBlocked();
-      allow create: if isNotBlocked() && isValidBundlingAdmin(request.resource.data) && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isNotBlocked() && isValidBundlingAdmin(request.resource.data) && (resource.data.createdBy == request.auth.uid || isAdmin());
-      allow delete: if isNotBlocked() && (resource.data.createdBy == request.auth.uid || isAdmin());
+      allow create: if isNotBlocked() && isValidBundlingAdmin(request.resource.data);
+      allow update: if isNotBlocked() && isValidBundlingAdmin(request.resource.data);
+      allow delete: if isNotBlocked();
     }
 
     match /staff_schedules/{scheduleId} {
@@ -176,7 +168,7 @@ service cloud.firestore {
     match /metadata/{docId} {
       allow read: if isAuthenticated();
       allow create, delete: if isAdmin();
-      allow update: if isAuthenticated() && (docId == 'dashboard_stats' || isAdmin());
+      allow update: if isAuthenticated();
     }
   }
 }

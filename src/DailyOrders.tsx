@@ -946,7 +946,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                     paginatedOrders.map((order) => {
                       const isEditing = editingId === order.id;
                       return (
-                        <tr key={order.id} className="hover:bg-purple-950/30 transition text-xs select-none">
+                        <tr key={order.id} className="hover:bg-purple-950/30 transition text-xs">
                           
                           {/* Tanggal */}
                           <td className="p-3.5 font-bold text-white whitespace-nowrap">

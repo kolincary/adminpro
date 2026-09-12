@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export type ToastType = 'success' | 'error';
 
@@ -17,7 +17,7 @@ export default function Toast({ message, type, isVisible, onClose }: ToastProps)
     if (isVisible) {
       const timer = setTimeout(() => {
         onClose();
-      }, 5000);
+      }, 2500);
       return () => clearTimeout(timer);
     }
   }, [isVisible, onClose]);
@@ -31,7 +31,8 @@ export default function Toast({ message, type, isVisible, onClose }: ToastProps)
           initial={{ opacity: 0, y: -100, x: '-50%' }}
           animate={{ opacity: 1, y: 16, x: '-50%' }}
           exit={{ opacity: 0, y: -100, x: '-50%' }}
-          className="fixed left-1/2 top-4 z-[9999] w-full max-w-md px-4"
+          transition={{ duration: 0.25 }}
+          className="fixed left-1/2 top-4 z-[9999] w-full max-w-md px-4 pointer-events-none"
         >
           <div className={`
             relative overflow-hidden rounded-2xl border p-4 shadow-2xl backdrop-blur-xl
@@ -54,19 +55,13 @@ export default function Toast({ message, type, isVisible, onClose }: ToastProps)
                   {message}
                 </p>
               </div>
-              <button 
-                onClick={onClose}
-                className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <X className="h-4 w-4 opacity-50" />
-              </button>
             </div>
             
             {/* Progress Bar */}
             <motion.div 
               initial={{ scaleX: 1 }}
               animate={{ scaleX: 0 }}
-              transition={{ duration: 5, ease: "linear" }}
+              transition={{ duration: 2.5, ease: "linear" }}
               className={`absolute bottom-0 left-0 h-0.5 w-full origin-left ${type === 'success' ? 'bg-emerald-500/50' : 'bg-rose-500/50'}`}
             />
           </div>

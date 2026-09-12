@@ -117,6 +117,9 @@ function AppContent() {
     if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
       return 'staff_schedule';
     }
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabFromUrl = urlParams.get('tab');
+    if (tabFromUrl) return tabFromUrl;
     return localStorage.getItem('adminPro_activeTab') || 'dashboard';
   });
 
@@ -127,6 +130,36 @@ function AppContent() {
       setActiveTab('staff_schedule');
     }
   }, [activeTab, isMobileDevice]);
+
+  const handleTabClick = (tab: string, e?: React.MouseEvent) => {
+    if (e) {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) {
+        return;
+      }
+      e.preventDefault();
+    }
+    setActiveTab(tab);
+    setIsMobileSidebarOpen(false);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.pushState({ tab }, '', url.toString());
+    } catch (err) {
+      console.warn('Error updating history:', err);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabFromUrl = urlParams.get('tab');
+      if (tabFromUrl) {
+        setActiveTab(tabFromUrl);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const [reports, setReports] = useState<Report[]>([]);
   const [transactions, setTransactions] = useState<Report[]>([]);
@@ -180,6 +213,29 @@ function AppContent() {
     return () => clearInterval(timer);
   }, []);
 
+  // Global Anti-History / Autocomplete Suppressor
+  useEffect(() => {
+    const handleInputFocus = (e: Event) => {
+      const el = e.target as HTMLElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+        if (el.getAttribute('autocomplete') !== 'off') el.setAttribute('autocomplete', 'off');
+        if (el.getAttribute('autocorrect') !== 'off') el.setAttribute('autocorrect', 'off');
+        if (el.getAttribute('autocapitalize') !== 'off') el.setAttribute('autocapitalize', 'off');
+        if (el.getAttribute('spellcheck') !== 'false') el.setAttribute('spellcheck', 'false');
+      }
+    };
+
+    document.addEventListener('focusin', handleInputFocus, true);
+    document.addEventListener('focus', handleInputFocus, true);
+    document.addEventListener('pointerdown', handleInputFocus, true);
+
+    return () => {
+      document.removeEventListener('focusin', handleInputFocus, true);
+      document.removeEventListener('focus', handleInputFocus, true);
+      document.removeEventListener('pointerdown', handleInputFocus, true);
+    };
+  }, []);
+
   const navRef = useRef<HTMLElement>(null);
 
   const checkScroll = () => {
@@ -199,11 +255,6 @@ function AppContent() {
       window.removeEventListener('resize', checkScroll);
     };
   }, [activeTab, isFisikOpen, reports, userProfile, isMobileSidebarOpen]);
-
-  const handleTabClick = (tab: string) => {
-    setActiveTab(tab);
-    setIsMobileSidebarOpen(false);
-  };
 
   useEffect(() => {
     const handleSwitchTab = (e: any) => {
@@ -668,36 +719,20 @@ function AppContent() {
       }
     };
 
-    // Helper to merge results from multiple listeners
-    const reportResults = new Map<string, Report>();
-    const transactionResults = new Map<string, Report>();
-
     // Cleanup functions
     const unsubs: (() => void)[] = [];
 
     // Unified processing functions
     const processSnapReports = (snapshot: any) => {
-      snapshot.docChanges().forEach((change: any) => {
-        if (change.type === 'removed') {
-          reportResults.delete(change.doc.id);
-        } else {
-          reportResults.set(change.doc.id, mapReportDoc(change.doc));
-        }
-      });
-      setReports(Array.from(reportResults.values()));
+      const mapped = snapshot.docs.map((d: any) => mapReportDoc(d));
+      setReports(mapped);
       reportsDone = true;
-      checkDone();
+      setIsDataLoading(false);
     };
 
     const processSnapTransactions = (snapshot: any) => {
-      snapshot.docChanges().forEach((change: any) => {
-        if (change.type === 'removed') {
-          transactionResults.delete(change.doc.id);
-        } else {
-          transactionResults.set(change.doc.id, mapTransactionDoc(change.doc));
-        }
-      });
-      setTransactions(Array.from(transactionResults.values()));
+      const mapped = snapshot.docs.map((d: any) => mapTransactionDoc(d));
+      setTransactions(mapped);
       transactionsDone = true;
       checkDone();
     };
@@ -715,18 +750,13 @@ function AppContent() {
         s === 'DAMAGED'
       ) return 'Rusak Fisik';
       
-      // ELIMINASI / RUSAK INTERNAL
+      // ELIMINASI / RUSAK INTERNAL (Only when explicitly marked as internal elimination)
       if (
         s === 'OUT' || 
         s === 'ELIMINASI' || 
-        s === 'RUSAK' || 
-        s.includes('INTERNAL') ||
         s.includes('ELIMINASI INTERNAL') ||
-        s.includes('STOK RUSAK') ||
+        s.includes('ELIMINASI STOK RUSAK') ||
         s.includes('RUSAK_INTERNAL') ||
-        s.includes('LOG BARANG RUSAK') ||
-        s.includes('BARANG RUSAK') ||
-        s.includes('LOG RUSAK') ||
         s.includes('RUSAK_LT3') ||
         s.includes('RUSAK_LANTAI3')
       ) return 'Eliminasi Stok Rusak';
@@ -739,22 +769,14 @@ function AppContent() {
     };
 
     const getInferredCategory = (status: string, currentCategory: string, type: string, source: string, sku: string): string => {
-      // Priority 1: Explicit category
+      if (currentCategory === 'retur' || currentCategory === 'retur2') return currentCategory;
       if (currentCategory === 'rusak_internal' || currentCategory === 'eliminasi_rusak') return 'rusak_internal';
       if (currentCategory === 'stok_lt3') return 'stok_lt3';
 
-      // Priority 2: Status match
-      if (status === 'Eliminasi Stok Rusak') return 'rusak_internal';
+      if (status === 'Eliminasi Stok Rusak' || type === 'OUT' || type === 'RUSAK_INTERNAL') return 'rusak_internal';
       if (status === 'Rusak Fisik') return 'stok_lt3';
       
-      // Priority 3: Type and other indicators
-      if (type === 'OUT' || type === 'RUSAK_INTERNAL' || type === 'ELIMINASI') return 'rusak_internal';
-      
-      // Legacy data check (If SKU exists and status contains internal markers)
-      const rawStatus = (status || '').toUpperCase();
-      if (rawStatus.includes('INTERNAL') || rawStatus === 'OUT') return 'rusak_internal';
-
-      return currentCategory || 'stok_lt3';
+      return currentCategory || 'retur';
     };
 
     const mapReportDoc = (doc: any) => {
@@ -763,7 +785,7 @@ function AppContent() {
       const normalizedStatus = getNormalizedStatus(d.status, '');
       const category = getInferredCategory(normalizedStatus, d.category, '', 'reports', sku);
       
-      const createdAt = d.createdAt || d.created_at || d.timestamp || d.updatedAt || null;
+      const createdAt = d.created_at || d.createdAt || d.timestamp || d.updatedAt || null;
       let _sortTs = 0;
       let inputDateStr = d.inputDate || d.logDate || d.date || d.tanggal || '';
 
@@ -851,25 +873,17 @@ function AppContent() {
       } as Report & { _sortTs: number };
     };
 
-    // Single listener per collection with a generous limit covers most recent activity
-    // and keeps the connection stable (fixing "Could not reach backend" error)
-    const reportsQuery = query(
-      collection(db, 'reports'), 
-      orderBy('created_at', 'desc'), 
-      limit(2500)
-    );
+    // Realtime listeners for all reports and transactions
+    const reportsQuery = query(collection(db, 'reports'));
     unsubs.push(onSnapshot(reportsQuery, processSnapReports, (err) => {
       console.warn("Reports Sync Error:", err);
       if (err.message.includes('quota')) setQuotaExceeded(true);
       reportsDone = true;
+      setIsDataLoading(false);
       checkDone();
     }));
 
-    const transactionsQuery = query(
-      collection(db, 'transactions'), 
-      orderBy('created_at', 'desc'), 
-      limit(2500)
-    );
+    const transactionsQuery = query(collection(db, 'transactions'));
     unsubs.push(onSnapshot(transactionsQuery, processSnapTransactions, (err) => {
       console.warn("Transactions Sync Error:", err);
       if (err.message.includes('quota')) setQuotaExceeded(true);
@@ -1476,11 +1490,11 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen h-screen overflow-hidden bg-[#0c0721] text-slate-100 flex flex-col font-sans select-none">
+    <div className="min-h-screen h-screen overflow-hidden bg-[#0c0721] text-slate-100 flex flex-col font-sans">
       <GlobalNotificationBanner />
 
       {/* Top Header Navbar - 100% Exact Screenshot Matching */}
-      <header className="w-full bg-[#0c0721] border-b border-purple-900/30 px-4 sm:px-8 py-2.5 flex items-center justify-between z-50 shrink-0 shadow-md">
+      <header className="w-full bg-[#0c0721] border-b border-purple-900/30 px-4 sm:px-8 py-2.5 flex items-center justify-between z-50 shrink-0 shadow-md select-none">
         {/* Left Branding */}
         <div className="flex items-center gap-3">
           <button
@@ -1556,7 +1570,7 @@ function AppContent() {
         )}
 
         {/* Sidebar */}
-        <aside className={`fixed inset-y-0 left-0 top-[57px] md:top-0 md:static z-50 w-64 bg-[#0e0728] border-r border-purple-900/20 flex flex-col justify-between transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <aside className={`fixed inset-y-0 left-0 top-[57px] md:top-0 md:static z-50 w-64 bg-[#0e0728] border-r border-purple-900/20 flex flex-col justify-between transform transition-transform duration-300 ease-in-out md:translate-x-0 select-none ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex-1 min-h-0 relative flex flex-col">
             <nav 
               ref={navRef}
@@ -1568,8 +1582,9 @@ function AppContent() {
                 <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   UTAMA &amp; ANALITIK
                 </div>
-                <button
-                  onClick={() => handleTabClick('dashboard')}
+                <a
+                  href="?tab=dashboard"
+                  onClick={(e) => handleTabClick('dashboard', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-2xl transition-all cursor-pointer ${
                     activeTab === 'dashboard'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1578,10 +1593,11 @@ function AppContent() {
                 >
                   <LayoutGrid className={`w-4 h-4 ${activeTab === 'dashboard' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Insight Dashboard</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('daily_orders')}
+                <a
+                  href="?tab=daily_orders"
+                  onClick={(e) => handleTabClick('daily_orders', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'daily_orders'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1590,10 +1606,11 @@ function AppContent() {
                 >
                   <ShoppingCart className={`w-4 h-4 ${activeTab === 'daily_orders' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Orderan Harian</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('staff_schedule')}
+                <a
+                  href="?tab=staff_schedule"
+                  onClick={(e) => handleTabClick('staff_schedule', e)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'staff_schedule'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1607,7 +1624,7 @@ function AppContent() {
                   <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
                     Live
                   </span>
-                </button>
+                </a>
               </div>
 
               {/* INPUT OPERASIONAL */}
@@ -1615,8 +1632,9 @@ function AppContent() {
                 <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   INPUT OPERASIONAL
                 </div>
-                <button
-                  onClick={() => handleTabClick('input_retur2')}
+                <a
+                  href="?tab=input_retur2"
+                  onClick={(e) => handleTabClick('input_retur2', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'input_retur2' || activeTab === 'input_retur'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1625,10 +1643,11 @@ function AppContent() {
                 >
                   <PackagePlus className={`w-4 h-4 ${activeTab === 'input_retur2' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Input Retur / Lt 3</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('rusak_internal')}
+                <a
+                  href="?tab=rusak_internal"
+                  onClick={(e) => handleTabClick('rusak_internal', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'rusak_internal'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1637,10 +1656,11 @@ function AppContent() {
                 >
                   <PackageX className={`w-4 h-4 ${activeTab === 'rusak_internal' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Eliminasi Stok Rusak</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('stok_bundling_admin')}
+                <a
+                  href="?tab=stok_bundling_admin"
+                  onClick={(e) => handleTabClick('stok_bundling_admin', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'stok_bundling_admin'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1649,12 +1669,13 @@ function AppContent() {
                 >
                   <Boxes className={`w-4 h-4 ${activeTab === 'stok_bundling_admin' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Stok Bundling Admin</span>
-                </button>
+                </a>
               </div>
 
               {/* DATA FISIK GUDANG Accordion */}
               <div className="space-y-1">
                 <button
+                  type="button"
                   onClick={() => setIsFisikOpen(!isFisikOpen)}
                   className="w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer"
                 >
@@ -1679,17 +1700,18 @@ function AppContent() {
                         { id: 'rusak_fisik', label: 'Rusak Fisik' },
                         { id: 'bundling_fisik', label: 'Bundling Fisik' },
                       ].map((subItem) => (
-                        <button
+                        <a
                           key={subItem.id}
-                          onClick={() => handleTabClick(subItem.id)}
-                          className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                          href={`?tab=${subItem.id}`}
+                          onClick={(e) => handleTabClick(subItem.id, e)}
+                          className={`block w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                             activeTab === subItem.id
                               ? 'text-purple-300 font-bold bg-purple-500/15 border-l-2 border-purple-400'
                               : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                           }`}
                         >
                           {subItem.label}
-                        </button>
+                        </a>
                       ))}
                     </motion.div>
                   )}
@@ -1701,8 +1723,9 @@ function AppContent() {
                 <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   LOG &amp; DATA MASTER
                 </div>
-                <button
-                  onClick={() => handleTabClick('table')}
+                <a
+                  href="?tab=table"
+                  onClick={(e) => handleTabClick('table', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'table'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1711,10 +1734,11 @@ function AppContent() {
                 >
                   <TableIcon className={`w-4 h-4 ${activeTab === 'table' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Eksplorasi Laporan</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('damaged_goods_report')}
+                <a
+                  href="?tab=damaged_goods_report"
+                  onClick={(e) => handleTabClick('damaged_goods_report', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'damaged_goods_report'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1723,7 +1747,7 @@ function AppContent() {
                 >
                   <AlertTriangle className={`w-4 h-4 ${activeTab === 'damaged_goods_report' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Log Barang Rusak</span>
-                </button>
+                </a>
               </div>
 
               {/* REKONSILIASI & ARSIP */}
@@ -1731,8 +1755,9 @@ function AppContent() {
                 <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   REKONSILIASI &amp; ARSIP
                 </div>
-                <button
-                  onClick={() => handleTabClick('matcher')}
+                <a
+                  href="?tab=matcher"
+                  onClick={(e) => handleTabClick('matcher', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'matcher'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1741,10 +1766,11 @@ function AppContent() {
                 >
                   <GitCompare className={`w-4 h-4 ${activeTab === 'matcher' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Pencocok Data Excel</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('packing_list_check')}
+                <a
+                  href="?tab=packing_list_check"
+                  onClick={(e) => handleTabClick('packing_list_check', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'packing_list_check'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1753,10 +1779,11 @@ function AppContent() {
                 >
                   <ClipboardCheck className={`w-4 h-4 ${activeTab === 'packing_list_check' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Cek Packing List</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('shipping_matcher')}
+                <a
+                  href="?tab=shipping_matcher"
+                  onClick={(e) => handleTabClick('shipping_matcher', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'shipping_matcher'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1765,10 +1792,11 @@ function AppContent() {
                 >
                   <Truck className={`w-4 h-4 ${activeTab === 'shipping_matcher' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Pencocok Logistik</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('vault')}
+                <a
+                  href="?tab=vault"
+                  onClick={(e) => handleTabClick('vault', e)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'vault'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1777,10 +1805,11 @@ function AppContent() {
                 >
                   <Database className={`w-4 h-4 ${activeTab === 'vault' ? 'text-purple-300' : 'text-slate-400'}`} />
                   <span className="font-semibold text-xs tracking-wide">Cloud Vault</span>
-                </button>
+                </a>
 
-                <button
-                  onClick={() => handleTabClick('admin_data_import')}
+                <a
+                  href="?tab=admin_data_import"
+                  onClick={(e) => handleTabClick('admin_data_import', e)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'admin_data_import'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
@@ -1794,7 +1823,7 @@ function AppContent() {
                   <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     Batch
                   </span>
-                </button>
+                </a>
               </div>
 
               {/* SISTEM ADMINISTRATOR */}
@@ -1802,22 +1831,23 @@ function AppContent() {
                 <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   SISTEM ADMINISTRATOR
                 </div>
-                <button
-                  onClick={() => handleTabClick('admin')}
+                <a
+                  href="?tab=admin"
+                  onClick={(e) => handleTabClick('admin', e)}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-pink-500/30 bg-pink-950/20 text-pink-300 hover:bg-pink-900/40 transition-all cursor-pointer ${
                     activeTab === 'admin' ? 'ring-2 ring-pink-500/60 shadow-lg shadow-pink-500/20' : ''
                   }`}
                 >
                   <Shield className="w-4 h-4 text-pink-400" />
                   <span className="font-bold text-xs tracking-wide">Panel Administrator</span>
-                </button>
+                </a>
               </div>
             </nav>
           </div>
         </aside>
 
         {/* Main Content View Area */}
-        <main className="flex-1 overflow-y-auto bg-[#0a041c] p-4 sm:p-7 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto bg-[#0a041c] p-4 sm:p-7 custom-scrollbar select-text">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

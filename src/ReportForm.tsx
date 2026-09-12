@@ -16,6 +16,21 @@ import ConfirmModal from './ConfirmModal';
 
 import { updateDashboardStats, updateDashboardStatsBulk } from './stats';
 
+interface FieldErrors {
+  headerMarketplace?: boolean;
+  headerPic?: boolean;
+  headerStatus?: boolean;
+  inputItemSku?: boolean;
+  inputItemStatus?: boolean;
+  rows: Record<number, {
+    marketplace?: boolean;
+    invoiceNumber?: boolean;
+    sku?: boolean;
+    status?: boolean;
+    quantity?: boolean;
+  }>;
+}
+
 const DEFAULT_PIC_OPTIONS = [
   "ISMI (GTL)", "ISMI (TK HOME)", "ISMI (SORTIR)", "ISMI (SP HOME)", "ISMI (LZD)",
   "IRDA (GTL)", "IRDA (TK HOME)", "IRDA (SORTIR)", "IRDA (SP HOME)", "IRDA (LZD)",
@@ -37,6 +52,7 @@ interface ItemRow {
   itemDescription: string;
   logDate?: string;
   invoiceNumber?: string;
+  marketplace?: string;
 }
 
 const getInvoiceStyle = (invoice: string) => {
@@ -66,6 +82,19 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
   const [loading, setLoading] = useState(false);
   const quantityRef = useRef<HTMLInputElement>(null);
   const skuSelectRef = useRef<SearchableSelectHandle>(null);
+
+  // Field errors state for visual validation feedback
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({ rows: {} });
+
+  // Entry Mode: 'batch' (1 Invoice Global) vs 'single' (Per Baris)
+  const [entryMode, setEntryMode] = useState<'batch' | 'single'>(() => {
+    return (localStorage.getItem('reportForm_entryMode') as 'batch' | 'single') || 'batch';
+  });
+
+  const handleEntryModeChange = (mode: 'batch' | 'single') => {
+    setEntryMode(mode);
+    localStorage.setItem('reportForm_entryMode', mode);
+  };
 
   const [masterData, setMasterData] = useState<Record<string, string[]>>({});
   const [headerData, setHeaderData] = useState({
@@ -109,10 +138,12 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
       logDate: localStorage.getItem('selectedLogDate') || prev.logDate || format(new Date(), 'yyyy-MM-dd'),
       status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : prev.status
     }));
+    setFieldErrors({ rows: {} });
   }, [category]);
 
   const handlePicGineeChange = (val: string) => {
     setHeaderData(prev => ({ ...prev, picGinee: val }));
+    setFieldErrors(prev => ({ ...prev, headerPic: false }));
     if (category === 'retur' || category === 'retur2' || category === 'rusak_internal' || category === 'stok_lt3') {
       localStorage.setItem('selectedPicGinee', val);
     }
@@ -120,6 +151,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
 
   const handleMarketplaceChange = (val: string) => {
     setHeaderData(prev => ({ ...prev, marketplace: val }));
+    setFieldErrors(prev => ({ ...prev, headerMarketplace: false }));
     if (category === 'retur' || category === 'retur2') {
       localStorage.setItem('selectedMarketplace', val);
     }
@@ -127,16 +159,19 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
 
   const handleResetPicGinee = () => {
     setHeaderData(prev => ({ ...prev, picGinee: '' }));
+    setFieldErrors(prev => ({ ...prev, headerPic: false }));
     localStorage.removeItem('selectedPicGinee');
   };
 
   const handleResetMarketplace = () => {
     setHeaderData(prev => ({ ...prev, marketplace: '' }));
+    setFieldErrors(prev => ({ ...prev, headerMarketplace: false }));
     localStorage.removeItem('selectedMarketplace');
   };
 
   const handleStatusChange = (val: string) => {
     setHeaderData(prev => ({ ...prev, status: val }));
+    setFieldErrors(prev => ({ ...prev, headerStatus: false }));
     if (category === 'stok_lt3' || category === 'retur2' || category === 'rusak_internal') {
       localStorage.setItem('selectedMenuFisik', val);
     }
@@ -144,11 +179,12 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
 
   const handleResetStatus = () => {
     setHeaderData(prev => ({ ...prev, status: '' }));
+    setFieldErrors(prev => ({ ...prev, headerStatus: false }));
     localStorage.removeItem('selectedMenuFisik');
   };
 
   const [items, setItems] = useState<ItemRow[]>([
-    { sku: '', quantity: 1, status: '', itemDescription: '' }
+    { sku: '', quantity: 1, status: '', itemDescription: '', invoiceNumber: '', marketplace: '' }
   ]);
 
   const [toast, setToast] = useState<{ message: string; type: ToastType; visible: boolean }>({
@@ -230,6 +266,9 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
           if (draftData.inputItem) {
             setInputItem(draftData.inputItem);
           }
+          if (draftData.entryMode) {
+            setEntryMode(draftData.entryMode);
+          }
         }
       } catch (e) {
         console.error('Error loading draft:', e);
@@ -253,6 +292,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
           headerData,
           items,
           inputItem,
+          entryMode,
           updatedAt: new Date().toISOString()
         };
 
@@ -269,7 +309,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     }, 1000);
 
     return () => clearTimeout(saveDraftTimer);
-  }, [headerData, items, inputItem, user, category, isDraftLoading]);
+  }, [headerData, items, inputItem, entryMode, user, category, isDraftLoading]);
 
   const addItemRow = () => {
     if (category === 'rusak_internal' || category === 'stok_lt3') {
@@ -283,7 +323,8 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
           ...inputItem,
           status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : inputItem.status,
           logDate: inputItem.logDate || headerData.inputDate,
-          invoiceNumber: headerData.invoiceNumber
+          invoiceNumber: '',
+          marketplace: ''
         };
         return hasEmptyFirst ? [newItem] : [...prev, newItem];
       });
@@ -291,29 +332,80 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         ...prev,
         sku: '',
         quantity: 1,
-        itemDescription: ''
+        itemDescription: '',
+        invoiceNumber: '',
+        marketplace: ''
       }));
+      setFieldErrors(prev => ({ ...prev, inputItemSku: false, inputItemStatus: false }));
       skuSelectRef.current?.focus();
     } else {
       setItems(prev => [
         ...prev,
-        { sku: '', quantity: 1, status: '', itemDescription: '', invoiceNumber: headerData.invoiceNumber }
+        { sku: '', quantity: 1, status: '', itemDescription: '', invoiceNumber: '', marketplace: '' }
       ]);
     }
   };
 
   const removeItemRow = (index: number) => {
     if (items.length === 1) {
-      setItems([{ sku: '', quantity: 1, status: '', itemDescription: '' }]);
+      setItems([{ sku: '', quantity: 1, status: '', itemDescription: '', invoiceNumber: '', marketplace: '' }]);
+      setFieldErrors(prev => ({ ...prev, rows: {} }));
     } else {
       setItems(prev => prev.filter((_, i) => i !== index));
+      setFieldErrors(prev => {
+        const nextRows: typeof prev.rows = {};
+        let newIdx = 0;
+        items.forEach((_, i) => {
+          if (i !== index) {
+            if (prev.rows[i]) {
+              nextRows[newIdx] = prev.rows[i];
+            }
+            newIdx++;
+          }
+        });
+        return { ...prev, rows: nextRows };
+      });
     }
   };
 
   const updateItemRow = (index: number, field: keyof ItemRow, value: any) => {
+    // Clear error for this field if active
+    setFieldErrors(prev => {
+      if (!prev.rows[index] || !prev.rows[index][field as keyof typeof prev.rows[0]]) return prev;
+      return {
+        ...prev,
+        rows: {
+          ...prev.rows,
+          [index]: {
+            ...prev.rows[index],
+            [field]: false
+          }
+        }
+      };
+    });
+
     setItems(prev => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: value };
+      const updatedItem = { ...next[index], [field]: value };
+
+      // In single mode: If user enters/updates invoiceNumber, check if another row already has this invoiceNumber.
+      // If yes, automatically copy Marketplace and Status Aset from that row!
+      if (entryMode === 'single' && field === 'invoiceNumber' && typeof value === 'string') {
+        const trimmedInvoice = value.trim().toUpperCase();
+        if (trimmedInvoice) {
+          const match = prev.find((it, idx) => idx !== index && it.invoiceNumber && it.invoiceNumber.trim().toUpperCase() === trimmedInvoice);
+          if (match) {
+            if (match.marketplace) {
+              updatedItem.marketplace = match.marketplace;
+            }
+            if (match.status) {
+              updatedItem.status = match.status;
+            }
+          }
+        }
+      }
+
+      next[index] = updatedItem;
       return next;
     });
   };
@@ -340,6 +432,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
             status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : (status || headerData.status || 'Retur Fisik'),
             itemDescription: reason,
             invoiceNumber,
+            marketplace: headerData.marketplace || '',
             logDate: headerData.inputDate
           });
         }
@@ -351,6 +444,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         const hasEmptyFirst = prev.length === 1 && !prev[0].sku;
         return hasEmptyFirst ? newItems : [...prev, ...newItems];
       });
+      setFieldErrors({ rows: {} });
       showToast(`${newItems.length} data berhasil diimpor!`, 'success');
       setIsMassInputModalOpen(false);
       setMassInputText('');
@@ -363,42 +457,153 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     e.preventDefault();
     if (loading) return;
 
-    // Validation
-    const validItems = items.filter(i => i.sku.trim() !== '');
+    const newErrors: FieldErrors = { rows: {} };
+    let hasError = false;
+    let firstErrorMessage = '';
+
+    // 1. Validasi Header untuk retur / retur2 / stok_lt3 / rusak_internal
+    if (category === 'retur' || category === 'retur2' || category === 'stok_lt3' || category === 'rusak_internal') {
+      if (!headerData.picGinee || !headerData.picGinee.trim()) {
+        newErrors.headerPic = true;
+        hasError = true;
+        if (!firstErrorMessage) firstErrorMessage = 'PIC Analis wajib dipilih!';
+      }
+    }
+
+    if (category === 'retur' || category === 'retur2') {
+      if (entryMode === 'batch' && (!headerData.marketplace || !headerData.marketplace.trim())) {
+        newErrors.headerMarketplace = true;
+        hasError = true;
+        if (!firstErrorMessage) firstErrorMessage = 'Marketplace wajib dipilih!';
+      }
+    }
+
+    if (category === 'retur2' && (!headerData.status || !headerData.status.trim())) {
+      newErrors.headerStatus = true;
+      hasError = true;
+      if (!firstErrorMessage) firstErrorMessage = 'Modul Fisik wajib dipilih!';
+    }
+
+    if (category === 'stok_lt3' && (!headerData.status || !headerData.status.trim())) {
+      newErrors.headerStatus = true;
+      hasError = true;
+      if (!firstErrorMessage) firstErrorMessage = 'Modul Fisik wajib dipilih!';
+    }
+
+    // 2. Validasi Items
+    if (category === 'rusak_internal' || category === 'stok_lt3') {
+      const hasAddedItems = items.some(i => i.sku && i.sku.trim());
+      if (!hasAddedItems) {
+        if (!inputItem.sku || !inputItem.sku.trim()) {
+          newErrors.inputItemSku = true;
+          hasError = true;
+          if (!firstErrorMessage) firstErrorMessage = 'Tag Aset (SKU) wajib dipilih dan ditambahkan ke daftar!';
+        }
+      }
+    } else {
+      // Retur / Retur2 mode
+      if (items.length === 0) {
+        hasError = true;
+        if (!firstErrorMessage) firstErrorMessage = 'Harap tambahkan minimal 1 baris item!';
+      } else {
+        items.forEach((item, idx) => {
+          const rowErr: { marketplace?: boolean; invoiceNumber?: boolean; sku?: boolean; status?: boolean; quantity?: boolean } = {};
+          
+          if (!item.sku || !item.sku.trim()) {
+            rowErr.sku = true;
+            hasError = true;
+            if (!firstErrorMessage) firstErrorMessage = `Baris #${idx + 1}: Tag Aset (SKU) wajib dipilih!`;
+          }
+
+          if (!item.status || !item.status.trim()) {
+            rowErr.status = true;
+            hasError = true;
+            if (!firstErrorMessage) firstErrorMessage = `Baris #${idx + 1}: Status Aset wajib dipilih!`;
+          }
+
+          if (!item.quantity || Number(item.quantity) <= 0) {
+            rowErr.quantity = true;
+            hasError = true;
+            if (!firstErrorMessage) firstErrorMessage = `Baris #${idx + 1}: Kuantitas minimal 1!`;
+          }
+
+          if (entryMode === 'single') {
+            if (!item.marketplace || !item.marketplace.trim()) {
+              rowErr.marketplace = true;
+              hasError = true;
+              if (!firstErrorMessage) firstErrorMessage = `Baris #${idx + 1}: Marketplace wajib dipilih!`;
+            }
+            if (!item.invoiceNumber || !item.invoiceNumber.trim()) {
+              rowErr.invoiceNumber = true;
+              hasError = true;
+              if (!firstErrorMessage) firstErrorMessage = `Baris #${idx + 1}: Referensi Invoice / Resi wajib diisi!`;
+            }
+          }
+
+          if (Object.keys(rowErr).length > 0) {
+            newErrors.rows[idx] = rowErr;
+          }
+        });
+      }
+    }
+
+    if (hasError) {
+      setFieldErrors(newErrors);
+      showToast(firstErrorMessage || 'Lengkapi semua kolom wajib bertanda bintang (*)!', 'error');
+      return;
+    }
+
+    setFieldErrors({ rows: {} });
+
+    // Filter items to submit
+    const validItems = (category === 'rusak_internal' || category === 'stok_lt3')
+      ? items.filter(i => i.sku.trim() !== '')
+      : items;
+
     if (validItems.length === 0) {
       showToast('Harap masukkan minimal 1 item/SKU yang valid!', 'error');
-      return;
-    }
-
-    if ((category === 'retur' || category === 'retur2') && !headerData.marketplace) {
-      showToast('Marketplace harus dipilih!', 'error');
-      return;
-    }
-
-    if ((category === 'retur' || category === 'retur2' || category === 'stok_lt3' || category === 'rusak_internal') && !headerData.picGinee) {
-      showToast('PIC Analis harus dipilih!', 'error');
       return;
     }
 
     setLoading(true);
 
     try {
-      const reportItemsData = validItems.map(item => ({
-        date: item.logDate || headerData.inputDate || format(new Date(), 'yyyy-MM-dd'),
-        gineeInputDate: headerData.gineeInputDate || '',
-        picGinee: headerData.picGinee || '',
-        marketplace: headerData.marketplace || '',
-        invoiceNumber: item.invoiceNumber || headerData.invoiceNumber || '',
-        sku: item.sku,
-        quantity: Number(item.quantity) || 1,
-        status: item.status || headerData.status || (category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : ''),
-        itemDescription: item.itemDescription || '',
-        type: headerData.type || '',
-        category: category,
-        createdAt: serverTimestamp(),
-        createdBy: user?.email || 'admin',
-        userId: user?.uid || 'anonymous'
-      }));
+      const reportItemsData = validItems.map(item => {
+        let resolvedMarketplace = headerData.marketplace || '';
+        let resolvedInvoice = (item.invoiceNumber && item.invoiceNumber.trim()) ? item.invoiceNumber.trim() : (headerData.invoiceNumber ? headerData.invoiceNumber.trim() : '');
+
+        if (entryMode === 'single' && (category === 'retur' || category === 'retur2')) {
+          resolvedMarketplace = item.marketplace || '';
+          resolvedInvoice = item.invoiceNumber ? item.invoiceNumber.trim() : '';
+        }
+
+        const effectiveDate = item.logDate || headerData.inputDate || format(new Date(), 'yyyy-MM-dd');
+        const defaultStatus = category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : 'Retur Fisik';
+        const finalStatus = item.status || headerData.status || defaultStatus;
+
+        return {
+          date: effectiveDate,
+          inputDate: effectiveDate,
+          gineeInputDate: headerData.gineeInputDate || '',
+          picGinee: headerData.picGinee || '',
+          marketplace: resolvedMarketplace,
+          invoiceNumber: resolvedInvoice,
+          sku: item.sku,
+          quantity: Number(item.quantity) || 1,
+          status: finalStatus,
+          assetStatus: finalStatus,
+          modul_fisik: headerData.status || finalStatus,
+          itemDescription: item.itemDescription || '',
+          type: headerData.type || '',
+          category: category,
+          createdAt: serverTimestamp(),
+          created_at: serverTimestamp(),
+          timestamp: serverTimestamp(),
+          createdBy: auth.currentUser?.uid || user?.uid || 'anonymous',
+          userEmail: user?.email || '',
+          userId: user?.uid || auth.currentUser?.uid || 'anonymous'
+        };
+      });
 
       // Submit reports
       for (const itemData of reportItemsData) {
@@ -429,7 +634,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         ...prev,
         invoiceNumber: '',
       }));
-      setItems([{ sku: '', quantity: 1, status: '', itemDescription: '' }]);
+      setItems([{ sku: '', quantity: 1, status: '', itemDescription: '', invoiceNumber: '', marketplace: '' }]);
 
       showToast('Semua data berhasil disimpan ke sistem.', 'success');
 
@@ -482,7 +687,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
       itemDescription: '',
       logDate: todayStr
     });
-    setItems([{ sku: '', quantity: 1, status: '', itemDescription: '' }]);
+    setItems([{ sku: '', quantity: 1, status: '', itemDescription: '', invoiceNumber: '', marketplace: '' }]);
 
     try {
       const draftId = `${user.uid}_${category}`;
@@ -699,8 +904,38 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
           </motion.div>
         )}
 
+        {/* Mode Selector Toggle (Input Sekaligus vs Satu per Satu) */}
+        {category !== 'rusak_internal' && category !== 'stok_lt3' && (
+          <div className="bg-[#130b2e]/90 border border-purple-900/30 p-1.5 md:p-2 rounded-2xl flex items-center gap-2 shadow-xl backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => handleEntryModeChange('batch')}
+              className={`flex-1 py-2.5 md:py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                entryMode === 'batch'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/50 border border-purple-400/30'
+                  : 'text-purple-300/70 hover:text-white hover:bg-purple-900/20'
+              }`}
+            >
+              <Boxes className="w-4 h-4" />
+              <span>Input Sekaligus (1 Invoice Global)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleEntryModeChange('single')}
+              className={`flex-1 py-2.5 md:py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                entryMode === 'single'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/50 border border-purple-400/30'
+                  : 'text-purple-300/70 hover:text-white hover:bg-purple-900/20'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Input Satu per Satu (Per Baris)</span>
+            </button>
+          </div>
+        )}
+
         {/* Main Form Body */}
-        <form id="report-form" onSubmit={handleSubmit} className="space-y-6">
+        <form id="report-form" onSubmit={handleSubmit} autoComplete="off" className="space-y-6">
           {/* Header Controls Card (for non-rusak_internal) */}
           {category !== 'rusak_internal' && (
             <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 md:p-7 shadow-xl space-y-5">
@@ -766,6 +1001,8 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                       </div>
                       <SearchableSelect
                         required
+                        colorTheme="emerald"
+                        hasError={!!fieldErrors.headerPic}
                         options={masterData.pic?.length ? masterData.pic : DEFAULT_PIC_OPTIONS}
                         value={headerData.picGinee}
                         onChange={handlePicGineeChange}
@@ -773,26 +1010,30 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                       />
                     </div>
 
-                    {/* Marketplace */}
-                    <div className="space-y-2 relative">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Marketplace *</label>
-                        <button
-                          type="button"
-                          onClick={handleResetMarketplace}
-                          className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider"
-                        >
-                          Hapus
-                        </button>
+                    {/* Marketplace (Hanya tampil di Mode Sekaligus / Batch) */}
+                    {entryMode === 'batch' && (
+                      <div className="space-y-2 relative">
+                        <div className="flex justify-between items-center px-1">
+                          <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest">Marketplace *</label>
+                          <button
+                            type="button"
+                            onClick={handleResetMarketplace}
+                            className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                        <SearchableSelect
+                          required
+                          colorTheme="cyan"
+                          hasError={!!fieldErrors.headerMarketplace}
+                          options={masterData.marketplace?.length ? masterData.marketplace : DEFAULT_MARKETPLACE_OPTIONS}
+                          value={headerData.marketplace}
+                          onChange={handleMarketplaceChange}
+                          placeholder="Pilih Marketplace"
+                        />
                       </div>
-                      <SearchableSelect
-                        required
-                        options={masterData.marketplace?.length ? masterData.marketplace : DEFAULT_MARKETPLACE_OPTIONS}
-                        value={headerData.marketplace}
-                        onChange={handleMarketplaceChange}
-                        placeholder="Pilih Marketplace"
-                      />
-                    </div>
+                    )}
                   </>
                 )}
 
@@ -810,6 +1051,8 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                     </div>
                     <SearchableSelect
                       required
+                      colorTheme="amber"
+                      hasError={!!fieldErrors.headerStatus}
                       options={["Retur Fisik", "Cancel Fisik", "Rusak Fisik", "Bundling Fisik"]}
                       value={headerData.status}
                       onChange={handleStatusChange}
@@ -844,29 +1087,35 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                   </div>
                 )}
 
-                {/* Referensi Invoice */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Referensi Invoice / Resi</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="invoiceNumber"
-                      value={headerData.invoiceNumber}
-                      onChange={handleHeaderChange}
-                      placeholder="Nomor Invoice/Pesanan..."
-                      className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white placeholder-purple-400/30 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none font-mono text-sm pr-10"
-                    />
-                    {headerData.invoiceNumber && (
-                      <button
-                        type="button"
-                        onClick={() => setHeaderData(prev => ({ ...prev, invoiceNumber: '' }))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-400 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
+                {/* Referensi Invoice (Hanya tampil di Mode Sekaligus / Batch) */}
+                {entryMode === 'batch' && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Referensi Invoice / Resi</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="invoiceNumber"
+                        value={headerData.invoiceNumber}
+                        onChange={handleHeaderChange}
+                        placeholder="Nomor Invoice/Pesanan..."
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white placeholder-purple-400/30 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none font-mono text-sm pr-10"
+                      />
+                      {headerData.invoiceNumber && (
+                        <button
+                          type="button"
+                          onClick={() => setHeaderData(prev => ({ ...prev, invoiceNumber: '' }))}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-400 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
@@ -899,6 +1148,8 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                   </div>
                   <SearchableSelect
                     required
+                    colorTheme="emerald"
+                    hasError={!!fieldErrors.headerPic}
                     options={masterData.pic?.length ? masterData.pic : DEFAULT_PIC_OPTIONS}
                     value={headerData.picGinee}
                     onChange={handlePicGineeChange}
@@ -914,6 +1165,8 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                     </div>
                     <SearchableSelect
                       required
+                      colorTheme="amber"
+                      hasError={!!fieldErrors.headerStatus}
                       options={["Retur Fisik", "Cancel Fisik", "Rusak Fisik", "Bundling Fisik"]}
                       value={headerData.status}
                       onChange={handleStatusChange}
@@ -953,9 +1206,14 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                     ref={skuSelectRef}
                     label="Tag Aset (SKU)"
                     required
+                    colorTheme="purple"
+                    hasError={!!fieldErrors.inputItemSku}
                     options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
                     value={inputItem.sku}
-                    onChange={(val) => setInputItem(prev => ({ ...prev, sku: val }))}
+                    onChange={(val) => {
+                      setInputItem(prev => ({ ...prev, sku: val }));
+                      setFieldErrors(prev => ({ ...prev, inputItemSku: false }));
+                    }}
                     onAfterSelect={() => {
                       setTimeout(() => quantityRef.current?.focus(), 0);
                     }}
@@ -968,9 +1226,14 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                   <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Status Aset *</label>
                   <SearchableSelect
                     required
+                    colorTheme="amber"
+                    hasError={!!fieldErrors.inputItemStatus}
                     options={masterData.status || []}
                     value={inputItem.status}
-                    onChange={(val) => setInputItem(prev => ({ ...prev, status: val }))}
+                    onChange={(val) => {
+                      setInputItem(prev => ({ ...prev, status: val }));
+                      setFieldErrors(prev => ({ ...prev, inputItemStatus: false }));
+                    }}
                     placeholder="Tentukan Kondisi"
                     allowCustom={true}
                   />
@@ -983,6 +1246,10 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                     value={inputItem.itemDescription}
                     onChange={(e) => setInputItem(prev => ({ ...prev, itemDescription: e.target.value }))}
                     placeholder="Detail kondisi barang..."
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm placeholder-purple-400/30"
                   />
                 </div>
@@ -1004,6 +1271,10 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                           addItemRow();
                         }
                       }}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                       className="flex-1 px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none font-bold text-center"
                     />
                     <button
@@ -1074,6 +1345,9 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                 <div className="flex items-center gap-2 text-xs font-black text-purple-300 uppercase tracking-wider">
                   <Boxes className="w-4 h-4 text-purple-400" />
                   <span>Daftar Item Retur ({items.length} Baris)</span>
+                  <span className="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase border bg-purple-500/15 border-purple-500/30 text-purple-300">
+                    {entryMode === 'batch' ? 'Mode: Sekaligus' : 'Mode: Satu per Satu'}
+                  </span>
                 </div>
                 <div className="flex gap-2.5">
                   <button
@@ -1087,10 +1361,10 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                   <button
                     type="button"
                     onClick={addItemRow}
-                    className="flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-3.5 py-2 rounded-xl transition-all shadow-md shadow-purple-950/40"
+                    className="flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-3.5 py-2 rounded-xl transition-all shadow-md shadow-purple-950/40 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Tambah Baris Item</span>
+                    <span>{entryMode === 'single' ? 'Tambah Baris' : 'Tambah Baris Item'}</span>
                   </button>
                 </div>
               </div>
@@ -1098,20 +1372,35 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
               <div className="space-y-4">
                 {items.map((item, index) => {
                   const groupStyle = item.invoiceNumber ? getInvoiceStyle(item.invoiceNumber) : null;
+                  const rowErr = fieldErrors.rows[index];
+                  const rowHasError = rowErr && Object.values(rowErr).some(Boolean);
                   
                   return (
                     <div 
                       key={index} 
                       className={`relative p-5 md:p-6 border rounded-2xl transition-all space-y-4 shadow-md ${
-                        groupStyle 
-                          ? `bg-gradient-to-br ${groupStyle.bg} ${groupStyle.border}` 
-                          : 'bg-[#0c0620]/80 border-purple-900/30 hover:border-purple-700/40'
+                        rowHasError
+                          ? 'bg-rose-950/20 border-rose-500/60 ring-2 ring-rose-500/30'
+                          : groupStyle 
+                            ? `bg-gradient-to-br ${groupStyle.bg} ${groupStyle.border}` 
+                            : 'bg-[#0c0620]/80 border-purple-900/30 hover:border-purple-700/40'
                       }`}
                     >
+                      {/* Left Badge: Invoice tag */}
                       {groupStyle && (
                         <div className={`absolute -top-3 left-6 px-3 py-0.5 border rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md z-10 ${groupStyle.badge} ${groupStyle.text}`}>
                           <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                          <span>Invoice: {item.invoiceNumber}</span>
+                          <span>
+                            {item.marketplace ? `${item.marketplace} | ` : ''}Invoice: {item.invoiceNumber}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Right Alert Badge if row has missing required fields */}
+                      {rowHasError && (
+                        <div className="absolute -top-3 right-12 px-3 py-0.5 bg-rose-500/20 border border-rose-500/50 rounded-full text-[9px] font-black uppercase tracking-wider text-rose-300 flex items-center gap-1.5 shadow-md z-10 animate-pulse">
+                          <AlertTriangle className="w-3 h-3 text-rose-400" />
+                          <span>Kolom Wajib Belum Lengkap</span>
                         </div>
                       )}
 
@@ -1119,72 +1408,200 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                         <button
                           type="button"
                           onClick={() => removeItemRow(index)}
-                          className="absolute -top-2.5 -right-2.5 p-1.5 bg-[#0c0620] text-slate-500 hover:text-rose-400 border border-purple-900/40 hover:border-rose-500/30 rounded-xl transition-all shadow-lg"
+                          className="absolute -top-2.5 -right-2.5 p-1.5 bg-[#0c0620] text-slate-500 hover:text-rose-400 border border-purple-900/40 hover:border-rose-500/30 rounded-xl transition-all shadow-lg z-20"
                           title="Hapus Baris"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="lg:col-span-1">
-                          <SearchableSelect
-                            label="Tag Aset (SKU)"
-                            required
-                            options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
-                            value={item.sku}
-                            onChange={(val) => updateItemRow(index, 'sku', val)}
-                            placeholder="Pilih SKU..."
-                            allowCustom={true}
-                          />
-                        </div>
+                      {entryMode === 'batch' ? (
+                        /* TAMPILAN MODE SEKALIGUS (BATCH) */
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="lg:col-span-1">
+                            <SearchableSelect
+                              label="Tag Aset (SKU)"
+                              required
+                              colorTheme="purple"
+                              hasError={!!rowErr?.sku}
+                              options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
+                              value={item.sku}
+                              onChange={(val) => updateItemRow(index, 'sku', val)}
+                              placeholder="Pilih SKU..."
+                              allowCustom={true}
+                            />
+                          </div>
 
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Kuantitas</label>
-                          <input
-                            required
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateItemRow(index, 'quantity', e.target.value)}
-                            className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none font-bold text-center"
-                          />
-                        </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Kuantitas *</label>
+                            <input
+                              required
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateItemRow(index, 'quantity', e.target.value)}
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="off"
+                              spellCheck={false}
+                              className={`w-full px-4 py-3 bg-[#0c0620]/90 border rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none font-bold text-center transition-all ${
+                                rowErr?.quantity 
+                                  ? 'border-rose-500 ring-2 ring-rose-500/50 bg-rose-950/20' 
+                                  : 'border-purple-900/40'
+                              }`}
+                            />
+                          </div>
 
-                        <div className="lg:col-span-1">
-                          <SearchableSelect
-                            label="Status Aset"
-                            required
-                            options={masterData.status || []}
-                            value={item.status}
-                            onChange={(val) => updateItemRow(index, 'status', val)}
-                            placeholder="Tentukan Kondisi"
-                            allowCustom={true}
-                          />
-                        </div>
+                          <div className="lg:col-span-1">
+                            <SearchableSelect
+                              label="Status Aset"
+                              required
+                              colorTheme="amber"
+                              hasError={!!rowErr?.status}
+                              options={masterData.status || []}
+                              value={item.status}
+                              onChange={(val) => updateItemRow(index, 'status', val)}
+                              placeholder="Tentukan Kondisi"
+                              allowCustom={true}
+                            />
+                          </div>
 
-                        <div className="space-y-2 lg:col-span-1">
-                          <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Invoice Item (Opsional)</label>
-                          <input
-                            type="text"
-                            value={item.invoiceNumber || ''}
-                            onChange={(e) => updateItemRow(index, 'invoiceNumber', e.target.value)}
-                            placeholder="Ikut Global jika kosong..."
-                            className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs font-mono placeholder-purple-400/30"
-                          />
-                        </div>
+                          <div className="space-y-2 lg:col-span-1">
+                            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Invoice Item (Opsional)</label>
+                            <input
+                              type="text"
+                              value={item.invoiceNumber || ''}
+                              onChange={(e) => updateItemRow(index, 'invoiceNumber', e.target.value)}
+                              placeholder="Ikut Global jika kosong..."
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="off"
+                              spellCheck={false}
+                              className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs font-mono placeholder-purple-400/30"
+                            />
+                          </div>
 
-                        <div className="md:col-span-2 lg:col-span-4 space-y-2">
-                          <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Keterangan / Alasan</label>
-                          <input
-                            type="text"
-                            value={item.itemDescription}
-                            onChange={(e) => updateItemRow(index, 'itemDescription', e.target.value)}
-                            placeholder="Detail parameter atau alasan retur..."
-                            className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs placeholder-purple-400/30"
-                          />
+                          <div className="md:col-span-2 lg:col-span-4 space-y-2">
+                            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Keterangan / Alasan</label>
+                            <input
+                              type="text"
+                              value={item.itemDescription}
+                              onChange={(e) => updateItemRow(index, 'itemDescription', e.target.value)}
+                              placeholder="Detail parameter atau alasan retur..."
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="off"
+                              spellCheck={false}
+                              className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs placeholder-purple-400/30"
+                            />
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        /* TAMPILAN MODE SATU PER SATU (SINGLE) */
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                          {/* Marketplace Per Baris */}
+                          <div className="space-y-2 lg:col-span-1">
+                            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Marketplace *</label>
+                            <SearchableSelect
+                              required
+                              colorTheme="cyan"
+                              hasError={!!rowErr?.marketplace}
+                              options={masterData.marketplace?.length ? masterData.marketplace : DEFAULT_MARKETPLACE_OPTIONS}
+                              value={item.marketplace || ''}
+                              onChange={(val) => updateItemRow(index, 'marketplace', val)}
+                              placeholder="Pilih Marketplace"
+                            />
+                          </div>
+
+                          {/* Referensi Invoice / Resi Per Baris */}
+                          <div className="space-y-2 lg:col-span-1">
+                            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Referensi Invoice / Resi *</label>
+                            <input
+                              required
+                              type="text"
+                              value={item.invoiceNumber || ''}
+                              onChange={(e) => updateItemRow(index, 'invoiceNumber', e.target.value.toUpperCase())}
+                              placeholder="Nomor Invoice/Pesanan..."
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="off"
+                              spellCheck={false}
+                              className={`w-full px-4 py-3 bg-[#0c0620]/90 border rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs font-mono placeholder-purple-400/30 transition-all ${
+                                rowErr?.invoiceNumber 
+                                  ? 'border-rose-500 ring-2 ring-rose-500/50 bg-rose-950/20' 
+                                  : 'border-purple-900/40'
+                              }`}
+                            />
+                          </div>
+
+                          {/* Tag Aset / SKU */}
+                          <div className="lg:col-span-1">
+                            <SearchableSelect
+                              label="Tag Aset (SKU)"
+                              required
+                              colorTheme="purple"
+                              hasError={!!rowErr?.sku}
+                              options={Array.from(new Set([...(masterData.sku || []), ...(masterData.bundling_sku || [])]))}
+                              value={item.sku}
+                              onChange={(val) => updateItemRow(index, 'sku', val)}
+                              placeholder="Pilih SKU..."
+                              allowCustom={true}
+                            />
+                          </div>
+
+                          {/* Kuantitas */}
+                          <div className="space-y-2 lg:col-span-1">
+                            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Kuantitas *</label>
+                            <input
+                              required
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateItemRow(index, 'quantity', e.target.value)}
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="off"
+                              spellCheck={false}
+                              className={`w-full px-4 py-3 bg-[#0c0620]/90 border rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none font-bold text-center transition-all ${
+                                rowErr?.quantity 
+                                  ? 'border-rose-500 ring-2 ring-rose-500/50 bg-rose-950/20' 
+                                  : 'border-purple-900/40'
+                              }`}
+                            />
+                          </div>
+
+                          {/* Status Aset */}
+                          <div className="lg:col-span-1">
+                            <SearchableSelect
+                              label="Status Aset"
+                              required
+                              colorTheme="amber"
+                              hasError={!!rowErr?.status}
+                              options={masterData.status || []}
+                              value={item.status}
+                              onChange={(val) => updateItemRow(index, 'status', val)}
+                              placeholder="Tentukan Kondisi"
+                              allowCustom={true}
+                            />
+                          </div>
+
+                          {/* Keterangan / Alasan */}
+                          <div className="sm:col-span-2 lg:col-span-5 space-y-2">
+                            <label className="text-[10px] font-black text-purple-300/80 uppercase tracking-widest px-1">Keterangan / Alasan</label>
+                            <input
+                              type="text"
+                              value={item.itemDescription}
+                              onChange={(e) => updateItemRow(index, 'itemDescription', e.target.value)}
+                              placeholder="Detail parameter atau alasan retur..."
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="off"
+                              spellCheck={false}
+                              className="w-full px-4 py-3 bg-[#0c0620]/90 border border-purple-900/40 rounded-xl text-white focus:ring-2 focus:ring-purple-500 outline-none text-xs placeholder-purple-400/30"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1195,7 +1612,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
       </div>
 
       {/* Floating Submit Execution Button */}
-      <div className="fixed bottom-6 right-8 z-[100]">
+      <div className="fixed bottom-6 right-8 sm:right-12 z-[100]">
         <button
           type="submit"
           form="report-form"
@@ -1209,7 +1626,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
             </>
           ) : (
             <>
-              <span>{category === 'rusak_internal' ? 'EKSEKUSI ELIMINASI' : 'EKSEKUSI KOMIT'}</span>
+              <span>{category === 'rusak_internal' ? 'EKSEKUSI ELIMINASI' : 'Kirim'}</span>
               <Send className="w-4 h-4" />
             </>
           )}

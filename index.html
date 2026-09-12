@@ -44,6 +44,20 @@
 
         window.global = globalProxy;
       })();
+
+      // Global Anti-History / Autocomplete Suppressor
+      (function() {
+        function disableHistory(el) {
+          if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+            if (el.getAttribute('autocomplete') !== 'off') el.setAttribute('autocomplete', 'off');
+            if (el.getAttribute('autocorrect') !== 'off') el.setAttribute('autocorrect', 'off');
+            if (el.getAttribute('autocapitalize') !== 'off') el.setAttribute('autocapitalize', 'off');
+            if (el.getAttribute('spellcheck') !== 'false') el.setAttribute('spellcheck', 'false');
+          }
+        }
+        document.addEventListener('focusin', function(e) { disableHistory(e.target); }, true);
+        document.addEventListener('pointerdown', function(e) { disableHistory(e.target); }, true);
+      })();
     </script>
   </head>
   <body>

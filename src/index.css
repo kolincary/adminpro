@@ -74,6 +74,27 @@ input[type="date"] {
   scrollbar-width: none;  /* Firefox */
 }
 
+/* Allow text selection and copying in all data tables */
+table,
+table td,
+table th,
+.table-cell,
+.selectable-text,
+.font-mono,
+code,
+pre {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Maintain non-selectable behavior for UI controls, date filters, buttons, and navigation */
+button,
+input[type="date"],
+.select-none {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
 @keyframes marquee {
   0% { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
