@@ -112,6 +112,8 @@ function AppContent() {
   const [devUser, setDevUser] = useState<any>(null);
   const [typedChars, setTypedChars] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const isLoggingInRef = useRef(false);
   const [copied, setCopied] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
@@ -751,18 +753,39 @@ function AppContent() {
   }, [reports, transactions]);
 
   const handleLogin = async () => {
+    if (isLoggingInRef.current) return;
+    isLoggingInRef.current = true;
+    setIsLoggingIn(true);
     setAuthError(null);
     try {
       localStorage.setItem('login_timestamp_ms', Date.now().toString());
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-      console.error('Login error:', error);
-      if (error?.code === 'auth/unauthorized-domain' || error?.message?.includes('unauthorized-domain')) {
-        setAuthError('unauthorized-domain');
-      } else {
-        setAuthError(error?.message || 'Gagal login.');
+      if (
+        error?.code === 'auth/cancelled-popup-request' ||
+        error?.code === 'auth/popup-closed-by-user' ||
+        error?.message?.includes('cancelled-popup-request') ||
+        error?.message?.includes('popup-closed-by-user')
+      ) {
+        console.log('Login popup was cancelled or closed by user.');
+        return;
       }
+
+      console.error('Login error:', error);
+      if (error?.code === 'auth/popup-blocked' || error?.message?.includes('popup-blocked')) {
+        setAuthError('Popup login Google diblokir oleh browser. Silakan aktifkan/izinkan popup di browser Anda dan coba lagi.');
+      } else if (error?.code === 'auth/unauthorized-domain' || error?.message?.includes('unauthorized-domain')) {
+        setAuthError('unauthorized-domain');
+      } else if (error?.code === 'auth/network-request-failed' || error?.message?.includes('network-request-failed')) {
+        setAuthError('Koneksi internet bermasalah. Silakan periksa jaringan Anda dan coba lagi.');
+      } else {
+        setAuthError(error?.message || 'Gagal masuk dengan akun Google.');
+      }
+    } finally {
+      isLoggingInRef.current = false;
+      setIsLoggingIn(false);
     }
   };
 
@@ -1128,16 +1151,28 @@ function AppContent() {
                     {/* Exquisite Google Sign In Button */}
                     <button
                       onClick={handleLogin}
-                      className="w-full flex items-center justify-center gap-3.5 px-6 py-4 bg-[#634be9] hover:bg-[#523cc7] text-white font-bold rounded-2xl text-xs sm:text-sm transition-all shadow-[0_4px_12px_rgba(99,75,233,0.2)] hover:shadow-[0_6px_20px_rgba(99,75,233,0.3)] active:scale-[0.98] group cursor-pointer"
+                      disabled={isLoggingIn}
+                      className={`w-full flex items-center justify-center gap-3.5 px-6 py-4 bg-[#634be9] hover:bg-[#523cc7] text-white font-bold rounded-2xl text-xs sm:text-sm transition-all shadow-[0_4px_12px_rgba(99,75,233,0.2)] hover:shadow-[0_6px_20px_rgba(99,75,233,0.3)] active:scale-[0.98] group ${
+                        isLoggingIn ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
                     >
-                      {/* Brand-accurate Google 'G' Icon */}
-                      <svg className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#ffffff" />
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#ffffff" opacity="0.9" />
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#ffffff" opacity="0.8" />
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#ffffff" opacity="0.9" />
-                      </svg>
-                      <span className="tracking-wide text-white">Masuk dengan Google</span>
+                      {isLoggingIn ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin text-white shrink-0" />
+                          <span className="tracking-wide text-white font-semibold">Menghubungkan ke Google...</span>
+                        </>
+                      ) : (
+                        <>
+                          {/* Brand-accurate Google 'G' Icon */}
+                          <svg className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#ffffff" />
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#ffffff" opacity="0.9" />
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#ffffff" opacity="0.8" />
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#ffffff" opacity="0.9" />
+                          </svg>
+                          <span className="tracking-wide text-white">Masuk dengan Google</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
