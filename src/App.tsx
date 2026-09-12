@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { format } from 'date-fns';
 import { 
   signOut,
   signInAnonymously
@@ -163,7 +164,7 @@ function AppContent() {
 
   const [reports, setReports] = useState<Report[]>([]);
   const [transactions, setTransactions] = useState<Report[]>([]);
-  const [globalDateFilter, setGlobalDateFilter] = useState<string>('');
+  const [globalDateFilter, setGlobalDateFilter] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [globalSearchTerm, setGlobalSearchTerm] = useState<string>('');
   const [globalMarketplaceFilter, setGlobalMarketplaceFilter] = useState<string>('');
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
@@ -883,7 +884,10 @@ function AppContent() {
       checkDone();
     }));
 
-    const transactionsQuery = query(collection(db, 'transactions'));
+    const transactionsQuery = query(
+      collection(db, 'transactions'),
+      limit(1500)
+    );
     unsubs.push(onSnapshot(transactionsQuery, processSnapTransactions, (err) => {
       console.warn("Transactions Sync Error:", err);
       if (err.message.includes('quota')) setQuotaExceeded(true);

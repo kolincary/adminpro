@@ -52,7 +52,7 @@ export default function ReportTable({
       const saved = localStorage.getItem('selectedDateFilter_rusak_internal');
       if (saved) return saved;
     }
-    return defaultToday ? format(new Date(), 'yyyy-MM-dd') : '';
+    return format(new Date(), 'yyyy-MM-dd');
   });
   const [endDate, setEndDate] = useState(globalDateFilter?.split('/')[1] || '');
   const [localDateFilter, setLocalDateFilter] = useState(() => {
@@ -61,7 +61,7 @@ export default function ReportTable({
       const saved = localStorage.getItem('selectedDateFilter_rusak_internal');
       if (saved) return saved;
     }
-    return defaultToday ? format(new Date(), 'yyyy-MM-dd') : '';
+    return format(new Date(), 'yyyy-MM-dd');
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
