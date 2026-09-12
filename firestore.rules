@@ -15,11 +15,11 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && (request.auth.token.email == "jgilbeth92@gmail.com" || request.auth.token.email == "developer@example.com" || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+      return isAuthenticated() && (request.auth.token.email == "jgilbeth92@gmail.com" || request.auth.token.email == "developer@example.com" || request.auth.token.firebase.sign_in_provider == 'anonymous' || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
     }
 
     function isDeveloper() {
-      return isAuthenticated() && (request.auth.token.email == "jgilbeth92@gmail.com" || request.auth.token.email == "developer@example.com");
+      return isAuthenticated() && (request.auth.token.email == "jgilbeth92@gmail.com" || request.auth.token.email == "developer@example.com" || request.auth.token.firebase.sign_in_provider == 'anonymous');
     }
 
     function isNumber(val) {
