@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   signOut,
   signInAnonymously,
@@ -336,6 +338,16 @@ function AppContent() {
   }, [user]);
 
   useEffect(() => {
+    getRedirectResult(auth)
+      .then((res) => {
+        if (res?.user) {
+          finalizeLogin(res.user);
+        }
+      })
+      .catch((err) => {
+        console.warn("getRedirectResult warning:", err);
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (currentUser) {
@@ -774,7 +786,7 @@ function AppContent() {
 
       console.error('Login error:', error);
       if (error?.code === 'auth/popup-blocked' || error?.message?.includes('popup-blocked')) {
-        setAuthError('Popup login Google diblokir oleh browser. Silakan aktifkan/izinkan popup di browser Anda dan coba lagi.');
+        setAuthError('popup-blocked');
       } else if (error?.code === 'auth/unauthorized-domain' || error?.message?.includes('unauthorized-domain')) {
         setAuthError('unauthorized-domain');
       } else if (error?.code === 'auth/network-request-failed' || error?.message?.includes('network-request-failed')) {
@@ -785,6 +797,18 @@ function AppContent() {
     } finally {
       isLoggingInRef.current = false;
       setIsLoggingIn(false);
+    }
+  };
+
+  const handleLoginRedirect = async () => {
+    try {
+      localStorage.setItem('login_timestamp_ms', Date.now().toString());
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithRedirect(auth, provider);
+    } catch (error: any) {
+      console.error('Redirect login error:', error);
+      setAuthError(error?.message || 'Gagal memulai login dengan redirect.');
     }
   };
 
@@ -1186,7 +1210,21 @@ function AppContent() {
                     <div className="flex gap-2.5">
                       <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                       <div className="space-y-2 z-10 w-full font-sans text-slate-700">
-                        {authError === 'unauthorized-domain' ? (
+                        {authError === 'popup-blocked' ? (
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-black text-amber-800 uppercase tracking-wide">Pop-up Diblokir Browser</h4>
+                            <p className="text-[10.5px] leading-relaxed text-slate-600">
+                              Browser memblokir pop-up otomatis. Silakan izinkan pop-up pada ikon di sebelah kanan address bar browser, atau klik tombol di bawah untuk login langsung via Redirect halaman:
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleLoginRedirect}
+                              className="mt-2 w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              <span>Masuk Lewat Halaman Google (Redirect)</span>
+                            </button>
+                          </div>
+                        ) : authError === 'unauthorized-domain' ? (
                           <div className="space-y-2">
                             <h4 className="text-xs font-black text-amber-800 uppercase tracking-wide">Domain Authorization Needed</h4>
                             <p className="text-[10.5px] leading-relaxed text-slate-600">
