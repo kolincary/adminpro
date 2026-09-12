@@ -105,9 +105,9 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isNotBlocked();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                    request.resource.data.role == resource.data.role; // Role cannot be changed by user
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /reports/{reportId} {

@@ -363,19 +363,25 @@ function AppContent() {
             return;
           }
 
-          // Check 2FA Requirement
-          const securitySnap = await getDoc(doc(db, 'metadata', 'security'));
-          const is2FARequired = securitySnap.exists() && securitySnap.data().authCodeRequired === true;
-          const is2FAVerified = localStorage.getItem('2fa_verified') === 'true';
-
           // Developer/Admin bypass
           const isBypass = currentUser.email === 'jgilbeth92@gmail.com' || currentUser.email === 'developer@example.com';
 
-          if (is2FARequired && !is2FAVerified && !isBypass) {
-            setTempUser(currentUser);
-            setShow2FAModal(true);
-            setLoading(false);
-            return;
+          if (!isBypass) {
+            // Check 2FA Requirement
+            try {
+              const securitySnap = await getDoc(doc(db, 'metadata', 'security'));
+              const is2FARequired = securitySnap.exists() && securitySnap.data().authCodeRequired === true;
+              const is2FAVerified = localStorage.getItem('2fa_verified') === 'true';
+
+              if (is2FARequired && !is2FAVerified) {
+                setTempUser(currentUser);
+                setShow2FAModal(true);
+                setLoading(false);
+                return;
+              }
+            } catch (secErr) {
+              console.warn("Security check warning:", secErr);
+            }
           }
 
           finalizeLogin(currentUser);
@@ -400,37 +406,30 @@ function AppContent() {
 
   const finalizeLogin = (currentUser: User) => {
     setUser(currentUser);
+    setLoading(false);
     if (currentUser.isAnonymous) {
       setDevUser({
         uid: currentUser.uid,
         email: 'developer@example.com',
         displayName: 'Developer Mode'
       });
-      setLoading(false);
     } else {
       // Check/Update user profile in background
       const userRef = doc(db, 'users', currentUser.uid);
+      const isSuperAdmin = currentUser.email === 'jgilbeth92@gmail.com' || currentUser.email === 'developer@example.com';
       getDoc(userRef).then(async (userSnap) => {
-        const activeData = {
+        const existingData = userSnap.exists() ? userSnap.data() : {};
+        const role = existingData?.role || (isSuperAdmin ? 'admin' : 'staff');
+        const profileData = {
+          uid: currentUser.uid,
+          email: currentUser.email || '',
+          displayName: currentUser.displayName || existingData?.displayName || 'Staf',
+          role: role,
           lastActiveAt: new Date().toISOString(),
-          displayName: currentUser.displayName || userSnap.data()?.displayName || 'Staf',
-          email: currentUser.email || userRef.id,
+          ...(!userSnap.exists() ? { createdAt: new Date().toISOString() } : {})
         };
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            uid: currentUser.uid,
-            email: currentUser.email || '',
-            displayName: currentUser.displayName || 'Staf',
-            role: 'staff',
-            createdAt: new Date().toISOString(),
-            ...activeData
-          });
-        } else {
-          await setDoc(userRef, activeData, { merge: true });
-        }
-      }).catch(err => console.warn("Profile Initialization Error:", err)).finally(() => {
-        setLoading(false);
-      });
+        await setDoc(userRef, profileData, { merge: true });
+      }).catch(err => console.warn("Profile Initialization Error:", err));
       setDevUser(null);
     }
   };
