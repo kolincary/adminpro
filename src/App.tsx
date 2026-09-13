@@ -584,18 +584,21 @@ function AppContent() {
 
           if (!isBypass) {
             try {
-              const securitySnap = await getDoc(doc(db, 'metadata', 'security'));
-              const is2FARequired = securitySnap.exists() && securitySnap.data().authCodeRequired === true;
-              const is2FAVerified = localStorage.getItem('2fa_verified') === 'true';
+              await ensureFirebaseAuth();
+              if (auth.currentUser) {
+                const securitySnap = await getDoc(doc(db, 'metadata', 'security'));
+                const is2FARequired = securitySnap.exists() && securitySnap.data().authCodeRequired === true;
+                const is2FAVerified = localStorage.getItem('2fa_verified') === 'true';
 
-              if (is2FARequired && !is2FAVerified) {
-                setTempUser(normUser);
-                setShow2FAModal(true);
-                setLoading(false);
-                return;
+                if (is2FARequired && !is2FAVerified) {
+                  setTempUser(normUser);
+                  setShow2FAModal(true);
+                  setLoading(false);
+                  return;
+                }
               }
             } catch (secErr) {
-              console.warn("Security check warning:", secErr);
+              // Silently handle if security doc is restricted
             }
           }
 
@@ -637,18 +640,21 @@ function AppContent() {
 
           if (!isBypass) {
             try {
-              const securitySnap = await getDoc(doc(db, 'metadata', 'security'));
-              const is2FARequired = securitySnap.exists() && securitySnap.data().authCodeRequired === true;
-              const is2FAVerified = localStorage.getItem('2fa_verified') === 'true';
+              await ensureFirebaseAuth();
+              if (auth.currentUser) {
+                const securitySnap = await getDoc(doc(db, 'metadata', 'security'));
+                const is2FARequired = securitySnap.exists() && securitySnap.data().authCodeRequired === true;
+                const is2FAVerified = localStorage.getItem('2fa_verified') === 'true';
 
-              if (is2FARequired && !is2FAVerified) {
-                setTempUser(normUser);
-                setShow2FAModal(true);
-                setLoading(false);
-                return;
+                if (is2FARequired && !is2FAVerified) {
+                  setTempUser(normUser);
+                  setShow2FAModal(true);
+                  setLoading(false);
+                  return;
+                }
               }
             } catch (secErr) {
-              console.warn("Security check warning:", secErr);
+              // Silently handle if security doc is restricted
             }
           }
 

@@ -38,23 +38,33 @@ const clientOptions = {
   }
 };
 
-const secondaryClientOptions = {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  }
+const createNoAuthClient = (url: string, key: string, name: string) => {
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: `sb-no-auth-${name}`,
+      storage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {}
+      }
+    }
+  });
 };
 
 // Export Client yang bisa digunakan langsung di seluruh aplikasi
 export let supabase = createClient(config.url, config.key, clientOptions);
-export let supabaseNew = createClient(config.newUrl, config.newKey, secondaryClientOptions);
-export let supabaseSpecialOld = createClient(config.specialOldUrl, config.specialOldKey, secondaryClientOptions);
+export let supabaseNew = (config.newUrl === config.url && config.newKey === config.key)
+  ? supabase
+  : createNoAuthClient(config.newUrl, config.newKey, 'new');
+export let supabaseSpecialOld = createNoAuthClient(config.specialOldUrl, config.specialOldKey, 'special-old');
 
 // Dedicated Client untuk Supabase Cancel Fisik (pbogwmplcbzuugjmgvtl)
 const CANCEL_FISIK_URL = 'https://pbogwmplcbzuugjmgvtl.supabase.co';
 const CANCEL_FISIK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBib2d3bXBsY2J6dXVnam1ndnRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTUwMDgsImV4cCI6MjEwMDgzMTAwOH0.DhC4E_MtDjLgwjWucrmO4ZOTtk0GAk7x0ktzIrsUbc4';
-export let supabaseCancelFisik = createClient(CANCEL_FISIK_URL, CANCEL_FISIK_KEY, secondaryClientOptions);
+export let supabaseCancelFisik = createNoAuthClient(CANCEL_FISIK_URL, CANCEL_FISIK_KEY, 'cancel-fisik');
 
 /**
  * Panggil ini jika pengguna mengganti Kredensial API dari Modal Pengaturan (Settings)
@@ -62,7 +72,10 @@ export let supabaseCancelFisik = createClient(CANCEL_FISIK_URL, CANCEL_FISIK_KEY
 export const refreshSupabaseClients = () => {
    config = getConfig();
    supabase = createClient(config.url, config.key, clientOptions);
-   supabaseNew = createClient(config.newUrl, config.newKey, secondaryClientOptions);
-   supabaseSpecialOld = createClient(config.specialOldUrl, config.specialOldKey, secondaryClientOptions);
+   supabaseNew = (config.newUrl === config.url && config.newKey === config.key)
+     ? supabase
+     : createNoAuthClient(config.newUrl, config.newKey, 'new');
+   supabaseSpecialOld = createNoAuthClient(config.specialOldUrl, config.specialOldKey, 'special-old');
 };
+
 
