@@ -272,6 +272,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         }
 
         // 2. Query Supabase 'form_drafts' table
+        let supabaseFailed = false;
         try {
           const { data: sbDraft, error } = await supabase
             .from('form_drafts')
@@ -279,7 +280,13 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
             .eq('id', draftId)
             .maybeSingle();
 
-          if (sbDraft && !error) {
+          if (error) {
+            // 404 = table not found, suppress silently
+            if (error.code !== 'PGRST116' && !error.message?.includes('404')) {
+              console.warn("Supabase draft load:", error.message);
+            }
+            supabaseFailed = true;
+          } else if (sbDraft) {
             const sbData = {
               headerData: sbDraft.header_data,
               items: sbDraft.items,
@@ -306,8 +313,16 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
                 setEntryMode(sbData.entryMode);
               }
             }
-          } else if (!draftData && auth.currentUser) {
-            // 3. Fallback to Firestore if no Supabase draft
+          } else {
+            supabaseFailed = true;
+          }
+        } catch (sbQueryErr) {
+          supabaseFailed = true;
+        }
+
+        // 3. Fallback to Firestore if no Supabase draft found
+        if (supabaseFailed && !draftData && auth.currentUser) {
+          try {
             const docRef = doc(db, 'form_drafts', draftId);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
@@ -317,9 +332,9 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
               if (fbData.inputItem) setInputItem(fbData.inputItem);
               if (fbData.entryMode) setEntryMode(fbData.entryMode);
             }
+          } catch (fbErr) {
+            console.warn("Firestore draft load fallback:", fbErr);
           }
-        } catch (sbQueryErr) {
-          console.warn("Supabase draft load notice:", sbQueryErr);
         }
       } catch (e) {
         console.error('Error loading draft:', e);
@@ -354,9 +369,9 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         // 1. Instant local persistence
         localStorage.setItem(localKey, JSON.stringify(draftData));
 
-        // 2. Persistent Supabase Cloud Draft
+        // 2. Persistent Supabase Cloud Draft (silently skip if table doesn't exist)
         try {
-          await supabase
+          const { error: upsertErr } = await supabase
             .from('form_drafts')
             .upsert({
               id: draftId,
@@ -369,8 +384,11 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
               entry_mode: entryMode,
               updated_at: nowIso
             }, { onConflict: 'id' });
+          if (upsertErr && !upsertErr.message?.includes('404') && upsertErr.code !== '42P01') {
+            console.warn("Supabase draft upsert:", upsertErr.message);
+          }
         } catch (sbErr) {
-          console.warn("Supabase draft upsert notice:", sbErr);
+          // Silently ignore - LocalStorage + Firestore are backups
         }
 
         // 3. Fallback sync to Firestore if authenticated

@@ -968,10 +968,16 @@ function AppContent() {
         return;
       }
 
-      // Ensure Firebase anonymous auth is initialized
-      ensureFirebaseAuth().then((fbUser) => {
-        if (fbUser) setFirebaseUser(fbUser);
-      }).catch(() => {});
+      // CRITICAL: Await Firebase anonymous auth BEFORE setting user state
+      // so the data-fetching useEffect has firebaseUser available immediately.
+      // Without this, there's a race condition: setUser triggers the useEffect,
+      // but firebaseUser is still null → data never loads for staff accounts.
+      let fbUser: any = null;
+      try {
+        fbUser = await ensureFirebaseAuth();
+      } catch (fbErr) {
+        console.warn("Firebase auth during login:", fbErr);
+      }
 
       const profileData: UserProfile = {
         uid: matchedUser.uid,
@@ -979,6 +985,9 @@ function AppContent() {
         displayName: matchedUser.displayName,
         role: (matchedUser.role === 'admin' || matchedUser.role === 'developer') ? 'admin' : 'staff'
       };
+
+      // Set firebaseUser FIRST, then user — so useEffect dependencies fire in the right order
+      if (fbUser) setFirebaseUser(fbUser);
 
       setUser(matchedUser);
       setUserProfile(profileData);
@@ -988,7 +997,7 @@ function AppContent() {
 
       // Sync to Firestore 'users' collection
       try {
-        if (auth.currentUser) {
+        if (auth.currentUser || fbUser) {
           await setDoc(doc(db, 'users', matchedUser.uid), {
             ...profileData,
             lastActiveAt: new Date().toISOString()
