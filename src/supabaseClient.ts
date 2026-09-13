@@ -29,12 +29,46 @@ const getConfig = () => {
 
 let config = getConfig();
 
+// Helper to safely access and sanitize Supabase session token from localStorage
+const safeAuthStorage = {
+  getItem: (key: string) => {
+    try {
+      const val = localStorage.getItem(key);
+      if (!val) return null;
+      try {
+        const parsed = JSON.parse(val);
+        // If token expired more than 3 days ago and has no valid current session, purge it to prevent 500 refresh loop
+        if (parsed && typeof parsed.expires_at === 'number') {
+          const nowSec = Math.floor(Date.now() / 1000);
+          if (parsed.expires_at > 0 && nowSec > parsed.expires_at + 86400 * 3) {
+            localStorage.removeItem(key);
+            return null;
+          }
+        }
+      } catch (e) {}
+      return val;
+    } catch (e) {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {}
+  },
+  removeItem: (key: string) => {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {}
+  }
+};
+
 const clientOptions = {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storage: localStorage
+    storage: safeAuthStorage
   }
 };
 

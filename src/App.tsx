@@ -625,10 +625,19 @@ function AppContent() {
           }
           setLoading(false);
         }
-      } catch (err) {
-        console.error("Supabase getSession error:", err);
+      } catch (err: any) {
+        console.warn("Supabase getSession error:", err?.message || err);
+        try {
+          localStorage.removeItem('sb-ymolrxscthxxtlmnxmob-auth-token');
+        } catch (e) {}
         setLoading(false);
       }
+    }).catch((err: any) => {
+      console.warn("Supabase getSession top-level error:", err?.message || err);
+      try {
+        localStorage.removeItem('sb-ymolrxscthxxtlmnxmob-auth-token');
+      } catch (e) {}
+      setLoading(false);
     });
 
     // 2. Subscribe to Supabase Auth State Changes
@@ -669,6 +678,7 @@ function AppContent() {
         localStorage.removeItem('adminPro_devUser');
         localStorage.removeItem('adminPro_user');
         localStorage.removeItem('adminPro_userProfile');
+        localStorage.removeItem('sb-ymolrxscthxxtlmnxmob-auth-token');
         setUser(null);
         setUserProfile(null);
         setDevUser(null);
