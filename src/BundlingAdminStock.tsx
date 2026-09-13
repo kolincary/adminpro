@@ -94,6 +94,8 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
       if (data.pic_ginee && data.pic_ginee.length > 0) {
         setPic(localStorage.getItem('selectedBundlingAdminPic') || data.pic_ginee[0]);
       }
+    }, (err) => {
+      console.warn("BundlingAdminStock master_data snapshot notice:", err?.message || err);
     });
     return () => unsubscribe();
   }, [user]);

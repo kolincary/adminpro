@@ -96,7 +96,22 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     localStorage.setItem('reportForm_entryMode', mode);
   };
 
-  const [masterData, setMasterData] = useState<Record<string, string[]>>({});
+  const [masterData, setMasterData] = useState<Record<string, string[]>>(() => {
+    try {
+      const cached = localStorage.getItem('app_master_data_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {}
+    return {
+      pic: ["ISMI (GTL)", "IRDA (GTL)", "HELENITA (GTL)", "APRILIA (GTL)", "AINUL (GTL)", "NOVI (GTL)", "NOPIYA (GTL)", "ZAHRA (GTL)", "ISMI", "IRDA", "HELENITA", "APRILIA", "AINUL", "NOVI", "NOPIYA", "ZAHRA"],
+      marketplace: ["Shopee", "Tokopedia", "Lazada", "TikTok Shop", "Blibli", "Lainnya"],
+      status: ["Bagus", "Rusak", "Hilang", "Double Input", "Sesuai", "Tidak Sesuai", "Lebih SKU", "Kurang SKU", "Salah SKU", "Retur Fisik", "Cancel Fisik", "Rusak Fisik", "Bundling Fisik", "Eliminasi Stok Rusak"],
+      sku: ["COCO-NAVY-M", "COCO-BLACK-L", "KURA-SLATE-S", "FLORA-PEACH-ONE"],
+      bundling_sku: ["PAKET-COCO-KURA", "PAKET-FLORA-DUO"]
+    };
+  });
   const [headerData, setHeaderData] = useState({
     inputDate: localStorage.getItem('selectedLogDate') || format(new Date(), 'yyyy-MM-dd'),
     gineeInputDate: '',
@@ -216,16 +231,31 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
 
   // Fetch Master Data
   useEffect(() => {
-    const q = query(collection(db, 'master_data'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: Record<string, string[]> = {};
-      snapshot.docs.forEach(doc => {
-        data[doc.id] = doc.data().options || [];
+    let unsubscribe: (() => void) | null = null;
+    try {
+      const q = query(collection(db, 'master_data'));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const data: Record<string, string[]> = {};
+        snapshot.docs.forEach(doc => {
+          data[doc.id] = doc.data().options || [];
+        });
+        if (Object.keys(data).length > 0) {
+          setMasterData(prev => ({ ...prev, ...data }));
+          try {
+            localStorage.setItem('app_master_data_cache', JSON.stringify(data));
+          } catch (e) {}
+        }
+      }, (error) => {
+        // Suppress uncaught snapshot listener permission error if offline or permissions pending
+        console.warn("master_data sync notification:", error?.message || error);
       });
-      setMasterData(data);
-    });
-    return () => unsubscribe();
-  }, []);
+    } catch (e) {
+      console.warn("master_data listener initialization:", e);
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
 
   const getUserDraftKey = (currentUser: any, currentCategory: string) => {
     const uName = (currentUser?.username || currentUser?.uid || currentUser?.email?.split('@')[0] || 'anonymous')
