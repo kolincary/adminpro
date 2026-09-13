@@ -648,50 +648,98 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         </button>
       </div>
 
-      {/* 4 Analytics KPI Cards */}
+      {/* 4 Analytics KPI Cards with Custom WebP Backgrounds */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
-        <div className="bg-[#130b2e]/90 border border-purple-900/30 hover:border-purple-700/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400">Shopee</span>
-            <div className="w-8 h-8 rounded-lg bg-[#2f1308] border border-orange-600/30 flex items-center justify-center text-orange-400 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-4 h-4" />
+        {/* Shopee Card */}
+        <div className="relative overflow-hidden bg-[#130b2e]/90 border border-orange-500/25 hover:border-orange-500/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
+          {/* Custom WebP Background Layer */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-25 group-hover:opacity-40 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+            style={{ backgroundImage: `url('/images/orderan/shopee-bg.webp')` }}
+          />
+          {/* Gradient Overlay for Text Readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#130b2e]/95 via-[#130b2e]/60 to-transparent pointer-events-none" />
+          
+          {/* Card Content */}
+          <div className="relative z-10 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-orange-200/90">Shopee</span>
+              <div className="w-8 h-8 rounded-lg bg-[#2f1308]/90 border border-orange-600/40 flex items-center justify-center text-orange-400 group-hover:scale-110 shadow-sm shadow-orange-950 transition-transform">
+                <Sparkles className="w-4 h-4" />
+              </div>
             </div>
+            <span className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">{totalsSummary.shopee.toLocaleString('id-ID')}</span>
+            <span className="text-[11px] text-slate-300 font-medium mt-1">Total order tercatat</span>
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-white">{totalsSummary.shopee.toLocaleString('id-ID')}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-1">Total order tercatat</span>
         </div>
         
-        <div className="bg-[#130b2e]/90 border border-purple-900/30 hover:border-purple-700/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400">TikTok</span>
-            <div className="w-8 h-8 rounded-lg bg-[#082830] border border-cyan-600/30 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-4 h-4" />
+        {/* TikTok Card */}
+        <div className="relative overflow-hidden bg-[#130b2e]/90 border border-cyan-500/25 hover:border-cyan-500/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
+          {/* Custom WebP Background Layer */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-25 group-hover:opacity-40 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+            style={{ backgroundImage: `url('/images/orderan/tiktok-bg.webp')` }}
+          />
+          {/* Gradient Overlay for Text Readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#130b2e]/95 via-[#130b2e]/60 to-transparent pointer-events-none" />
+          
+          {/* Card Content */}
+          <div className="relative z-10 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-cyan-200/90">TikTok</span>
+              <div className="w-8 h-8 rounded-lg bg-[#082830]/90 border border-cyan-600/40 flex items-center justify-center text-cyan-400 group-hover:scale-110 shadow-sm shadow-cyan-950 transition-transform">
+                <Sparkles className="w-4 h-4" />
+              </div>
             </div>
+            <span className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">{(totalsSummary.tiktok + totalsSummary.tiktokHome).toLocaleString('id-ID')}</span>
+            <span className="text-[11px] text-slate-300 font-medium mt-1">Regular &amp; Home Store</span>
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-white">{(totalsSummary.tiktok + totalsSummary.tiktokHome).toLocaleString('id-ID')}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-1">Regular &amp; Home Store</span>
         </div>
 
-        <div className="bg-[#130b2e]/90 border border-purple-900/30 hover:border-purple-700/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400">Lazada &amp; Blibli</span>
-            <div className="w-8 h-8 rounded-lg bg-[#0b244d] border border-blue-600/30 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-4 h-4" />
+        {/* Lazada & Blibli Card */}
+        <div className="relative overflow-hidden bg-[#130b2e]/90 border border-blue-500/25 hover:border-blue-500/50 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
+          {/* Custom WebP Background Layer */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-25 group-hover:opacity-40 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+            style={{ backgroundImage: `url('/images/orderan/lazada-blibli-bg.webp')` }}
+          />
+          {/* Gradient Overlay for Text Readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#130b2e]/95 via-[#130b2e]/60 to-transparent pointer-events-none" />
+          
+          {/* Card Content */}
+          <div className="relative z-10 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-blue-200/90">Lazada &amp; Blibli</span>
+              <div className="w-8 h-8 rounded-lg bg-[#0b244d]/90 border border-blue-600/40 flex items-center justify-center text-blue-400 group-hover:scale-110 shadow-sm shadow-blue-950 transition-transform">
+                <Sparkles className="w-4 h-4" />
+              </div>
             </div>
+            <span className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">{(totalsSummary.lazada + totalsSummary.blibli).toLocaleString('id-ID')}</span>
+            <span className="text-[11px] text-slate-300 font-medium mt-1">Lazada + Blibli tercatat</span>
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-white">{(totalsSummary.lazada + totalsSummary.blibli).toLocaleString('id-ID')}</span>
-          <span className="text-[11px] text-slate-400 font-medium mt-1">Lazada + Blibli tercatat</span>
         </div>
 
-        <div className="bg-[#130b2e]/90 border border-purple-600/40 hover:border-purple-500/60 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Akumulasi Total</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-900/50 border border-purple-500/40 flex items-center justify-center text-purple-300 group-hover:scale-105 transition-transform">
-              <BarChart3 className="w-4 h-4" />
+        {/* Akumulasi Total Card */}
+        <div className="relative overflow-hidden bg-[#130b2e]/90 border border-purple-500/40 hover:border-purple-400/70 p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group">
+          {/* Custom WebP Background Layer */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 group-hover:opacity-45 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+            style={{ backgroundImage: `url('/images/orderan/total-orders-bg.webp')` }}
+          />
+          {/* Gradient Overlay for Text Readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#130b2e]/95 via-[#130b2e]/50 to-transparent pointer-events-none" />
+          
+          {/* Card Content */}
+          <div className="relative z-10 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-purple-200 uppercase tracking-wider">Akumulasi Total</span>
+              <div className="w-8 h-8 rounded-lg bg-purple-900/60 border border-purple-500/50 flex items-center justify-center text-purple-300 group-hover:scale-110 shadow-sm shadow-purple-950 transition-transform">
+                <BarChart3 className="w-4 h-4" />
+              </div>
             </div>
+            <span className="text-3xl sm:text-4xl font-black text-purple-300 font-mono drop-shadow-md">{totalsSummary.total.toLocaleString('id-ID')}</span>
+            <span className="text-[11px] text-teal-300 font-bold mt-1">↗ Dari semua platform</span>
           </div>
-          <span className="text-3xl sm:text-4xl font-black text-purple-300 font-mono">{totalsSummary.total.toLocaleString('id-ID')}</span>
-          <span className="text-[11px] text-teal-400 font-semibold mt-1">↗ Dari semua platform</span>
         </div>
       </div>
 
