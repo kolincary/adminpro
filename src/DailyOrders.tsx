@@ -648,13 +648,13 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         </button>
       </div>
 
-      {/* 4 Analytics KPI Cards with Full-Brightness Custom WebP Backgrounds */}
+      {/* 4 Analytics KPI Cards with Full-Bleed Presisi Custom WebP Backgrounds */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
         {/* Shopee Card */}
-        <div className="relative overflow-hidden border border-orange-500/30 hover:border-orange-500/70 p-4 sm:p-5 rounded-2xl shadow-xl min-h-[135px] sm:min-h-[145px] flex flex-col justify-end transition-all group cursor-default">
-          {/* Full Brightness WebP Background Layer */}
+        <div className="relative overflow-hidden border border-orange-500/30 hover:border-orange-500/70 p-4 sm:p-5 rounded-2xl shadow-xl aspect-[2/1] min-h-[130px] flex flex-col justify-end transition-all group cursor-default">
+          {/* Full-bleed 100% Edge-to-Edge WebP Background */}
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat group-hover:scale-105 transition-transform duration-500 pointer-events-none"
+            className="absolute inset-0 bg-[length:100%_100%] bg-center bg-no-repeat group-hover:scale-105 transition-transform duration-500 pointer-events-none"
             style={{ backgroundImage: `url('/images/orderan/shopee-bg.webp')` }}
           />
           
@@ -670,10 +670,10 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         </div>
         
         {/* TikTok Card */}
-        <div className="relative overflow-hidden border border-cyan-500/30 hover:border-cyan-500/70 p-4 sm:p-5 rounded-2xl shadow-xl min-h-[135px] sm:min-h-[145px] flex flex-col justify-end transition-all group cursor-default">
-          {/* Full Brightness WebP Background Layer */}
+        <div className="relative overflow-hidden border border-cyan-500/30 hover:border-cyan-500/70 p-4 sm:p-5 rounded-2xl shadow-xl aspect-[2/1] min-h-[130px] flex flex-col justify-end transition-all group cursor-default">
+          {/* Full-bleed 100% Edge-to-Edge WebP Background */}
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat group-hover:scale-105 transition-transform duration-500 pointer-events-none"
+            className="absolute inset-0 bg-[length:100%_100%] bg-center bg-no-repeat group-hover:scale-105 transition-transform duration-500 pointer-events-none"
             style={{ backgroundImage: `url('/images/orderan/tiktok-bg.webp')` }}
           />
           
@@ -689,10 +689,10 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         </div>
 
         {/* Lazada & Blibli Card */}
-        <div className="relative overflow-hidden border border-blue-500/30 hover:border-blue-500/70 p-4 sm:p-5 rounded-2xl shadow-xl min-h-[135px] sm:min-h-[145px] flex flex-col justify-end transition-all group cursor-default">
-          {/* Full Brightness WebP Background Layer */}
+        <div className="relative overflow-hidden border border-blue-500/30 hover:border-blue-500/70 p-4 sm:p-5 rounded-2xl shadow-xl aspect-[2/1] min-h-[130px] flex flex-col justify-end transition-all group cursor-default">
+          {/* Full-bleed 100% Edge-to-Edge WebP Background */}
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat group-hover:scale-105 transition-transform duration-500 pointer-events-none"
+            className="absolute inset-0 bg-[length:100%_100%] bg-center bg-no-repeat group-hover:scale-105 transition-transform duration-500 pointer-events-none"
             style={{ backgroundImage: `url('/images/orderan/lazada-blibli-bg.webp')` }}
           />
           
@@ -708,10 +708,10 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         </div>
 
         {/* Akumulasi Total Card */}
-        <div className="relative overflow-hidden border border-purple-500/40 hover:border-purple-400/80 p-4 sm:p-5 rounded-2xl shadow-xl min-h-[135px] sm:min-h-[145px] flex flex-col justify-end transition-all group cursor-default">
-          {/* Full Brightness WebP Background Layer */}
+        <div className="relative overflow-hidden border border-purple-500/40 hover:border-purple-400/80 p-4 sm:p-5 rounded-2xl shadow-xl aspect-[2/1] min-h-[130px] flex flex-col justify-end transition-all group cursor-default">
+          {/* Full-bleed 100% Edge-to-Edge WebP Background */}
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat group-hover:scale-105 transition-transform duration-500 pointer-events-none"
+            className="absolute inset-0 bg-[length:100%_100%] bg-center bg-no-repeat group-hover:scale-105 transition-transform duration-500 pointer-events-none"
             style={{ backgroundImage: `url('/images/orderan/total-orders-bg.webp')` }}
           />
           
