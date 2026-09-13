@@ -52,7 +52,7 @@ export default function ReportTable({
       const saved = localStorage.getItem('selectedDateFilter_rusak_internal');
       if (saved) return saved;
     }
-    return format(new Date(), 'yyyy-MM-dd');
+    return '';
   });
   const [endDate, setEndDate] = useState(globalDateFilter?.split('/')[1] || '');
   const [localDateFilter, setLocalDateFilter] = useState(() => {
@@ -61,7 +61,7 @@ export default function ReportTable({
       const saved = localStorage.getItem('selectedDateFilter_rusak_internal');
       if (saved) return saved;
     }
-    return format(new Date(), 'yyyy-MM-dd');
+    return '';
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
@@ -547,17 +547,21 @@ export default function ReportTable({
       const creator = (report.createdBy || report.picGinee || (report as any).analis || '').toUpperCase();
       if (creator.includes('SYSTEM')) return false;
 
-      if (dateFilter) {
-        const rawDate = report.inputDate || report.date || '';
+      const activeDateFilter = isRangeMode && startDate && endDate 
+        ? `${startDate}/${endDate}` 
+        : (isRangeMode ? startDate : (startDate || ''));
+
+      if (activeDateFilter) {
+        const rawDate = report.inputDate || (report as any).date || '';
         const normalized = normalizeDate(rawDate);
-        if (dateFilter.includes('/')) {
-          const [start, end] = dateFilter.split('/');
+        if (activeDateFilter.includes('/')) {
+          const [start, end] = activeDateFilter.split('/');
           const normStart = normalizeDate(start);
           const normEnd = normalizeDate(end);
           if (normStart && normalized < normStart) return false;
           if (normEnd && normalized > normEnd) return false;
         } else {
-          const normFilter = normalizeDate(dateFilter);
+          const normFilter = normalizeDate(activeDateFilter);
           if (normFilter && normalized !== normFilter && !normalized.startsWith(normFilter)) return false;
         }
       }
@@ -570,7 +574,7 @@ export default function ReportTable({
 
       return true;
     });
-  }, [initialReports, category, statusFilter, searchTerm, filterMarketplace, dateFilter]);
+  }, [initialReports, category, statusFilter, searchTerm, filterMarketplace, startDate, endDate, isRangeMode]);
 
   const totalPages = Math.ceil(filteredReports.length / itemsPerPage) || 1;
   const currentData = filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
