@@ -18,7 +18,7 @@ import {
   or, 
   Timestamp 
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, db, ensureFirebaseAuth } from './firebase';
 import { Report, OperationType, UserProfile, DashboardStats } from './types';
 import { handleFirestoreError, normalizeDate } from './utils';
 import { recalculateStats } from './stats';
@@ -99,6 +99,23 @@ function AppContent() {
   });
   const [isBlocked, setIsBlocked] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<any>(() => auth.currentUser);
+
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    import('firebase/auth').then(({ onAuthStateChanged }) => {
+      unsub = onAuthStateChanged(auth, (fbUser) => {
+        setFirebaseUser(fbUser);
+      });
+    });
+    ensureFirebaseAuth().then((fbUser) => {
+      if (fbUser) setFirebaseUser(fbUser);
+    }).catch(() => {});
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+
   const [loading, setLoading] = useState<boolean>(() => {
     try {
       const hasUser = !!localStorage.getItem('adminPro_user') || !!localStorage.getItem('adminPro_devUser');
@@ -277,6 +294,8 @@ function AppContent() {
         setIsBlocked(false);
         return;
       }
+      if (!firebaseUser && !auth.currentUser) return;
+
       const unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
         if (snap.exists()) {
           setUserProfile(snap.data() as UserProfile);
@@ -312,7 +331,7 @@ function AppContent() {
       setUserProfile(null);
       setIsBlocked(false);
     }
-  }, [user, devUser]);
+  }, [user, devUser, firebaseUser]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -337,6 +356,7 @@ function AppContent() {
   // Real-time listener for force logouts & version updates
   useEffect(() => {
     if (!user) return;
+    if (!firebaseUser && !auth.currentUser) return;
 
     // 1. Force Logout Listener: listen on metadata/force_logouts (we list active force logouts here)
     const unsubForceLogout = onSnapshot(doc(db, 'metadata', 'force_logouts'), (snap) => {
@@ -405,7 +425,7 @@ function AppContent() {
       unsubForceLogout();
       unsubAppControl();
     };
-  }, [user]);
+  }, [user, firebaseUser]);
 
   const formatSupabaseUser = (sbUser: any): any => {
     if (!sbUser) return null;
@@ -430,14 +450,12 @@ function AppContent() {
     } catch (e) {}
     setLoading(false);
 
-    // Background anonymous auth to Firebase so Firestore queries continue seamlessly
-    if (!auth.currentUser) {
-      try {
-        await signInAnonymously(auth);
-      } catch (fbErr) {
-        console.warn("Firebase background anonymous auth:", fbErr);
-      }
-    }
+    // Background ensure Firebase anonymous auth
+    ensureFirebaseAuth().then((fbUser) => {
+      if (fbUser) setFirebaseUser(fbUser);
+    }).catch(fbErr => {
+      console.warn("Firebase background anonymous auth:", fbErr);
+    });
 
     if (normUser.isAnonymous) {
       const devProfile: UserProfile = {
@@ -455,7 +473,14 @@ function AppContent() {
       updateDevUser(null);
       const isSuperAdmin = normUser.email === 'jgilbeth92@gmail.com' || normUser.email === 'developer@example.com';
       
-      // 1. Fetch & Sync Role from Supabase 'profiles' table
+      const defaultProfile: UserProfile = {
+        uid: normUser.uid || normUser.id,
+        email: normUser.email,
+        displayName: normUser.displayName,
+        role: isSuperAdmin ? 'admin' : 'staff'
+      };
+
+      // 1. Fetch & Sync Role from Supabase 'profiles' table safely
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -463,10 +488,16 @@ function AppContent() {
           .eq('id', normUser.id)
           .maybeSingle();
 
-        if (profile) {
+        if (error) {
+          // If Supabase profiles table query errors (e.g. 500 or 400), don't fail, use OAuth profile
+          setUserProfile(defaultProfile);
+          try {
+            localStorage.setItem('adminPro_userProfile', JSON.stringify(defaultProfile));
+          } catch (e) {}
+        } else if (profile) {
           const profileData: UserProfile = {
             uid: profile.id,
-            email: profile.email,
+            email: profile.email || normUser.email,
             displayName: profile.display_name || normUser.displayName,
             role: (profile.role || (isSuperAdmin ? 'admin' : 'staff')) as 'admin' | 'staff'
           };
@@ -475,11 +506,13 @@ function AppContent() {
             localStorage.setItem('adminPro_userProfile', JSON.stringify(profileData));
           } catch (e) {}
           
-          // Update last_active_at in Supabase
-          await supabase
+          // Non-blocking update last_active_at in Supabase
+          supabase
             .from('profiles')
             .update({ last_active_at: new Date().toISOString() })
-            .eq('id', normUser.id);
+            .eq('id', normUser.id)
+            .then(() => {})
+            .catch(() => {});
         } else {
           const initialRole: 'admin' | 'staff' = isSuperAdmin ? 'admin' : 'staff';
           const newProfile = {
@@ -490,43 +523,32 @@ function AppContent() {
             role: initialRole,
             last_active_at: new Date().toISOString()
           };
-          await supabase.from('profiles').upsert(newProfile);
-          const profileData: UserProfile = {
-            uid: normUser.id,
-            email: normUser.email,
-            displayName: normUser.displayName,
-            role: initialRole
-          };
-          setUserProfile(profileData);
+          supabase.from('profiles').upsert(newProfile).then(() => {}).catch(() => {});
+          setUserProfile(defaultProfile);
           try {
-            localStorage.setItem('adminPro_userProfile', JSON.stringify(profileData));
+            localStorage.setItem('adminPro_userProfile', JSON.stringify(defaultProfile));
           } catch (e) {}
         }
       } catch (sbProfileErr) {
-        console.warn("Supabase profiles query error:", sbProfileErr);
-        const fallbackProfile: UserProfile = {
-          uid: normUser.uid,
-          email: normUser.email,
-          displayName: normUser.displayName,
-          role: isSuperAdmin ? 'admin' : 'staff'
-        };
-        setUserProfile(fallbackProfile);
+        setUserProfile(defaultProfile);
         try {
-          localStorage.setItem('adminPro_userProfile', JSON.stringify(fallbackProfile));
+          localStorage.setItem('adminPro_userProfile', JSON.stringify(defaultProfile));
         } catch (e) {}
       }
 
       // 2. Backward compatibility sync to Firestore 'users' collection
       try {
-        const userRef = doc(db, 'users', normUser.uid);
-        const profileData = {
-          uid: normUser.uid,
-          email: normUser.email,
-          displayName: normUser.displayName,
-          role: isSuperAdmin ? 'admin' : 'staff',
-          lastActiveAt: new Date().toISOString()
-        };
-        await setDoc(userRef, profileData, { merge: true });
+        if (auth.currentUser) {
+          const userRef = doc(db, 'users', normUser.uid);
+          const profileData = {
+            uid: normUser.uid,
+            email: normUser.email,
+            displayName: normUser.displayName,
+            role: isSuperAdmin ? 'admin' : 'staff',
+            lastActiveAt: new Date().toISOString()
+          };
+          await setDoc(userRef, profileData, { merge: true });
+        }
       } catch (err) {
         console.warn("Firestore user sync warning:", err);
       }
@@ -685,6 +707,7 @@ function AppContent() {
   // Update activity status periodically (every 2 minutes) for active online users
   useEffect(() => {
     if (!currentUser || currentUser.uid === 'dev-user-id') return;
+    if (!firebaseUser && !auth.currentUser) return;
 
     const updateActivity = async () => {
       try {
@@ -699,7 +722,7 @@ function AppContent() {
 
     const interval = setInterval(updateActivity, 120000);
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser, firebaseUser]);
 
   // Fetch from 'reports' and 'transactions'
   useEffect(() => {
@@ -707,6 +730,14 @@ function AppContent() {
       setReports(EMPTY_ARRAY);
       setTransactions(EMPTY_ARRAY);
       setIsDataLoading(false);
+      return;
+    }
+
+    if (!firebaseUser && !auth.currentUser) {
+      setIsDataLoading(true);
+      ensureFirebaseAuth().then((fbUser) => {
+        if (fbUser) setFirebaseUser(fbUser);
+      }).catch(() => {});
       return;
     }
 
@@ -899,11 +930,12 @@ function AppContent() {
       unsubs.forEach(unsub => unsub());
     };
 
-  }, [user, devUser]);
+  }, [user, devUser, firebaseUser]);
 
   // Fetch Dashboard Stats
   useEffect(() => {
     if (!user && !devUser) return;
+    if (!firebaseUser && !auth.currentUser) return;
 
     const unsubscribeStats = onSnapshot(doc(db, 'metadata', 'dashboard_stats'), (snapshot) => {
       if (snapshot.exists()) {
@@ -923,7 +955,7 @@ function AppContent() {
     });
 
     return () => unsubscribeStats();
-  }, [user, devUser, isAdmin]);
+  }, [user, devUser, isAdmin, firebaseUser]);
 
   const allReports = useMemo(() => {
     if (reports.length === 0 && transactions.length === 0) return EMPTY_ARRAY;

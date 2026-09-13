@@ -38,15 +38,23 @@ const clientOptions = {
   }
 };
 
+const secondaryClientOptions = {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  }
+};
+
 // Export Client yang bisa digunakan langsung di seluruh aplikasi
 export let supabase = createClient(config.url, config.key, clientOptions);
-export let supabaseNew = createClient(config.newUrl, config.newKey, clientOptions);
-export let supabaseSpecialOld = createClient(config.specialOldUrl, config.specialOldKey);
+export let supabaseNew = createClient(config.newUrl, config.newKey, secondaryClientOptions);
+export let supabaseSpecialOld = createClient(config.specialOldUrl, config.specialOldKey, secondaryClientOptions);
 
 // Dedicated Client untuk Supabase Cancel Fisik (pbogwmplcbzuugjmgvtl)
 const CANCEL_FISIK_URL = 'https://pbogwmplcbzuugjmgvtl.supabase.co';
 const CANCEL_FISIK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBib2d3bXBsY2J6dXVnam1ndnRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTUwMDgsImV4cCI6MjEwMDgzMTAwOH0.DhC4E_MtDjLgwjWucrmO4ZOTtk0GAk7x0ktzIrsUbc4';
-export let supabaseCancelFisik = createClient(CANCEL_FISIK_URL, CANCEL_FISIK_KEY);
+export let supabaseCancelFisik = createClient(CANCEL_FISIK_URL, CANCEL_FISIK_KEY, secondaryClientOptions);
 
 /**
  * Panggil ini jika pengguna mengganti Kredensial API dari Modal Pengaturan (Settings)
@@ -54,6 +62,7 @@ export let supabaseCancelFisik = createClient(CANCEL_FISIK_URL, CANCEL_FISIK_KEY
 export const refreshSupabaseClients = () => {
    config = getConfig();
    supabase = createClient(config.url, config.key, clientOptions);
-   supabaseNew = createClient(config.newUrl, config.newKey, clientOptions);
-   supabaseSpecialOld = createClient(config.specialOldUrl, config.specialOldKey);
+   supabaseNew = createClient(config.newUrl, config.newKey, secondaryClientOptions);
+   supabaseSpecialOld = createClient(config.specialOldUrl, config.specialOldKey, secondaryClientOptions);
 };
+
