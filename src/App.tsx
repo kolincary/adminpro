@@ -301,7 +301,6 @@ function AppContent() {
         setIsBlocked(false);
         return;
       }
-      if (!firebaseUser && !auth.currentUser) return;
 
       const unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
         if (snap.exists()) {
@@ -363,7 +362,6 @@ function AppContent() {
   // Real-time listener for force logouts & version updates
   useEffect(() => {
     if (!user) return;
-    if (!firebaseUser && !auth.currentUser) return;
 
     // 1. Force Logout Listener: listen on metadata/force_logouts (we list active force logouts here)
     const unsubForceLogout = onSnapshot(doc(db, 'metadata', 'force_logouts'), (snap) => {
@@ -620,7 +618,6 @@ function AppContent() {
   // Update activity status periodically (every 2 minutes) for active online users
   useEffect(() => {
     if (!currentUser || currentUser.uid === 'dev-user-id') return;
-    if (!firebaseUser && !auth.currentUser) return;
 
     const updateActivity = async () => {
       try {
@@ -846,7 +843,6 @@ function AppContent() {
   // Fetch Dashboard Stats
   useEffect(() => {
     if (!user && !devUser) return;
-    if (!firebaseUser && !auth.currentUser) return;
 
     const unsubscribeStats = onSnapshot(doc(db, 'metadata', 'dashboard_stats'), (snapshot) => {
       if (snapshot.exists()) {

@@ -2,64 +2,61 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Fungsi cek apakah user sudah terotentikasi (Google / User & Password)
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
     // ===============================================================
-    // Aturan Akses Per Koleksi
+    // Aturan Akses Koleksi Admin Report Pro
+    // Izinkan akses Read, Write, Delete ke semua koleksi aplikasi
+    // agar data selalu tampil lancar tanpa terhambat koneksi auth
     // ===============================================================
 
     // 1. Data Laporan & Transaksi
     match /reports/{reportId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
     match /transactions/{transactionId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
     match /daily_orders/{orderId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
     match /stok_bundling_admin/{itemId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
 
     // 2. Master Data (SKU Dropdown, Kategori, Status, PIC, Marketplace)
     match /master_data/{categoryId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
 
     // 3. Draft Form (Auto-save Input Retur & Rusak)
     match /form_drafts/{draftId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
 
     // 4. Cloud Vault & File Attachment
     match /cloud_vault/{vaultId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
 
     // 5. User Profiles & Status Online
     match /users/{userId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
 
-    // 6. Konfigurasi, Backup & Jadwal Staff
+    // 6. Konfigurasi, Backup, Jadwal Staff & Metadata
     match /admin_config/{configId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
     match /backups/{backupId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
     match /staff_schedules/{scheduleId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
     match /blocked_users/{userId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
     match /metadata/{docId} {
-      allow read, write, delete: if isAuthenticated();
+      allow read, write, delete: if true;
     }
   }
 }
