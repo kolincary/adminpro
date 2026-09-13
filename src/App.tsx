@@ -565,8 +565,8 @@ function AppContent() {
       const errorDesc = searchParams.get('error_description') || hashParams.get('error_description') || searchParams.get('error') || hashParams.get('error');
       if (errorDesc) {
         let cleanMsg = decodeURIComponent(errorDesc).replace(/\+/g, ' ');
-        if (cleanMsg.toLowerCase().includes('database error saving new user')) {
-          cleanMsg = 'Gagal menyimpan user baru ke Supabase: Harap jalankan skrip SQL di Supabase SQL Editor untuk memperbarui trigger tabel profiles.';
+        if (cleanMsg.toLowerCase().includes('display_name') || cleanMsg.toLowerCase().includes('database error saving new user')) {
+          cleanMsg = 'Kolom tabel Supabase `profiles` belum lengkap (kolom display_name belum ada). Harap jalankan file SQL `sql/fix_profiles_table.sql` di Supabase SQL Editor, atau gunakan opsi "Masuk Langsung (Bypass & Muat Data)".';
         }
         setAuthError(cleanMsg);
         window.history.replaceState({}, document.title, window.location.pathname);

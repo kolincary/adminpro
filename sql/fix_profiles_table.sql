@@ -1,11 +1,11 @@
 -- ==============================================================================
--- FIX TABEL PROFILES SUPABASE (Mengatasi Error 500 / 400 pada Endpoint profiles)
+-- FIX TABEL PROFILES SUPABASE (Mengatasi Error column "display_name" does not exist)
 -- ==============================================================================
 -- Jalankan skrip ini di Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/ymolrxscthxxtlmnxmob/sql
 -- ==============================================================================
 
--- 1. Buat atau perbaiki tabel profiles
+-- 1. Buat tabel jika belum ada
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY,
     email TEXT,
@@ -17,10 +17,30 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Aktifkan Row Level Security (RLS)
+-- 2. Tambahkan kolom display_name & lainnya jika tabel sudah pernah dibuat sebelumnya
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS display_name TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'staff';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- 3. Sinkronkan nilai display_name dari kolom lama jika ada (full_name / name)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'full_name') THEN
+    UPDATE public.profiles SET display_name = full_name WHERE display_name IS NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'name') THEN
+    UPDATE public.profiles SET display_name = name WHERE display_name IS NULL;
+  END IF;
+END $$;
+
+-- 4. Aktifkan Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- 3. Hapus policy lama yang berpotensi rekursif / error 500
+-- 5. Hapus policy lama yang berpotensi error / rekursif
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
 DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
@@ -31,19 +51,19 @@ DROP POLICY IF EXISTS "Allow anon insert profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow anon update profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Enable all access for profiles" ON public.profiles;
 
--- 4. Buat policy akses yang aman dan tidak rekursif (Public/Anon/Auth Read & Write)
+-- 6. Buat policy akses yang aman dan tidak rekursif (Public Read & Write)
 CREATE POLICY "Enable all access for profiles"
 ON public.profiles
 FOR ALL
 USING (true)
 WITH CHECK (true);
 
--- 5. Berikan hak akses penuh kepada role anon dan authenticated
+-- 7. Berikan izin akses pada tabel
 GRANT ALL ON TABLE public.profiles TO anon;
 GRANT ALL ON TABLE public.profiles TO authenticated;
 GRANT ALL ON TABLE public.profiles TO service_role;
 
--- 6. Trigger otomatis saat user baru mendaftar dari auth.users
+-- 8. Buat/perbarui trigger saat user baru mendaftar dari auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_user_profile()
 RETURNS trigger AS $$
 BEGIN
@@ -68,7 +88,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Pasang Trigger ke auth.users
+-- 9. Pasang Trigger ke auth.users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT OR UPDATE ON auth.users
