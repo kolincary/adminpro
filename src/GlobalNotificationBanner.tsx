@@ -44,6 +44,8 @@ const GlobalNotificationBanner: React.FC = () => {
           setIsVisible(false);
         }
       }
+    }, (error) => {
+      // Gracefully handle permission/network notices
     });
 
     return () => unsub();
