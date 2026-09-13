@@ -13,8 +13,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import SearchableSelect, { SearchableSelectHandle } from './SearchableSelect';
 import Toast, { ToastType } from './Toast';
 import ConfirmModal from './ConfirmModal';
-
 import { updateDashboardStats, updateDashboardStatsBulk } from './stats';
+import { supabase } from './supabaseClient';
 
 interface FieldErrors {
   headerMarketplace?: boolean;
@@ -227,48 +227,99 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     return () => unsubscribe();
   }, []);
 
-  // Load Draft
+  const getUserDraftKey = (currentUser: any, currentCategory: string) => {
+    const uName = (currentUser?.username || currentUser?.uid || currentUser?.email?.split('@')[0] || 'anonymous')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_-]/g, '_');
+    return `${uName}_${currentCategory}`;
+  };
+
+  // Load Draft (Supabase + LocalStorage + Firestore Triple-Layer)
   useEffect(() => {
     if (!user) {
       setIsDraftLoading(false);
       return;
     }
 
+    const draftId = getUserDraftKey(user, category);
+    const localKey = `draft_${draftId}`;
+
     const loadDraft = async () => {
       try {
-        const draftId = `${user.uid}_${category}`;
         let draftData: any = null;
 
-        if (!auth.currentUser) {
-          const localDraft = localStorage.getItem(`draft_${draftId}`);
-          if (localDraft) {
+        // 1. Instant LocalStorage Load (Immediate zero-latency response)
+        const localDraft = localStorage.getItem(localKey);
+        if (localDraft) {
+          try {
             draftData = JSON.parse(localDraft);
-          }
-        } else {
-          const docRef = doc(db, 'form_drafts', draftId);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            draftData = docSnap.data();
-          }
+            if (draftData) {
+              if (draftData.headerData) {
+                setHeaderData(prev => ({ ...prev, ...draftData.headerData, category }));
+              }
+              if (draftData.items && draftData.items.length > 0) {
+                setItems(draftData.items);
+              }
+              if (draftData.inputItem) {
+                setInputItem(draftData.inputItem);
+              }
+              if (draftData.entryMode) {
+                setEntryMode(draftData.entryMode);
+              }
+            }
+          } catch (e) {}
         }
 
-        if (draftData) {
-          if (draftData.headerData) {
-            setHeaderData(prev => ({
-              ...prev,
-              ...draftData.headerData,
-              category
-            }));
+        // 2. Query Supabase 'form_drafts' table
+        try {
+          const { data: sbDraft, error } = await supabase
+            .from('form_drafts')
+            .select('*')
+            .eq('id', draftId)
+            .maybeSingle();
+
+          if (sbDraft && !error) {
+            const sbData = {
+              headerData: sbDraft.header_data,
+              items: sbDraft.items,
+              inputItem: sbDraft.input_item,
+              entryMode: sbDraft.entry_mode,
+              updatedAt: sbDraft.updated_at
+            };
+
+            const isSbNewer = !draftData || (sbDraft.updated_at && new Date(sbDraft.updated_at).getTime() > new Date(draftData.updatedAt || 0).getTime());
+            if (isSbNewer) {
+              draftData = sbData;
+              localStorage.setItem(localKey, JSON.stringify(sbData));
+
+              if (sbData.headerData) {
+                setHeaderData(prev => ({ ...prev, ...sbData.headerData, category }));
+              }
+              if (sbData.items && sbData.items.length > 0) {
+                setItems(sbData.items);
+              }
+              if (sbData.inputItem) {
+                setInputItem(sbData.inputItem);
+              }
+              if (sbData.entryMode) {
+                setEntryMode(sbData.entryMode);
+              }
+            }
+          } else if (!draftData && auth.currentUser) {
+            // 3. Fallback to Firestore if no Supabase draft
+            const docRef = doc(db, 'form_drafts', draftId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              const fbData = docSnap.data();
+              if (fbData.headerData) setHeaderData(prev => ({ ...prev, ...fbData.headerData, category }));
+              if (fbData.items && fbData.items.length > 0) setItems(fbData.items);
+              if (fbData.inputItem) setInputItem(fbData.inputItem);
+              if (fbData.entryMode) setEntryMode(fbData.entryMode);
+            }
           }
-          if (draftData.items && draftData.items.length > 0) {
-            setItems(draftData.items);
-          }
-          if (draftData.inputItem) {
-            setInputItem(draftData.inputItem);
-          }
-          if (draftData.entryMode) {
-            setEntryMode(draftData.entryMode);
-          }
+        } catch (sbQueryErr) {
+          console.warn("Supabase draft load notice:", sbQueryErr);
         }
       } catch (e) {
         console.error('Error loading draft:', e);
@@ -280,33 +331,60 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     loadDraft();
   }, [user, category]);
 
-  // Save Draft (Debounced)
+  // Save Draft (Debounced Autosave to Supabase Cloud + LocalStorage)
   useEffect(() => {
     if (isDraftLoading || !user) return;
 
     const saveDraftTimer = setTimeout(async () => {
       try {
         setIsSavingDraft(true);
-        const draftId = `${user.uid}_${category}`;
+        const userKey = (user?.username || user?.uid || user?.email?.split('@')[0] || 'anonymous').toLowerCase().trim();
+        const draftId = `${userKey.replace(/[^a-z0-9_-]/g, '_')}_${category}`;
+        const localKey = `draft_${draftId}`;
+        const nowIso = new Date().toISOString();
+
         const draftData = {
           headerData,
           items,
           inputItem,
           entryMode,
-          updatedAt: new Date().toISOString()
+          updatedAt: nowIso
         };
 
-        if (!auth.currentUser) {
-          localStorage.setItem(`draft_${draftId}`, JSON.stringify(draftData));
-        } else {
-          await setDoc(doc(db, 'form_drafts', draftId), draftData, { merge: true });
+        // 1. Instant local persistence
+        localStorage.setItem(localKey, JSON.stringify(draftData));
+
+        // 2. Persistent Supabase Cloud Draft
+        try {
+          await supabase
+            .from('form_drafts')
+            .upsert({
+              id: draftId,
+              user_id: user.uid || user.id || ('user-' + userKey),
+              username: userKey,
+              category: category,
+              header_data: headerData,
+              items: items,
+              input_item: inputItem,
+              entry_mode: entryMode,
+              updated_at: nowIso
+            }, { onConflict: 'id' });
+        } catch (sbErr) {
+          console.warn("Supabase draft upsert notice:", sbErr);
+        }
+
+        // 3. Fallback sync to Firestore if authenticated
+        if (auth.currentUser) {
+          try {
+            await setDoc(doc(db, 'form_drafts', draftId), draftData, { merge: true });
+          } catch (fbErr) {}
         }
       } catch (e) {
         console.warn('Error saving draft:', e);
       } finally {
         setIsSavingDraft(false);
       }
-    }, 1000);
+    }, 800);
 
     return () => clearTimeout(saveDraftTimer);
   }, [headerData, items, inputItem, entryMode, user, category, isDraftLoading]);
@@ -619,10 +697,15 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
 
       // Delete draft after successful submit
       try {
-        const draftId = `${user.uid}_${category}`;
-        if (!auth.currentUser) {
-          localStorage.removeItem(`draft_${draftId}`);
-        } else {
+        const draftId = getUserDraftKey(user, category);
+        const localKey = `draft_${draftId}`;
+        localStorage.removeItem(localKey);
+        
+        // Delete from Supabase form_drafts table
+        supabase.from('form_drafts').delete().eq('id', draftId).then(() => {}).catch(() => {});
+        
+        // Delete from Firestore form_drafts
+        if (auth.currentUser) {
           await deleteDoc(doc(db, 'form_drafts', draftId));
         }
       } catch (e) {
@@ -690,10 +773,15 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     setItems([{ sku: '', quantity: 1, status: '', itemDescription: '', invoiceNumber: '', marketplace: '' }]);
 
     try {
-      const draftId = `${user.uid}_${category}`;
-      if (!auth.currentUser) {
-        localStorage.removeItem(`draft_${draftId}`);
-      } else {
+      const draftId = getUserDraftKey(user, category);
+      const localKey = `draft_${draftId}`;
+      localStorage.removeItem(localKey);
+      
+      // Delete from Supabase form_drafts table
+      supabase.from('form_drafts').delete().eq('id', draftId).then(() => {}).catch(() => {});
+      
+      // Delete from Firestore
+      if (auth.currentUser) {
         await deleteDoc(doc(db, 'form_drafts', draftId));
       }
     } catch (e) {
@@ -853,26 +941,24 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
               {isSavingDraft ? (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl animate-pulse">
                   <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Autosaving...</span>
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Menyimpan Draft...</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0c0620]/80 border border-purple-900/40 rounded-xl">
-                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full" />
-                  <span className="text-[10px] font-bold text-purple-300/70 uppercase tracking-widest">Draft Tersimpan</span>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0c0620]/80 border border-purple-900/40 rounded-xl" title="Draft tersimpan di Supabase & penyimpanan lokal per pengguna">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-bold text-purple-300/80 uppercase tracking-widest">Draft Cloud &amp; Lokal Aktif</span>
                 </div>
               )}
 
-              {category !== 'rusak_internal' && (
-                <button
-                  type="button"
-                  onClick={() => setIsConfirmOpen(true)}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-[#0c0620] hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-purple-900/40 hover:border-rose-500/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider"
-                  title="Reset Semua Inputan"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset All</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setIsConfirmOpen(true)}
+                className="flex items-center gap-2 px-3.5 py-2 bg-[#0c0620] hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-purple-900/40 hover:border-rose-500/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+                title="Reset Semua Inputan (Hapus Draft)"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Form</span>
+              </button>
             </div>
           </div>
         </div>
