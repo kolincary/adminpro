@@ -813,8 +813,11 @@ function AppContent() {
       } as Report & { _sortTs: number };
     };
 
-    // Realtime listeners for all reports and transactions
-    const reportsQuery = query(collection(db, 'reports'));
+    // Realtime listeners for reports and transactions (capped at 1500 for quota efficiency while retaining 100% realtime updates)
+    const reportsQuery = query(
+      collection(db, 'reports'),
+      limit(1500)
+    );
     unsubs.push(onSnapshot(reportsQuery, processSnapReports, (err) => {
       console.warn("Reports Sync Error:", err);
       if (err.message.includes('quota')) setQuotaExceeded(true);
