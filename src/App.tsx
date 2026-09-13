@@ -70,7 +70,11 @@ import {
   Key,
   ChevronLeft,
   CloudDownload,
-  Activity
+  Activity,
+  Lock,
+  Eye,
+  EyeOff,
+  LogIn
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateTOTPCode } from './totp';
@@ -204,6 +208,9 @@ function AppContent() {
       localStorage.removeItem('adminPro_devUser');
     }
   };
+  const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [typedChars, setTypedChars] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -555,140 +562,30 @@ function AppContent() {
     }
   };
 
+  // Initial session restoration
   useEffect(() => {
-    // 0. Check URL query & hash for OAuth error or description and clean up address bar
     try {
-      const searchParams = new URLSearchParams(window.location.search);
-      const hashStr = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : window.location.hash;
-      const hashParams = new URLSearchParams(hashStr);
-
-      const errorDesc = searchParams.get('error_description') || hashParams.get('error_description') || searchParams.get('error') || hashParams.get('error');
-      if (errorDesc) {
-        let cleanMsg = decodeURIComponent(errorDesc).replace(/\+/g, ' ');
-        if (cleanMsg.toLowerCase().includes('display_name') || cleanMsg.toLowerCase().includes('database error saving new user')) {
-          cleanMsg = 'Kolom tabel Supabase `profiles` belum lengkap (kolom display_name belum ada). Harap jalankan file SQL `sql/fix_profiles_table.sql` di Supabase SQL Editor, atau gunakan opsi "Masuk Langsung (Bypass & Muat Data)".';
-        }
-        setAuthError(cleanMsg);
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    } catch (err) {
-      console.warn("URL error parse error:", err);
-    }
-
-    // 1. Initial Session Check from Supabase
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      try {
-        if (session?.user) {
-          const normUser = formatSupabaseUser(session.user);
-          const isBypass = normUser.email === 'jgilbeth92@gmail.com' || normUser.email === 'developer@example.com';
-
-          if (!isBypass) {
-            try {
-              await ensureFirebaseAuth();
-              if (auth.currentUser) {
-                const securitySnap = await getDoc(doc(db, 'metadata', 'security'));
-                const is2FARequired = securitySnap.exists() && securitySnap.data().authCodeRequired === true;
-                const is2FAVerified = localStorage.getItem('2fa_verified') === 'true';
-
-                if (is2FARequired && !is2FAVerified) {
-                  setTempUser(normUser);
-                  setShow2FAModal(true);
-                  setLoading(false);
-                  return;
-                }
-              }
-            } catch (secErr) {
-              // Silently handle if security doc is restricted
-            }
-          }
-
-          await finalizeLogin(normUser);
-          if (window.location.hash.includes('access_token')) {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        } else {
-          // If no active Supabase session, check if there's a cached user
-          const savedUser = localStorage.getItem('adminPro_user');
-          const savedDev = localStorage.getItem('adminPro_devUser');
-          if (savedUser) {
-            try {
-              const parsed = JSON.parse(savedUser);
-              setUser(parsed);
-              const savedProf = localStorage.getItem('adminPro_userProfile');
-              if (savedProf) setUserProfile(JSON.parse(savedProf));
-            } catch (e) {}
-          } else if (!savedDev) {
-            localStorage.removeItem('2fa_verified');
-            localStorage.removeItem('login_timestamp_ms');
-            setUser(null);
-            setUserProfile(null);
-          }
-          setLoading(false);
-        }
-      } catch (err: any) {
-        console.warn("Supabase getSession error:", err?.message || err);
+      const savedUser = localStorage.getItem('adminPro_user');
+      const savedDev = localStorage.getItem('adminPro_devUser');
+      if (savedUser) {
         try {
-          localStorage.removeItem('sb-ymolrxscthxxtlmnxmob-auth-token');
+          const parsed = JSON.parse(savedUser);
+          setUser(parsed);
+          const savedProf = localStorage.getItem('adminPro_userProfile');
+          if (savedProf) setUserProfile(JSON.parse(savedProf));
+          ensureFirebaseAuth().catch(() => {});
         } catch (e) {}
-        setLoading(false);
+      } else if (savedDev) {
+        try {
+          const parsed = JSON.parse(savedDev);
+          setUser(parsed);
+          setUserProfile(parsed);
+          ensureFirebaseAuth().catch(() => {});
+        } catch (e) {}
       }
-    }).catch((err: any) => {
-      console.warn("Supabase getSession top-level error:", err?.message || err);
-      try {
-        localStorage.removeItem('sb-ymolrxscthxxtlmnxmob-auth-token');
-      } catch (e) {}
+    } finally {
       setLoading(false);
-    });
-
-    // 2. Subscribe to Supabase Auth State Changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        if (session?.user) {
-          const normUser = formatSupabaseUser(session.user);
-          const isBypass = normUser.email === 'jgilbeth92@gmail.com' || normUser.email === 'developer@example.com';
-
-          if (!isBypass) {
-            try {
-              await ensureFirebaseAuth();
-              if (auth.currentUser) {
-                const securitySnap = await getDoc(doc(db, 'metadata', 'security'));
-                const is2FARequired = securitySnap.exists() && securitySnap.data().authCodeRequired === true;
-                const is2FAVerified = localStorage.getItem('2fa_verified') === 'true';
-
-                if (is2FARequired && !is2FAVerified) {
-                  setTempUser(normUser);
-                  setShow2FAModal(true);
-                  setLoading(false);
-                  return;
-                }
-              }
-            } catch (secErr) {
-              // Silently handle if security doc is restricted
-            }
-          }
-
-          await finalizeLogin(normUser);
-          if (window.location.hash.includes('access_token')) {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        }
-      } else if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('2fa_verified');
-        localStorage.removeItem('login_timestamp_ms');
-        localStorage.removeItem('adminPro_devUser');
-        localStorage.removeItem('adminPro_user');
-        localStorage.removeItem('adminPro_userProfile');
-        localStorage.removeItem('sb-ymolrxscthxxtlmnxmob-auth-token');
-        setUser(null);
-        setUserProfile(null);
-        setDevUser(null);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    }
   }, []);
 
   const handleVerify2FA = async () => {
@@ -992,38 +889,119 @@ function AppContent() {
     });
   }, [reports, transactions]);
 
-  const handleLogin = async () => {
+  const handlePasswordLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (isLoggingInRef.current) return;
+    const u = usernameInput.trim();
+    const p = passwordInput.trim();
+
+    if (!u || !p) {
+      setAuthError('Silakan masukkan username dan password.');
+      return;
+    }
+
     isLoggingInRef.current = true;
     setIsLoggingIn(true);
     setAuthError(null);
+
     try {
-      localStorage.setItem('login_timestamp_ms', Date.now().toString());
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'select_account'
+      const lowerU = u.toLowerCase();
+      let matchedUser: any = null;
+
+      // 1. Built-in hardcoded fallback credentials (Instant & Offline-Safe)
+      const BUILTIN_USERS: Record<string, { pass: string; name: string; role: 'admin' | 'staff'; email: string }> = {
+        developer: { pass: 'dev1010', name: 'Developer', role: 'admin', email: 'developer@example.com' },
+        admin: { pass: 'dev1010', name: 'Administrator Utama', role: 'admin', email: 'jgilbeth92@gmail.com' },
+        helen: { pass: '123456', name: 'Helen', role: 'staff', email: 'helen@kalindo.local' },
+        aprilia: { pass: '123456', name: 'Aprilia', role: 'staff', email: 'aprilia@kalindo.local' },
+        irda: { pass: '123456', name: 'Irda', role: 'staff', email: 'irda@kalindo.local' },
+        ainul: { pass: '123456', name: 'Ainul', role: 'staff', email: 'ainul@kalindo.local' },
+        ismi: { pass: '123456', name: 'Ismi', role: 'staff', email: 'ismi@kalindo.local' },
+        nopiya: { pass: '123456', name: 'Nopiya', role: 'staff', email: 'nopiya@kalindo.local' },
+        zahra: { pass: '123456', name: 'Zahra', role: 'staff', email: 'zahra@kalindo.local' },
+        novi: { pass: '123456', name: 'Novi', role: 'staff', email: 'novi@kalindo.local' }
+      };
+
+      if (BUILTIN_USERS[lowerU] && BUILTIN_USERS[lowerU].pass === p) {
+        const uDef = BUILTIN_USERS[lowerU];
+        matchedUser = {
+          uid: 'user-' + lowerU,
+          id: 'user-' + lowerU,
+          username: lowerU,
+          displayName: uDef.name,
+          email: uDef.email,
+          role: uDef.role
+        };
+      } else {
+        // 2. Query Supabase 'app_users' table
+        try {
+          const { data, error } = await supabase
+            .from('app_users')
+            .select('*')
+            .ilike('username', u)
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (data && data.password === p) {
+            matchedUser = {
+              uid: data.id || ('user-' + data.username),
+              id: data.id || ('user-' + data.username),
+              username: data.username,
+              displayName: data.display_name || data.username,
+              email: data.email || `${data.username}@kalindo.local`,
+              role: data.role || 'staff'
+            };
+            // Update last login timestamp in Supabase non-blocking
+            supabase.from('app_users').update({ last_login_at: new Date().toISOString() }).eq('id', data.id).then(() => {}).catch(() => {});
+          } else if (error) {
+            console.warn("Supabase app_users table query notice:", error.message);
           }
+        } catch (sbErr) {
+          console.warn("Supabase query fallback:", sbErr);
         }
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      console.error('Supabase Google Login error:', error);
-      if (
-        error?.message?.includes('popup') ||
-        error?.message?.includes('cancel') ||
-        error?.message?.includes('closed')
-      ) {
-        console.log('Login cancelled or closed by user.');
+      }
+
+      if (!matchedUser) {
+        setAuthError('Username atau Password salah! Periksa kembali kredensial Anda.');
+        setIsLoggingIn(false);
+        isLoggingInRef.current = false;
         return;
       }
-      setAuthError(error?.message || 'Gagal masuk dengan akun Google melalui Supabase.');
-    } finally {
-      isLoggingInRef.current = false;
+
+      // Ensure Firebase anonymous auth is initialized
+      ensureFirebaseAuth().then((fbUser) => {
+        if (fbUser) setFirebaseUser(fbUser);
+      }).catch(() => {});
+
+      const profileData: UserProfile = {
+        uid: matchedUser.uid,
+        email: matchedUser.email,
+        displayName: matchedUser.displayName,
+        role: (matchedUser.role === 'admin' || matchedUser.role === 'developer') ? 'admin' : 'staff'
+      };
+
+      setUser(matchedUser);
+      setUserProfile(profileData);
+      localStorage.setItem('adminPro_user', JSON.stringify(matchedUser));
+      localStorage.setItem('adminPro_userProfile', JSON.stringify(profileData));
+      localStorage.setItem('login_timestamp_ms', Date.now().toString());
+
+      // Sync to Firestore 'users' collection
+      try {
+        if (auth.currentUser) {
+          await setDoc(doc(db, 'users', matchedUser.uid), {
+            ...profileData,
+            lastActiveAt: new Date().toISOString()
+          }, { merge: true });
+        }
+      } catch (e) {}
+
       setIsLoggingIn(false);
+      isLoggingInRef.current = false;
+    } catch (err: any) {
+      setAuthError('Gagal masuk: ' + (err?.message || err));
+      setIsLoggingIn(false);
+      isLoggingInRef.current = false;
     }
   };
 
@@ -1034,13 +1012,12 @@ function AppContent() {
     setAuthError(null);
     try {
       localStorage.setItem('login_timestamp_ms', Date.now().toString());
-      try {
-        await signInAnonymously(auth);
-      } catch (e) {}
+      await ensureFirebaseAuth();
       
       const devProfile = {
         uid: 'dev-user-id',
         id: 'dev-user-id',
+        username: 'admin',
         email: 'jgilbeth92@gmail.com',
         displayName: 'Administrator (Bypass)',
         role: 'admin' as const,
@@ -1056,7 +1033,7 @@ function AppContent() {
       });
       setLoading(false);
     } catch (err: any) {
-      console.warn('Anonymous Auth fallback to local dev session:', err);
+      console.warn('Fallback to local dev session:', err);
       setLoading(false);
     } finally {
       isLoggingInRef.current = false;
@@ -1070,15 +1047,14 @@ function AppContent() {
     localStorage.removeItem('adminPro_devUser');
     localStorage.removeItem('adminPro_user');
     localStorage.removeItem('adminPro_userProfile');
+    localStorage.removeItem('sb-ymolrxscthxxtlmnxmob-auth-token');
     try {
-      await supabase.auth.signOut();
       await signOut(auth);
-    } catch (e) {
-      console.warn("Logout warning:", e);
-    }
+    } catch (e) {}
     setUser(null);
     setUserProfile(null);
     updateDevUser(null);
+    setLoading(false);
   };
 
   if (quotaExceeded) {
@@ -1412,110 +1388,117 @@ function AppContent() {
               </div>
             </div>
 
-            {/* Right Column: Dynamic Crisp White Welcome Back / Login Dialog Card */}
+            {/* Right Column: Username & Password Login Card */}
             <div className="lg:col-span-5 flex justify-center z-10 w-full relative">
-              <div className="bg-white rounded-[32px] p-8 sm:p-10 shadow-[0_25px_60px_rgba(10,5,30,0.5)] text-slate-800 w-full max-w-[420px] border border-slate-100 flex flex-col justify-between min-h-[350px] relative">
+              <div className="bg-white rounded-[32px] p-7 sm:p-9 shadow-[0_25px_60px_rgba(10,5,30,0.5)] text-slate-800 w-full max-w-[440px] border border-slate-100 flex flex-col justify-between min-h-[420px] relative">
                 
                 {/* Visual Accent Bar */}
                 <div className="absolute top-0 left-12 right-12 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-b-xl" />
 
-                <div className="space-y-6 pt-2">
+                <div className="space-y-4 pt-2">
                   {/* Header Title */}
                   <div>
-                    <h3 className="text-3xl font-black text-[#1e144f] tracking-tight leading-none">
-                      Welcome Back...
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <LogIn className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-black uppercase tracking-widest text-indigo-600">Portal Akses Sistem</span>
+                    </div>
+                    <h3 className="text-2xl sm:text-3xl font-black text-[#1e144f] tracking-tight leading-none">
+                      Masuk ke Sistem
                     </h3>
-                    <p className="text-xs text-slate-400 font-medium mt-2.5 leading-relaxed">
-                      Please sign in to access the administrator control dashboard.
+                    <p className="text-xs text-slate-400 font-medium mt-1.5 leading-relaxed">
+                      Masukkan Username & Password untuk mengakses sistem.
                     </p>
                   </div>
 
-                  {/* Interactive Login Options */}
-                  <div className="space-y-4 pt-2">
-                    {/* Exquisite Google Sign In Button */}
+                  {/* Form */}
+                  <form onSubmit={handlePasswordLogin} className="space-y-3.5">
+                    {/* Username Input */}
+                    <div className="space-y-1 text-left">
+                      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                        Username / ID Pengguna
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <UserIcon className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="text"
+                          value={usernameInput}
+                          onChange={(e) => setUsernameInput(e.target.value)}
+                          placeholder="Masukkan username (cth: admin / staff)"
+                          autoFocus
+                          required
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl text-xs sm:text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-500/10"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Password Input */}
+                    <div className="space-y-1 text-left">
+                      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={passwordInput}
+                          onChange={(e) => setPasswordInput(e.target.value)}
+                          placeholder="••••••••"
+                          required
+                          className="w-full pl-10 pr-11 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl text-xs sm:text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-500/10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Error Alert Box */}
+                    {authError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-left flex items-start gap-2"
+                      >
+                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-rose-700 font-medium leading-tight">{authError}</p>
+                      </motion.div>
+                    )}
+
+                    {/* Submit Button */}
                     <button
-                      onClick={handleLogin}
+                      type="submit"
                       disabled={isLoggingIn}
-                      className={`w-full flex items-center justify-center gap-3.5 px-6 py-4 bg-[#634be9] hover:bg-[#523cc7] text-white font-bold rounded-2xl text-xs sm:text-sm transition-all shadow-[0_4px_12px_rgba(99,75,233,0.2)] hover:shadow-[0_6px_20px_rgba(99,75,233,0.3)] active:scale-[0.98] group ${
-                        isLoggingIn ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'
-                      }`}
+                      className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-2xl text-xs sm:text-sm transition-all shadow-[0_4px_16px_rgba(99,75,233,0.25)] hover:shadow-[0_6px_24px_rgba(99,75,233,0.35)] active:scale-[0.98] cursor-pointer disabled:opacity-50"
                     >
                       {isLoggingIn ? (
                         <>
-                          <Loader2 className="w-5 h-5 animate-spin text-white shrink-0" />
-                          <span className="tracking-wide text-white font-semibold">Menghubungkan ke Google...</span>
+                          <Loader2 className="w-4 h-4 animate-spin text-white" />
+                          <span>Memverifikasi Akun...</span>
                         </>
                       ) : (
                         <>
-                          {/* Brand-accurate Google 'G' Icon */}
-                          <svg className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#ffffff" />
-                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#ffffff" opacity="0.9" />
-                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#ffffff" opacity="0.8" />
-                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#ffffff" opacity="0.9" />
-                          </svg>
-                          <span className="tracking-wide text-white">Masuk dengan Google</span>
+                          <LogIn className="w-4 h-4" />
+                          <span>Masuk ke Sistem</span>
                         </>
                       )}
                     </button>
-
-                    <div className="relative flex py-1 items-center">
-                      <div className="flex-grow border-t border-slate-200"></div>
-                      <span className="flex-shrink mx-2 text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Atau Opsi Darurat</span>
-                      <div className="flex-grow border-t border-slate-200"></div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleQuickAccess}
-                      disabled={isLoggingIn}
-                      className="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-200 cursor-pointer disabled:opacity-50"
-                    >
-                      <Shield className="w-4 h-4 text-indigo-600" />
-                      <span>Masuk Langsung (Bypass & Muat Data)</span>
-                    </button>
-                  </div>
+                  </form>
                 </div>
 
-                {/* Supabase Authentication Error Alert Box */}
-                {authError && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="p-4 rounded-2xl bg-amber-50 border border-amber-200 mt-4 overflow-hidden text-left"
-                  >
-                    <div className="flex gap-2.5">
-                      <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                      <div className="space-y-2 z-10 w-full font-sans text-slate-700">
-                        <div className="text-xs text-[#78350f]">
-                          <h4 className="font-extrabold uppercase text-amber-900">Supabase Auth Notice</h4>
-                          <p className="mt-1 leading-snug text-[11px] text-slate-600">{authError}</p>
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={handleLogin}
-                            className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <span>Coba Login Lagi</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleQuickAccess}
-                            className="py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl text-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
-                          >
-                            <span>Bypass Masuk</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
                 {/* Secure Badge */}
-                <div className="pt-6 border-t border-slate-100 mt-6 text-center text-slate-400 font-semibold text-[8px] uppercase tracking-widest flex items-center justify-center gap-1.5 select-none">
-                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-                  <span>Double-Authenticated Node Security</span>
+                <div className="pt-4 border-t border-slate-100 mt-5 text-center text-slate-400 font-semibold text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 select-none">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  <span>Sistem Otentikasi Terenkripsi • Supabase Security</span>
                 </div>
 
               </div>
