@@ -33,20 +33,17 @@ export const ensureFirebaseAuth = async (): Promise<any> => {
 
   isSigningIn = true;
   try {
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        if (auth.currentUser) return auth.currentUser;
-        const { signInAnonymously } = await import('firebase/auth');
-        const cred = await signInAnonymously(auth);
-        return cred.user;
-      } catch (err: any) {
-        if (attempt === 3) {
-          console.warn("[Firebase] Background anonymous auth attempt:", err?.message || err);
-        } else {
-          await new Promise(r => setTimeout(r, attempt * 800));
-        }
-      }
-    }
+    if (auth.currentUser) return auth.currentUser;
+    const { signInAnonymously } = await import('firebase/auth');
+    
+    // Quick race with 3.5s timeout to prevent network hang
+    const authPromise = signInAnonymously(auth).then(cred => cred.user);
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500));
+    
+    const user = await Promise.race([authPromise, timeoutPromise]);
+    return user || auth.currentUser || null;
+  } catch (err: any) {
+    console.warn("[Firebase] Anonymous auth background notice:", err?.message || err);
   } finally {
     isSigningIn = false;
   }

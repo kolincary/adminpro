@@ -647,11 +647,9 @@ function AppContent() {
     }
 
     if (!firebaseUser && !auth.currentUser) {
-      setIsDataLoading(true);
       ensureFirebaseAuth().then((fbUser) => {
         if (fbUser) setFirebaseUser(fbUser);
       }).catch(() => {});
-      return;
     }
 
     setIsDataLoading(true);
