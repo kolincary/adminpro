@@ -1613,17 +1613,17 @@ function AppContent() {
             <nav 
               ref={navRef}
               onScroll={checkScroll}
-              className="flex-1 px-3.5 py-4 space-y-4 overflow-y-auto custom-scrollbar"
+              className="flex-1 px-3.5 py-5 space-y-6 overflow-y-auto custom-scrollbar"
             >
               {/* UTAMA & ANALITIK */}
-              <div className="space-y-1">
-                <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <div className="space-y-2">
+                <div className="px-2 pb-1 text-[10px] font-bold text-slate-400/80 uppercase tracking-wider">
                   UTAMA &amp; ANALITIK
                 </div>
                 <a
                   href="?tab=dashboard"
                   onClick={(e) => handleTabClick('dashboard', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-2xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'dashboard'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1636,7 +1636,7 @@ function AppContent() {
                 <a
                   href="?tab=daily_orders"
                   onClick={(e) => handleTabClick('daily_orders', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'daily_orders'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1649,7 +1649,7 @@ function AppContent() {
                 <a
                   href="?tab=staff_schedule"
                   onClick={(e) => handleTabClick('staff_schedule', e)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'staff_schedule'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1666,14 +1666,14 @@ function AppContent() {
               </div>
 
               {/* INPUT OPERASIONAL */}
-              <div className="space-y-1">
-                <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <div className="space-y-2">
+                <div className="px-2 pb-1 text-[10px] font-bold text-slate-400/80 uppercase tracking-wider">
                   INPUT OPERASIONAL
                 </div>
                 <a
                   href="?tab=input_retur2"
                   onClick={(e) => handleTabClick('input_retur2', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'input_retur2' || activeTab === 'input_retur'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1686,7 +1686,7 @@ function AppContent() {
                 <a
                   href="?tab=rusak_internal"
                   onClick={(e) => handleTabClick('rusak_internal', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'rusak_internal'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1699,7 +1699,7 @@ function AppContent() {
                 <a
                   href="?tab=stok_bundling_admin"
                   onClick={(e) => handleTabClick('stok_bundling_admin', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'stok_bundling_admin'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1711,11 +1711,11 @@ function AppContent() {
               </div>
 
               {/* DATA FISIK GUDANG Accordion */}
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <button
                   type="button"
                   onClick={() => setIsFisikOpen(!isFisikOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer"
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
                     <Package className="w-4 h-4 text-pink-400" />
@@ -1730,7 +1730,7 @@ function AppContent() {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden pl-7 space-y-1"
+                      className="overflow-hidden pl-7 space-y-1.5 pt-1 pb-1"
                     >
                       {[
                         { id: 'retur_fisik', label: 'Retur Fisik' },
@@ -1742,7 +1742,7 @@ function AppContent() {
                           key={subItem.id}
                           href={`?tab=${subItem.id}`}
                           onClick={(e) => handleTabClick(subItem.id, e)}
-                          className={`block w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                          className={`block w-full text-left px-3.5 py-2 rounded-lg text-xs transition-all cursor-pointer ${
                             activeTab === subItem.id
                               ? 'text-purple-300 font-bold bg-purple-500/15 border-l-2 border-purple-400'
                               : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
@@ -1757,14 +1757,14 @@ function AppContent() {
               </div>
 
               {/* LOG & DATA MASTER */}
-              <div className="space-y-1">
-                <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <div className="space-y-2">
+                <div className="px-2 pb-1 text-[10px] font-bold text-slate-400/80 uppercase tracking-wider">
                   LOG &amp; DATA MASTER
                 </div>
                 <a
                   href="?tab=table"
                   onClick={(e) => handleTabClick('table', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'table'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1777,7 +1777,7 @@ function AppContent() {
                 <a
                   href="?tab=damaged_goods_report"
                   onClick={(e) => handleTabClick('damaged_goods_report', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'damaged_goods_report'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1789,14 +1789,14 @@ function AppContent() {
               </div>
 
               {/* REKONSILIASI & ARSIP */}
-              <div className="space-y-1">
-                <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <div className="space-y-2">
+                <div className="px-2 pb-1 text-[10px] font-bold text-slate-400/80 uppercase tracking-wider">
                   REKONSILIASI &amp; ARSIP
                 </div>
                 <a
                   href="?tab=matcher"
                   onClick={(e) => handleTabClick('matcher', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'matcher'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1809,7 +1809,7 @@ function AppContent() {
                 <a
                   href="?tab=packing_list_check"
                   onClick={(e) => handleTabClick('packing_list_check', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'packing_list_check'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1822,7 +1822,7 @@ function AppContent() {
                 <a
                   href="?tab=shipping_matcher"
                   onClick={(e) => handleTabClick('shipping_matcher', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'shipping_matcher'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1835,7 +1835,7 @@ function AppContent() {
                 <a
                   href="?tab=vault"
                   onClick={(e) => handleTabClick('vault', e)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'vault'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1848,7 +1848,7 @@ function AppContent() {
                 <a
                   href="?tab=admin_data_import"
                   onClick={(e) => handleTabClick('admin_data_import', e)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                     activeTab === 'admin_data_import'
                       ? 'border border-purple-400/80 bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1865,14 +1865,14 @@ function AppContent() {
               </div>
 
               {/* SISTEM ADMINISTRATOR */}
-              <div className="space-y-1 pt-2 pb-4">
-                <div className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <div className="space-y-2 pt-3 pb-8">
+                <div className="px-2 pb-1 text-[10px] font-bold text-slate-400/80 uppercase tracking-wider">
                   SISTEM ADMINISTRATOR
                 </div>
                 <a
                   href="?tab=admin"
                   onClick={(e) => handleTabClick('admin', e)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-pink-500/30 bg-pink-950/20 text-pink-300 hover:bg-pink-900/40 transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border border-pink-500/30 bg-pink-950/20 text-pink-300 hover:bg-pink-900/40 transition-all cursor-pointer ${
                     activeTab === 'admin' ? 'ring-2 ring-pink-500/60 shadow-lg shadow-pink-500/20' : ''
                   }`}
                 >
