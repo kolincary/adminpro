@@ -2,173 +2,64 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Fungsi cek apakah user sudah terotentikasi (Google / User & Password)
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isNotBlocked() {
-      return isAuthenticated() && (request.auth.token.email == "jgilbeth92@gmail.com" || request.auth.token.email == "developer@example.com" || !exists(/databases/$(database)/documents/blocked_users/$(request.auth.uid)));
-    }
-
-    function isAdmin() {
-      return isAuthenticated() && (request.auth.token.email == "jgilbeth92@gmail.com" || request.auth.token.email == "developer@example.com" || request.auth.token.firebase.sign_in_provider == 'anonymous' || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
-    }
-
-    function isDeveloper() {
-      return isAuthenticated() && (request.auth.token.email == "jgilbeth92@gmail.com" || request.auth.token.email == "developer@example.com" || request.auth.token.firebase.sign_in_provider == 'anonymous');
-    }
-
-    function isNumber(val) {
-      return val is int || val is float;
-    }
-
-    function isToday(ts) {
-      return request.time - ts < duration.value(24, 'h');
-    }
-
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
-    function isValidReport(data) {
-      return data.keys().hasAll(['category', 'sku', 'quantity']) &&
-             data.sku is string && data.sku.size() > 0 &&
-             isNumber(data.quantity);
-    }
-
-    function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'email']) &&
-             data.uid == request.auth.uid &&
-             isValidEmail(data.email);
-    }
-
-    function isValidMasterData(data) {
-      return data.keys().hasAll(['category', 'options']) &&
-             data.category is string &&
-             data.options is list;
-    }
-
-    function isValidBackup(data) {
-      return data.keys().hasAll(['originalData', 'deletedAt', 'deletedBy']) &&
-             data.deletedBy == request.auth.uid &&
-             data.deletedAt == request.time;
-    }
-
-    function isValidVaultItem(data) {
-      return data.keys().hasAll(['fileName', 'data', 'uploadedBy', 'uploadedByName', 'uploadedAt']) &&
-             data.fileName is string && data.fileName.size() > 0 &&
-             data.data is list &&
-             data.uploadedBy == request.auth.uid &&
-             data.uploadedByName is string &&
-             data.uploadedAt == request.time;
-    }
-
-    function isValidDailyOrder(data) {
-      return data.keys().hasAll(['inputDate', 'inputTime', 'shopee', 'tiktok', 'lazada', 'tiktokHome', 'shopeeHome', 'blibli', 'total']) &&
-             data.inputDate is string &&
-             data.inputTime is string &&
-             isNumber(data.shopee) &&
-             isNumber(data.tiktok) &&
-             isNumber(data.lazada) &&
-             isNumber(data.tiktokHome) &&
-             isNumber(data.shopeeHome) &&
-             isNumber(data.blibli) &&
-             isNumber(data.total);
-    }
-
-    function isValidBundlingAdmin(data) {
-      return data.keys().hasAll(['date', 'sku', 'quantity', 'type', 'pic']) &&
-             data.date is string &&
-             data.sku is string && data.sku.size() > 0 &&
-             isNumber(data.quantity) &&
-             data.type is string && (data.type == 'MASUK' || data.type == 'KELUAR') &&
-             data.pic is string;
-    }
-
-    function isValidMetadata(data) {
-       return true; // Simple validation for metadata
-    }
 
     // ===============================================================
-    // Rules
+    // Aturan Akses Per Koleksi
     // ===============================================================
 
-    match /users/{userId} {
-      allow read: if isNotBlocked();
-      allow create: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
+    // 1. Data Laporan & Transaksi
     match /reports/{reportId} {
-      allow read: if isNotBlocked();
-      allow create: if isNotBlocked() && isValidReport(request.resource.data);
-      allow update: if isNotBlocked() && isValidReport(request.resource.data);
-      allow delete: if isNotBlocked();
+      allow read, write, delete: if isAuthenticated();
     }
-
-    match /master_data/{categoryId} {
-      allow read: if isNotBlocked();
-      allow write: if isAdmin() && isNotBlocked() && isValidMasterData(request.resource.data);
-    }
-
-    match /backups/{backupId} {
-      allow read: if isAdmin() && isNotBlocked();
-      allow create: if isNotBlocked() && isValidBackup(request.resource.data);
-      allow delete: if isDeveloper() && isNotBlocked();
-    }
-
-    match /admin_config/{configId} {
-      allow read, write: if isAdmin() && isNotBlocked();
-    }
-
-    match /blocked_users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin() && isNotBlocked();
-    }
-
-    match /form_drafts/{draftId} {
-      allow read, write: if isAuthenticated() && isNotBlocked();
-    }
-
-    match /cloud_vault/{vaultId} {
-      allow read: if isNotBlocked();
-      allow create: if isNotBlocked() && isValidVaultItem(request.resource.data);
-      allow delete: if isNotBlocked() && (isAdmin() || resource.data.uploadedBy == request.auth.uid);
-    }
-
     match /transactions/{transactionId} {
-      allow read: if isNotBlocked();
-      allow write: if isAdmin() && isNotBlocked();
+      allow read, write, delete: if isAuthenticated();
     }
-
     match /daily_orders/{orderId} {
-      allow read: if isNotBlocked();
-      allow create: if isNotBlocked() && isValidDailyOrder(request.resource.data);
-      allow update: if isNotBlocked() && isValidDailyOrder(request.resource.data);
-      allow delete: if isNotBlocked();
+      allow read, write, delete: if isAuthenticated();
     }
-
     match /stok_bundling_admin/{itemId} {
-      allow read: if isNotBlocked();
-      allow create: if isNotBlocked() && isValidBundlingAdmin(request.resource.data);
-      allow update: if isNotBlocked() && isValidBundlingAdmin(request.resource.data);
-      allow delete: if isNotBlocked();
+      allow read, write, delete: if isAuthenticated();
     }
 
+    // 2. Master Data (SKU Dropdown, Kategori, Status, PIC, Marketplace)
+    match /master_data/{categoryId} {
+      allow read, write, delete: if isAuthenticated();
+    }
+
+    // 3. Draft Form (Auto-save Input Retur & Rusak)
+    match /form_drafts/{draftId} {
+      allow read, write, delete: if isAuthenticated();
+    }
+
+    // 4. Cloud Vault & File Attachment
+    match /cloud_vault/{vaultId} {
+      allow read, write, delete: if isAuthenticated();
+    }
+
+    // 5. User Profiles & Status Online
+    match /users/{userId} {
+      allow read, write, delete: if isAuthenticated();
+    }
+
+    // 6. Konfigurasi, Backup & Jadwal Staff
+    match /admin_config/{configId} {
+      allow read, write, delete: if isAuthenticated();
+    }
+    match /backups/{backupId} {
+      allow read, write, delete: if isAuthenticated();
+    }
     match /staff_schedules/{scheduleId} {
-      allow read: if isNotBlocked();
-      allow write: if isNotBlocked() && isDeveloper();
+      allow read, write, delete: if isAuthenticated();
     }
-
+    match /blocked_users/{userId} {
+      allow read, write, delete: if isAuthenticated();
+    }
     match /metadata/{docId} {
-      allow read: if isAuthenticated();
-      allow create, delete: if isAdmin();
-      allow update: if isAuthenticated();
+      allow read, write, delete: if isAuthenticated();
     }
   }
 }
