@@ -81,23 +81,54 @@ export default function BundlingAdminStock({ user, userProfile }: BundlingAdminS
     setToast({ message, type, visible: true });
   };
 
-  // 1. Fetch Master Data options
+  // 1. Fetch Master Data options & SKUs
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'master_data'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: Record<string, string[]> = {};
-      snapshot.docs.forEach(doc => {
-        data[doc.id] = doc.data().options || [];
+    let unsubscribeMaster: (() => void) | null = null;
+    let unsubscribeSkus: (() => void) | null = null;
+
+    try {
+      const q = query(collection(db, 'master_data'));
+      unsubscribeMaster = onSnapshot(q, (snapshot) => {
+        const data: Record<string, string[]> = {};
+        snapshot.docs.forEach(doc => {
+          data[doc.id] = doc.data().options || [];
+        });
+        setMasterData(prev => ({ ...prev, ...data }));
+        if (data.pic_ginee && data.pic_ginee.length > 0) {
+          setPic(localStorage.getItem('selectedBundlingAdminPic') || data.pic_ginee[0]);
+        }
+      }, (err) => {
+        console.warn("BundlingAdminStock master_data snapshot notice:", err?.message || err);
       });
-      setMasterData(data);
-      if (data.pic_ginee && data.pic_ginee.length > 0) {
-        setPic(localStorage.getItem('selectedBundlingAdminPic') || data.pic_ginee[0]);
-      }
-    }, (err) => {
-      console.warn("BundlingAdminStock master_data snapshot notice:", err?.message || err);
-    });
-    return () => unsubscribe();
+    } catch (e) {}
+
+    try {
+      const qSkus = query(collection(db, 'skus'));
+      unsubscribeSkus = onSnapshot(qSkus, (snapshot) => {
+        const skusList: string[] = [];
+        snapshot.docs.forEach(doc => {
+          const d = doc.data();
+          const skuCandidate = d.sku || d.skuCode || d.sku_code || d.code || d.name || d.namaBarang || d.nama_barang || doc.id;
+          if (skuCandidate && typeof skuCandidate === 'string' && skuCandidate.trim()) {
+            skusList.push(skuCandidate.trim());
+          }
+        });
+        if (skusList.length > 0) {
+          setMasterData(prev => ({
+            ...prev,
+            sku: Array.from(new Set([...skusList, ...(prev.sku || [])]))
+          }));
+        }
+      }, (err) => {
+        console.warn("BundlingAdminStock skus snapshot notice:", err?.message || err);
+      });
+    } catch (e) {}
+
+    return () => {
+      if (unsubscribeMaster) unsubscribeMaster();
+      if (unsubscribeSkus) unsubscribeSkus();
+    };
   }, [user]);
 
   // 2. Fetch Bundling Stock Logs

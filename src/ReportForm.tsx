@@ -229,12 +229,14 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
     setToast({ message, type, visible: true });
   };
 
-  // Fetch Master Data
+  // Fetch Master Data & SKUs Collection
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
+    let unsubscribeMaster: (() => void) | null = null;
+    let unsubscribeSkus: (() => void) | null = null;
+
     try {
-      const q = query(collection(db, 'master_data'));
-      unsubscribe = onSnapshot(q, (snapshot) => {
+      const qMaster = query(collection(db, 'master_data'));
+      unsubscribeMaster = onSnapshot(qMaster, (snapshot) => {
         const data: Record<string, string[]> = {};
         snapshot.docs.forEach(doc => {
           data[doc.id] = doc.data().options || [];
@@ -246,14 +248,40 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
           } catch (e) {}
         }
       }, (error) => {
-        // Suppress uncaught snapshot listener permission error if offline or permissions pending
         console.warn("master_data sync notification:", error?.message || error);
       });
     } catch (e) {
       console.warn("master_data listener initialization:", e);
     }
+
+    // Direct listener to 'skus' collection
+    try {
+      const qSkus = query(collection(db, 'skus'));
+      unsubscribeSkus = onSnapshot(qSkus, (snapshot) => {
+        const skusList: string[] = [];
+        snapshot.docs.forEach(doc => {
+          const d = doc.data();
+          const skuCandidate = d.sku || d.skuCode || d.sku_code || d.code || d.name || d.namaBarang || d.nama_barang || doc.id;
+          if (skuCandidate && typeof skuCandidate === 'string' && skuCandidate.trim()) {
+            skusList.push(skuCandidate.trim());
+          }
+        });
+        if (skusList.length > 0) {
+          setMasterData(prev => ({
+            ...prev,
+            sku: Array.from(new Set([...skusList, ...(prev.sku || [])]))
+          }));
+        }
+      }, (error) => {
+        console.warn("skus collection sync notification:", error?.message || error);
+      });
+    } catch (e) {
+      console.warn("skus listener initialization:", e);
+    }
+
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeMaster) unsubscribeMaster();
+      if (unsubscribeSkus) unsubscribeSkus();
     };
   }, [user]);
 
