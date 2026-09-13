@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, deleteDoc, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from './firebase';
-import { supabase } from './supabaseClient';
 import { DailyOrder, OperationType, UserProfile } from './types';
 import { handleFirestoreError } from './utils';
 import Toast, { ToastType } from './Toast';
 import { 
   Calendar, Clock, PlusCircle, Search, Trash2, Edit3, Save, X, 
-  FileSpreadsheet, Loader2, ArrowUpDown, ChevronLeft, ChevronRight,
-  TrendingUp, BarChart3, Database, Sparkles
+  FileSpreadsheet, Loader2, ChevronLeft, ChevronRight,
+  BarChart3, Database, Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -201,13 +200,26 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Retrieve existing records
+  // Helper to guarantee active Firebase auth context
+  const ensureFirebaseAuth = async () => {
+    if (!auth.currentUser) {
+      try {
+        await signInAnonymously(auth);
+      } catch (fbErr) {
+        console.warn("Background Firebase auth in DailyOrders:", fbErr);
+      }
+    }
+  };
+
+  // Retrieve existing records directly from Firestore
   useEffect(() => {
     if (!user) {
       setOrders([]);
       setLoading(false);
       return;
     }
+
+    ensureFirebaseAuth();
     setLoading(true);
     const q = query(collection(db, 'daily_orders'));
     
@@ -266,7 +278,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
            parseNum(blibli);
   }, [shopee, tiktok, lazada, tiktokHome, shopeeHome, blibli]);
 
-  // Insert Record
+  // Insert Record into Firestore
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -282,13 +294,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
 
     setActionLoading(true);
 
-    if (!auth.currentUser) {
-      try {
-        await signInAnonymously(auth);
-      } catch (fbErr) {
-        console.warn("Background Firebase auth in DailyOrders:", fbErr);
-      }
-    }
+    await ensureFirebaseAuth();
 
     const effectiveCreatedBy = auth.currentUser?.uid || user?.uid || 'anonymous';
 
@@ -311,50 +317,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     };
 
     try {
-      // 1. Optimistic local entry for instant UI responsiveness
-      const tempId = 'temp_' + Date.now();
-      const optimisticEntry: DailyOrder = {
-        id: tempId,
-        inputDate,
-        inputTime,
-        shopee: parseNum(shopee),
-        tiktok: parseNum(tiktok),
-        lazada: parseNum(lazada),
-        tiktokHome: parseNum(tiktokHome),
-        shopeeHome: parseNum(shopeeHome),
-        blibli: parseNum(blibli),
-        total: liveTotal,
-        createdBy: effectiveCreatedBy,
-        createdAt: new Date().toISOString()
-      };
-      setOrders(prev => [optimisticEntry, ...prev.filter(o => o.id !== tempId)]);
-
-      // 2. Dual-save to Supabase
-      let supabaseSuccess = false;
-      try {
-        const { error: sbError } = await supabase.from('daily_orders').insert([{
-          input_date: inputDate,
-          input_time: inputTime,
-          shopee: parseNum(shopee),
-          tiktok: parseNum(tiktok),
-          lazada: parseNum(lazada),
-          tiktok_home: parseNum(tiktokHome),
-          shopee_home: parseNum(shopeeHome),
-          blibli: parseNum(blibli),
-          total: liveTotal,
-          created_by: user?.email || user?.displayName || effectiveCreatedBy
-        }]);
-        if (!sbError) {
-          supabaseSuccess = true;
-        } else {
-          console.warn("Supabase daily_orders insert note:", sbError);
-        }
-      } catch (sbErr) {
-        console.warn("Supabase sync warning:", sbErr);
-      }
-
-      // 3. Write to Firestore
-      const savePromise = addDoc(collection(db, 'daily_orders'), newOrder);
+      await addDoc(collection(db, 'daily_orders'), newOrder);
 
       // Reset input fields immediately to allow quick consecutive entries
       setShopee('');
@@ -365,47 +328,28 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
       setBlibli('');
       setInputTime('');
 
-      setTimeout(() => {
-        setActionLoading(false);
-        triggerToast('Data harian berhasil disimpan!');
-      }, 300);
-
-      // Listen asynchronously for any background server verification errors
-      savePromise.catch((err) => {
-        if (supabaseSuccess) {
-          console.warn("Firestore sync had permission notice, but data was safely saved to Supabase:", err);
-          return;
-        }
-        try {
-          handleFirestoreError(err, OperationType.WRITE, 'daily_orders');
-        } catch (firestoreErr: any) {
-          let msg = 'Gagal menyimpan data harian ke Firestore.';
-          try {
-            const parsed = JSON.parse(firestoreErr.message);
-            msg += ` (${parsed.error || parsed})`;
-          } catch {
-            msg += ` (${firestoreErr.message || firestoreErr})`;
-          }
-          triggerToast(msg, 'error');
-        }
-        console.error(err);
-      });
-    } catch (err) {
-      console.error(err);
       setActionLoading(false);
+      triggerToast('Data harian berhasil disimpan!');
+    } catch (err: any) {
+      console.error("Firestore submit error:", err);
+      setActionLoading(false);
+      try {
+        handleFirestoreError(err, OperationType.WRITE, 'daily_orders');
+      } catch (firestoreErr: any) {
+        let msg = 'Gagal menyimpan data harian ke Firestore.';
+        try {
+          const parsed = JSON.parse(firestoreErr.message);
+          msg += ` (${parsed.error || parsed})`;
+        } catch {
+          msg += ` (${firestoreErr.message || firestoreErr})`;
+        }
+        triggerToast(msg, 'error');
+      }
     }
   };
 
   // Delete Record
   const handleDelete = (id: string, createdBy: string) => {
-    const isAdminUser = userProfile?.role === 'admin' || user?.email === 'jgilbeth92@gmail.com';
-    const isRecordOwner = user?.uid === createdBy;
-
-    if (!isAdminUser && !isRecordOwner) {
-      triggerToast('Anda hanya diperbolehkan menghapus data buatan Anda sendiri.', 'error');
-      return;
-    }
-
     setDeleteConfirmId({ id, createdBy });
   };
 
@@ -413,42 +357,38 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     if (!deleteConfirmId) return;
     setActionLoading(true);
     try {
-      // Optimistic delete implementation to match handleSubmit behavior
+      await ensureFirebaseAuth();
+
       const targetId = deleteConfirmId.id;
+
+      // Delete directly from Firestore
+      await deleteDoc(doc(db, 'daily_orders', targetId));
+
       setOrders(prev => prev.filter(o => o.id !== targetId));
-
-      const deletePromise = deleteDoc(doc(db, 'daily_orders', targetId));
-
-      try {
-        supabase.from('daily_orders').delete().eq('id', targetId).then(() => {});
-      } catch (sbErr) {}
-
-      setTimeout(() => {
-        setActionLoading(false);
-        setDeleteConfirmId(null);
-        triggerToast('Data harian berhasil dihapus.');
-      }, 300);
-
-      deletePromise.catch((err) => {
-        console.warn("Firestore delete note:", err);
-      });
-    } catch (err) {
-      console.error(err);
       setActionLoading(false);
       setDeleteConfirmId(null);
+      triggerToast('Data harian berhasil dihapus.');
+    } catch (err: any) {
+      console.error("Firestore delete error:", err);
+      setActionLoading(false);
+      setDeleteConfirmId(null);
+      try {
+        handleFirestoreError(err, OperationType.DELETE, `daily_orders/${deleteConfirmId.id}`);
+      } catch (firestoreErr: any) {
+        let msg = 'Gagal menghapus data harian.';
+        try {
+          const parsed = JSON.parse(firestoreErr.message);
+          msg += ` (${parsed.error || parsed})`;
+        } catch {
+          msg += ` (${firestoreErr.message || firestoreErr})`;
+        }
+        triggerToast(msg, 'error');
+      }
     }
   };
 
   // Start Edit Mode
   const handleStartEdit = (item: DailyOrder) => {
-    const isAdminUser = userProfile?.role === 'admin' || user?.email === 'jgilbeth92@gmail.com';
-    const isRecordOwner = user?.uid === item.createdBy;
-
-    if (!isAdminUser && !isRecordOwner) {
-      triggerToast('Anda hanya bisa mengedit data milik Anda sendiri atau sebagai Admin.', 'error');
-      return;
-    }
-
     setEditingId(item.id || null);
     setEditForm({ ...item });
   };
@@ -472,7 +412,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     });
   };
 
-  // Save Edit Record
+  // Save Edit Record directly to Firestore
   const handleSaveEdit = async (id: string) => {
     if (!editForm.inputDate || !editForm.inputTime) {
       triggerToast('Tanggal dan waktu harus diisi.', 'error');
@@ -480,23 +420,10 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     }
 
     try {
+      await ensureFirebaseAuth();
       const recordDoc = doc(db, 'daily_orders', id);
-      
-      // Perform optimistic update to resolve edits instantly
-      setOrders(prev => prev.map(o => o.id === id ? {
-        ...o,
-        inputDate: editForm.inputDate!,
-        inputTime: editForm.inputTime!,
-        shopee: parseNum(String(editForm.shopee || 0)),
-        tiktok: parseNum(String(editForm.tiktok || 0)),
-        lazada: parseNum(String(editForm.lazada || 0)),
-        tiktokHome: parseNum(String(editForm.tiktokHome || 0)),
-        shopeeHome: parseNum(String(editForm.shopeeHome || 0)),
-        blibli: parseNum(String(editForm.blibli || 0)),
-        total: editForm.total || 0,
-      } : o));
 
-      const updatePromise = updateDoc(recordDoc, {
+      await updateDoc(recordDoc, {
         inputDate: editForm.inputDate,
         inputTime: editForm.inputTime,
         shopee: parseNum(String(editForm.shopee || 0)),
@@ -508,31 +435,22 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         total: editForm.total || 0,
       });
 
-      // Dual-sync update to Supabase
-      try {
-        supabase.from('daily_orders').update({
-          input_date: editForm.inputDate,
-          input_time: editForm.inputTime,
-          shopee: parseNum(String(editForm.shopee || 0)),
-          tiktok: parseNum(String(editForm.tiktok || 0)),
-          lazada: parseNum(String(editForm.lazada || 0)),
-          tiktok_home: parseNum(String(editForm.tiktokHome || 0)),
-          shopee_home: parseNum(String(editForm.shopeeHome || 0)),
-          blibli: parseNum(String(editForm.blibli || 0)),
-          total: editForm.total || 0,
-        }).eq('id', id).then(() => {});
-      } catch (sbErr) {}
-
-      // Clear edit state and notify user immediately
       triggerToast('Data harian berhasil diperbarui.');
       setEditingId(null);
-
-      // Handle server resolution and validation in background
-      updatePromise.catch((err) => {
-        console.warn("Firestore update note:", err);
-      });
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Firestore edit error:", err);
+      try {
+        handleFirestoreError(err, OperationType.WRITE, `daily_orders/${id}`);
+      } catch (firestoreErr: any) {
+        let msg = 'Gagal memperbarui data.';
+        try {
+          const parsed = JSON.parse(firestoreErr.message);
+          msg += ` (${parsed.error || parsed})`;
+        } catch {
+          msg += ` (${firestoreErr.message || firestoreErr})`;
+        }
+        triggerToast(msg, 'error');
+      }
     }
   };
 
