@@ -681,8 +681,9 @@ function AppContent() {
     const getNormalizedStatus = (status: any, type: any): string => {
       const s = String(status || type || '').toUpperCase().trim();
       
-      // AFKIR / RUSAK FISIK (Prioritize FISIK check)
+      // 1. AFKIR / RUSAK FISIK (Prioritize FISIK check)
       if (
+        s === 'RUSAK FISIK' ||
         s.includes('RUSAK FISIK') || 
         s.includes('RUSAK_FISIK') ||
         s.includes('AFKIR FISIK') ||
@@ -690,7 +691,7 @@ function AppContent() {
         s === 'DAMAGED'
       ) return 'Rusak Fisik';
       
-      // ELIMINASI / RUSAK INTERNAL (Only when explicitly marked as internal elimination)
+      // 2. ELIMINASI / RUSAK INTERNAL (Only when explicitly marked as internal elimination)
       if (
         s === 'OUT' || 
         s === 'ELIMINASI' || 
@@ -701,9 +702,34 @@ function AppContent() {
         s.includes('RUSAK_LANTAI3')
       ) return 'Eliminasi Stok Rusak';
       
-      if (s.includes('RETUR')) return 'Retur Fisik';
-      if (s.includes('CANCEL') || s === 'BATAL' || s === 'DIBATALKAN') return 'Cancel Fisik';
-      if (s.includes('BUNDLING') || s.includes('BUNDLE')) return 'Bundling Fisik';
+      // 3. CANCEL FISIK (Prioritize before generic retur check)
+      if (
+        s === 'CANCEL FISIK' ||
+        s.includes('CANCEL FISIK') ||
+        s.includes('CANCEL_FISIK') ||
+        s.includes('CANCEL') ||
+        s === 'BATAL' ||
+        s === 'DIBATALKAN'
+      ) return 'Cancel Fisik';
+
+      // 4. BUNDLING FISIK
+      if (
+        s === 'BUNDLING FISIK' ||
+        s.includes('BUNDLING FISIK') ||
+        s.includes('BUNDLING_FISIK') ||
+        s.includes('BUNDLING') ||
+        s.includes('BUNDLE')
+      ) return 'Bundling Fisik';
+
+      // 5. RETUR FISIK (Clean check)
+      if (
+        s === 'RETUR FISIK' ||
+        s.includes('RETUR FISIK') ||
+        s.includes('RETUR_FISIK') ||
+        s === 'RETUR' ||
+        s.startsWith('RETUR') ||
+        s.includes('RETUR')
+      ) return 'Retur Fisik';
       
       return String(status || type || '');
     };
@@ -722,7 +748,7 @@ function AppContent() {
     const mapReportDoc = (doc: any) => {
       const d = doc.data();
       const sku = d.sku || d.sku_id || d.item_code || '';
-      const normalizedStatus = getNormalizedStatus(d.status, '');
+      const normalizedStatus = getNormalizedStatus(d.modul_fisik || d.status || d.assetStatus, '');
       const category = getInferredCategory(normalizedStatus, d.category, '', 'reports', sku);
       
       const createdAt = d.created_at || d.createdAt || d.timestamp || d.updatedAt || null;
@@ -767,7 +793,7 @@ function AppContent() {
     const mapTransactionDoc = (doc: any) => {
       const d = doc.data();
       const sku = d.sku_id || d.sku || d.item_code || '';
-      const normalizedStatus = getNormalizedStatus(d.status, d.type || '');
+      const normalizedStatus = getNormalizedStatus(d.modul_fisik || d.status || d.assetStatus, d.type || '');
       const category = getInferredCategory(normalizedStatus, d.category, d.type || '', 'transactions', sku);
       
       const createdAt = d.created_at || d.createdAt || d.timestamp || d.updatedAt || null;

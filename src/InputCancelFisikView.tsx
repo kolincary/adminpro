@@ -121,9 +121,29 @@ export default function InputCancelFisikView({
   const handleExportOriginal = async () => {
     try {
       const XLSX = await import('xlsx');
-      const cancelReports = allReports.filter((r: any) => 
-        r.status === 'Cancel Fisik' || r.assetStatus === 'Cancel Fisik' || r.modul_fisik === 'Cancel Fisik' || (r.items && r.items.some((i: any) => i.status === 'Cancel Fisik'))
-      );
+      const cancelReports = allReports.filter((r: any) => {
+        const st = (r.status || '').toLowerCase().trim();
+        const ast = (r.assetStatus || r.status_aset || '').toLowerCase().trim();
+        const mf = (r.modul_fisik || '').toLowerCase().trim();
+        const norm = (r.normalizedStatus || '').toLowerCase().trim();
+
+        // Eksklusi total jika merupakan retur, rusak, atau bundling
+        if (st === 'retur fisik' || ast === 'retur fisik' || mf === 'retur fisik' || norm === 'retur fisik') return false;
+        if (st.includes('rusak') || ast.includes('rusak') || mf.includes('rusak') || norm.includes('rusak')) return false;
+        if (st.includes('bundling') || ast.includes('bundling') || mf.includes('bundling') || norm.includes('bundling')) return false;
+
+        return (
+          st === 'cancel fisik' ||
+          ast === 'cancel fisik' ||
+          mf === 'cancel fisik' ||
+          norm === 'cancel fisik' ||
+          st.includes('cancel') ||
+          ast.includes('cancel') ||
+          mf.includes('cancel') ||
+          norm.includes('cancel') ||
+          (r.items && r.items.some((i: any) => (i.status || '').toLowerCase().includes('cancel')))
+        );
+      });
 
       const exportRows: any[] = [];
 

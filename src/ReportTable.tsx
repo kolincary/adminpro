@@ -466,70 +466,66 @@ export default function ReportTable({
     const lowerStatusFilter = statusFilter?.toLowerCase().trim() || '';
 
     return initialReports.filter(report => {
-      const reportStatus = report.normalizedStatus || report.status || '';
-      const reportCategory = report.category || '';
+      const rawStatus = (report.status || '').trim();
+      const normStatus = (report.normalizedStatus || '').trim();
+      const assetStatus = ((report as any).assetStatus || (report as any).status_aset || '').trim();
+      const modulFisik = ((report as any).modul_fisik || '').trim();
+      const reportCategory = (report.category || '').trim();
 
-      const matchesExactlyByStatus = lowerStatusFilter && (reportStatus.toLowerCase().trim() === lowerStatusFilter);
+      const stLow = rawStatus.toLowerCase();
+      const normLow = normStatus.toLowerCase();
+      const assetLow = assetStatus.toLowerCase();
+      const mfLow = modulFisik.toLowerCase();
+      const catLow = reportCategory.toLowerCase();
+
+      // Flags for explicit status designations
+      const isExplicitCancel = mfLow === 'cancel fisik' || normLow === 'cancel fisik' || stLow === 'cancel fisik' || assetLow === 'cancel fisik' || stLow === 'cancel' || stLow === 'batal' || stLow === 'dibatalkan' || stLow.includes('cancel fisik') || mfLow.includes('cancel fisik');
+      const isExplicitRusak = mfLow === 'rusak fisik' || normLow === 'rusak fisik' || stLow === 'rusak fisik' || assetLow === 'rusak fisik' || stLow === 'afkir fisik' || assetLow === 'afkir fisik' || mfLow === 'afkir fisik' || normLow === 'afkir fisik' || stLow.includes('rusak fisik');
+      const isExplicitBundling = mfLow === 'bundling fisik' || normLow === 'bundling fisik' || stLow === 'bundling fisik' || assetLow === 'bundling fisik' || stLow.includes('bundling') || mfLow.includes('bundling');
+      const isExplicitEliminasiRusak = normLow === 'eliminasi stok rusak' || stLow === 'eliminasi stok rusak' || assetLow === 'eliminasi stok rusak' || catLow === 'rusak_internal' || catLow === 'eliminasi_rusak' || report.type === 'OUT';
+      const isExplicitRetur = mfLow === 'retur fisik' || normLow === 'retur fisik' || stLow === 'retur fisik' || assetLow === 'retur fisik' || (catLow === 'retur' && !isExplicitCancel && !isExplicitRusak && !isExplicitBundling);
 
       if (category) {
         const isStokLT3 = category === 'stok_lt3';
         const isRusakInternal = category === 'rusak_internal' || category === 'eliminasi_rusak';
 
-        const isActuallyLT3 = reportCategory === 'stok_lt3' || reportStatus === 'Rusak Fisik';
-        const isActuallyInternal = reportCategory === 'rusak_internal' ||
-          reportCategory === 'eliminasi_rusak' ||
-          reportStatus === 'Eliminasi Stok Rusak' ||
-          reportStatus === 'Rusak Fisik' ||
-          report.type === 'OUT';
-
-        const isRetur2 = category === 'retur2' || lowerStatusFilter === 'cancel fisik';
-        const isActuallyRetur2 = reportCategory === 'retur2' || reportStatus === 'Cancel Fisik' || (report as any).modul_fisik === 'Cancel Fisik';
-
-        const categoryMatch = (isStokLT3 && isActuallyLT3) ||
-          (isRusakInternal && isActuallyInternal) ||
-          (isRetur2 && isActuallyRetur2);
-
-        if (!categoryMatch && !matchesExactlyByStatus) return false;
+        if (isStokLT3) {
+          if (!isExplicitRusak && catLow !== 'stok_lt3' && stLow !== 'rusak fisik') return false;
+        } else if (isRusakInternal) {
+          if (!isExplicitEliminasiRusak) return false;
+        }
       }
 
       if (lowerStatusFilter) {
         if (lowerStatusFilter === 'retur fisik') {
-          const isReturMatch = 
-            reportStatus.toLowerCase().includes('retur') || 
-            reportCategory === 'retur' || 
-            reportCategory === 'retur2' ||
-            (report as any).modul_fisik === 'Retur Fisik' ||
-            (report as any).status?.toLowerCase().includes('retur') ||
-            (report as any).assetStatus?.toLowerCase().includes('retur') ||
-            reportStatus.toLowerCase().includes('kirim baru') ||
-            reportStatus.toLowerCase().includes('barang rusak') ||
-            reportStatus.toLowerCase().includes('barang baik') ||
-            reportStatus.toLowerCase().includes('restock');
-          if (!isReturMatch && reportStatus.toLowerCase().trim() !== lowerStatusFilter) return false;
+          // EXCLUDE cancel, rusak, bundling, eliminasi
+          if (isExplicitCancel || isExplicitRusak || isExplicitBundling || isExplicitEliminasiRusak) return false;
+          if (catLow === 'retur2' && mfLow !== 'retur fisik' && normLow !== 'retur fisik' && stLow !== 'retur fisik' && assetLow !== 'retur fisik') return false;
+          
+          const isReturMatch = isExplicitRetur || stLow.includes('retur') || assetLow.includes('retur') || mfLow.includes('retur');
+          if (!isReturMatch) return false;
         } else if (lowerStatusFilter === 'cancel fisik') {
-          const isCancelMatch = 
-            reportStatus.toLowerCase().includes('cancel') || 
-            reportStatus.toLowerCase().includes('batal') ||
-            (report as any).modul_fisik === 'Cancel Fisik' ||
-            (report as any).status?.toLowerCase().includes('cancel') ||
-            (report as any).assetStatus?.toLowerCase().includes('cancel');
-          if (!isCancelMatch && reportStatus.toLowerCase().trim() !== lowerStatusFilter) return false;
+          // EXCLUDE retur, rusak, bundling, eliminasi
+          if (isExplicitRetur && !isExplicitCancel) return false;
+          if (isExplicitRusak || isExplicitBundling || isExplicitEliminasiRusak) return false;
+          if (stLow.includes('retur') && !isExplicitCancel && !stLow.includes('cancel')) return false;
+          if (assetLow.includes('retur') && !isExplicitCancel && !assetLow.includes('cancel')) return false;
+          if (mfLow.includes('retur') && !isExplicitCancel && !mfLow.includes('cancel')) return false;
+          
+          const isCancelMatch = isExplicitCancel || stLow.includes('cancel') || assetLow.includes('cancel') || mfLow.includes('cancel') || normLow.includes('cancel');
+          if (!isCancelMatch) return false;
         } else if (lowerStatusFilter === 'rusak fisik') {
-          const isRusakMatch = 
-            reportStatus.toLowerCase().includes('rusak fisik') || 
-            (report as any).modul_fisik === 'Rusak Fisik' ||
-            (report as any).status?.toLowerCase().includes('rusak fisik') ||
-            (report as any).assetStatus?.toLowerCase().includes('rusak fisik');
-          if (!isRusakMatch && reportStatus.toLowerCase().trim() !== lowerStatusFilter) return false;
+          // EXCLUDE retur, cancel, bundling, eliminasi internal
+          if (isExplicitRetur || isExplicitCancel || isExplicitBundling || isExplicitEliminasiRusak) return false;
+          const isRusakMatch = isExplicitRusak || stLow.includes('rusak fisik') || assetLow.includes('rusak fisik') || mfLow.includes('rusak fisik');
+          if (!isRusakMatch) return false;
         } else if (lowerStatusFilter === 'bundling fisik') {
-          const isBundlingMatch = 
-            reportStatus.toLowerCase().includes('bundling') || 
-            (report as any).modul_fisik === 'Bundling Fisik' ||
-            (report as any).status?.toLowerCase().includes('bundling') ||
-            (report as any).assetStatus?.toLowerCase().includes('bundling');
-          if (!isBundlingMatch && reportStatus.toLowerCase().trim() !== lowerStatusFilter) return false;
+          // EXCLUDE retur, cancel, rusak fisik, eliminasi
+          if (isExplicitRetur || isExplicitCancel || isExplicitRusak || isExplicitEliminasiRusak) return false;
+          const isBundlingMatch = isExplicitBundling || stLow.includes('bundling') || assetLow.includes('bundling') || mfLow.includes('bundling');
+          if (!isBundlingMatch) return false;
         } else {
-          if (reportStatus.toLowerCase().trim() !== lowerStatusFilter) return false;
+          if (normLow !== lowerStatusFilter && stLow !== lowerStatusFilter && assetLow !== lowerStatusFilter && mfLow !== lowerStatusFilter) return false;
         }
       }
 
@@ -604,21 +600,48 @@ export default function ReportTable({
     let invoiceColIndex = 4;
 
     if (isPhysicalStatusMenu || isDevModeUnlocked) {
-      data = sortedReports.map(r => ({
-        'Tanggal Log': normalizeDate(r.inputDate || (r as any).tanggal_log || (r as any).log_date || ''),
-        'Tgl Input Ginee': r.gineeInputDate || (r as any).tgl_input_ginee || (r as any).ginee_date || '',
-        'PIC Input Ginee': r.picGinee || (r as any).pic_input_ginee || (r as any).pic_ginee || '',
-        'Marketplace': r.marketplace || '',
-        'Analis (PIC)': r.createdBy || (r as any).analis || (r as any).analis_pic || '',
-        'Modul Fisik': (r as any).modul_fisik || statusFilter || 'Data Fisik',
-        'Referensi Invoice': r.invoiceNumber || (r as any).referensi_invoice || (r as any).invoice_ref || '',
-        'Lokasi / Rak': r.location || (r as any).location_rak || (r as any).location || '',
-        'SKU / Barcode': r.sku || '',
-        'Nama Produk': r.itemDescription || (r as any).product_name || '',
-        'Status Aset': r.assetStatus || r.status || statusFilter || '',
-        'QTY': Number(r.quantity || (r as any).qty) || 1,
-        'Keterangan': r.itemDescription || (r as any).notes || (r as any).keterangan || ''
-      }));
+      data = sortedReports.map(r => {
+        let resolvedModulFisik = (r as any).modul_fisik || statusFilter || 'Data Fisik';
+        let resolvedAssetStatus = r.assetStatus || r.status || statusFilter || '';
+
+        if (statusFilter === 'Retur Fisik') {
+          resolvedModulFisik = 'Retur Fisik';
+          if (!resolvedAssetStatus || resolvedAssetStatus === 'Cancel Fisik' || resolvedAssetStatus === 'Rusak Fisik') {
+            resolvedAssetStatus = 'Retur Fisik';
+          }
+        } else if (statusFilter === 'Cancel Fisik') {
+          resolvedModulFisik = 'Cancel Fisik';
+          if (!resolvedAssetStatus || resolvedAssetStatus === 'Retur Fisik' || resolvedAssetStatus === 'Rusak Fisik') {
+            resolvedAssetStatus = 'Cancel Fisik';
+          }
+        } else if (statusFilter === 'Rusak Fisik') {
+          resolvedModulFisik = 'Rusak Fisik';
+          if (!resolvedAssetStatus || resolvedAssetStatus === 'Retur Fisik' || resolvedAssetStatus === 'Cancel Fisik') {
+            resolvedAssetStatus = 'Rusak Fisik';
+          }
+        } else if (statusFilter === 'Bundling Fisik') {
+          resolvedModulFisik = 'Bundling Fisik';
+          if (!resolvedAssetStatus || resolvedAssetStatus === 'Retur Fisik' || resolvedAssetStatus === 'Cancel Fisik') {
+            resolvedAssetStatus = 'Bundling Fisik';
+          }
+        }
+
+        return {
+          'Tanggal Log': normalizeDate(r.inputDate || (r as any).tanggal_log || (r as any).log_date || ''),
+          'Tgl Input Ginee': r.gineeInputDate || (r as any).tgl_input_ginee || (r as any).ginee_date || '',
+          'PIC Input Ginee': r.picGinee || (r as any).pic_input_ginee || (r as any).pic_ginee || '',
+          'Marketplace': r.marketplace || '',
+          'Analis (PIC)': r.createdBy || (r as any).analis || (r as any).analis_pic || '',
+          'Modul Fisik': resolvedModulFisik,
+          'Referensi Invoice': r.invoiceNumber || (r as any).referensi_invoice || (r as any).invoice_ref || '',
+          'Lokasi / Rak': r.location || (r as any).location_rak || (r as any).location || '',
+          'SKU / Barcode': r.sku || '',
+          'Nama Produk': r.itemDescription || (r as any).product_name || '',
+          'Status Aset': resolvedAssetStatus,
+          'QTY': Number(r.quantity || (r as any).qty) || 1,
+          'Keterangan': r.itemDescription || (r as any).notes || (r as any).keterangan || ''
+        };
+      });
       wscols = [
         { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 18 },
         { wch: 15 }, { wch: 32 }, { wch: 15 }, { wch: 35 }, { wch: 40 },

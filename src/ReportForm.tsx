@@ -580,10 +580,14 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         const quantity = parseInt(parts[4]) || 1;
 
         if (sku) {
+          const fallbackStatus = category === 'rusak_internal'
+            ? 'Eliminasi Stok Rusak'
+            : (category === 'stok_lt3' ? 'Rusak Fisik' : (headerData.status || 'Retur Fisik'));
+
           newItems.push({
             sku,
             quantity,
-            status: category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : (status || headerData.status || 'Retur Fisik'),
+            status: status || headerData.status || fallbackStatus,
             itemDescription: reason,
             invoiceNumber,
             marketplace: headerData.marketplace || '',
@@ -732,8 +736,11 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         }
 
         const effectiveDate = item.logDate || headerData.inputDate || format(new Date(), 'yyyy-MM-dd');
-        const defaultStatus = category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : 'Retur Fisik';
+        const defaultStatus = category === 'rusak_internal' 
+          ? 'Eliminasi Stok Rusak' 
+          : (category === 'stok_lt3' ? 'Rusak Fisik' : 'Retur Fisik');
         const finalStatus = item.status || headerData.status || defaultStatus;
+        const resolvedModulFisik = headerData.status || (category === 'rusak_internal' ? 'Eliminasi Stok Rusak' : (category === 'stok_lt3' ? 'Rusak Fisik' : finalStatus));
 
         return {
           date: effectiveDate,
@@ -746,7 +753,7 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
           quantity: Number(item.quantity) || 1,
           status: finalStatus,
           assetStatus: finalStatus,
-          modul_fisik: headerData.status || finalStatus,
+          modul_fisik: resolvedModulFisik,
           itemDescription: item.itemDescription || '',
           type: headerData.type || '',
           category: category,
