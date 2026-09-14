@@ -6,7 +6,6 @@ import ReportForm from './ReportForm';
 import ReportTable from './ReportTable';
 import { Report, UserProfile } from './types';
 import { Layers, PlusCircle, Table, FileSpreadsheet, Upload, Download, X, Check, AlertCircle, Loader2, Sparkles, RefreshCw, Trash2 } from 'lucide-react';
-import { supabaseCancelFisik } from './supabaseClient';
 import { normalizeDate } from './utils';
 
 interface InputCancelFisikViewProps {
@@ -243,148 +242,6 @@ export default function InputCancelFisikView({
       setImportStatus('Error: ' + err.message);
     }
   };
-  // Sinkronisasi Manual Firestore -> Supabase (DevMode)
-  const handleSyncFirestoreToSupabase = async () => {
-    setIsSyncing(true);
-    try {
-      // Gunakan data allReports yang murni HANYA berstatus Cancel Fisik
-      const cancelDocs = allReports.filter((r: any) => {
-        const st = (r.status || '').toLowerCase().trim();
-        const ast = (r.assetStatus || r.status_aset || '').toLowerCase().trim();
-        const mf = (r.modul_fisik || '').toLowerCase().trim();
-        const norm = (r.normalizedStatus || '').toLowerCase().trim();
-
-        // Eksklusi total jika mengandung kata retur, rusak, atau bundling
-        if (st.includes('retur') || ast.includes('retur') || mf.includes('retur') || norm.includes('retur')) return false;
-        if (st.includes('rusak') || ast.includes('rusak') || mf.includes('rusak') || norm.includes('rusak')) return false;
-        if (st.includes('bundling') || ast.includes('bundling') || mf.includes('bundling') || norm.includes('bundling')) return false;
-
-        return st.includes('cancel') || ast.includes('cancel') || mf.includes('cancel') || norm.includes('cancel');
-      });
-
-      if (cancelDocs.length === 0) {
-        alert("Tidak ada data Cancel Fisik ditemukan di aplikasi saat ini.");
-        setIsSyncing(false);
-        return;
-      }
-
-      const formattedRows = cancelDocs.map((r: any) => ({
-        tanggal_log: r.inputDate || r.log_date || (r.createdAt ? String(r.createdAt).split('T')[0] : new Date().toISOString().split('T')[0]),
-        tgl_input_ginee: r.gineeInputDate || r.ginee_date || null,
-        pic_input_ginee: r.picGinee || r.pic_ginee || r.createdBy || '',
-        marketplace: r.marketplace || '',
-        analis_pic: r.picGinee || r.analis || r.createdBy || '',
-        modul_fisik: 'Cancel Fisik',
-        referensi_invoice: r.invoiceNumber || r.invoice_ref || r.invoice || '',
-        location_rak: r.location || '',
-        sku: r.sku || r.sku_id || '',
-        product_name: r.itemDescription || r.product_name || '',
-        status_aset: r.assetStatus || r.status || 'Cancel Fisik',
-        qty: Number(r.quantity) || 1,
-        keterangan: r.itemDescription || r.notes || '',
-        created_by: r.createdBy || currentUser?.email || 'Synced User'
-      }));
-
-      const { error } = await supabaseCancelFisik
-        .from('cancel_fisik_reports')
-        .insert(formattedRows);
-
-      if (error) throw error;
-
-      setDevToast(`⚡ Sukses menyinkronkan ${formattedRows.length} data ke Supabase!`);
-      setTimeout(() => setDevToast(null), 5000);
-    } catch (err: any) {
-      alert("Gagal menyinkronkan data: " + err.message);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Cleanup wrong Retur data from cancel_fisik_reports table in Supabase
-  const handleCleanupWrongData = async () => {
-    if (!window.confirm("Apakah Anda yakin ingin membersihkan data Retur/Rusak/Bundling yang pernah tersimpan di tabel Supabase cancel_fisik_reports?")) {
-      return;
-    }
-    setIsSyncing(true);
-    try {
-      // 1. Hapus row yang modul_fisik atau status_aset nya mengandung retur, rusak, atau bundling
-      const { error: err1 } = await supabaseCancelFisik
-        .from('cancel_fisik_reports')
-        .delete()
-        .or('modul_fisik.ilike.%retur%,modul_fisik.ilike.%rusak%,modul_fisik.ilike.%bundling%,status_aset.ilike.%retur%,status_aset.ilike.%rusak%,status_aset.ilike.%bundling%');
-
-      if (err1) console.warn("Delete by modul_fisik warn:", err1);
-
-      // 2. Hapus row yang modul_fisik nya BUKAN Cancel Fisik
-      await supabaseCancelFisik
-        .from('cancel_fisik_reports')
-        .delete()
-        .neq('modul_fisik', 'Cancel Fisik');
-
-      setDevToast("🧹 Sukses membersihkan data Retur dari tabel cancel_fisik_reports!");
-      setTimeout(() => setDevToast(null), 5000);
-      window.location.reload();
-    } catch (err: any) {
-      alert("Gagal membersihkan data: " + err.message);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Cleanup duplicate records from cancel_fisik_reports table in Supabase
-  const handleCleanupDuplicates = async () => {
-    if (!window.confirm("Apakah Anda yakin ingin menghapus data duplikat (Referensi Invoice + SKU yang sama) di database?")) {
-      return;
-    }
-    setIsSyncing(true);
-    try {
-      const { data: allRows, error } = await supabaseCancelFisik
-        .from('cancel_fisik_reports')
-        .select('id, referensi_invoice, sku, created_at')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      if (allRows && allRows.length > 0) {
-        const seenKeys = new Set<string>();
-        const idsToDelete: any[] = [];
-
-        allRows.forEach((r: any) => {
-          const inv = (r.referensi_invoice || '').trim().toLowerCase();
-          const sku = (r.sku || '').trim().toLowerCase();
-          if (inv && sku) {
-            const key = `${inv}_${sku}`;
-            if (seenKeys.has(key)) {
-              idsToDelete.push(r.id);
-            } else {
-              seenKeys.add(key);
-            }
-          }
-        });
-
-        if (idsToDelete.length > 0) {
-          for (let i = 0; i < idsToDelete.length; i += 100) {
-            const chunk = idsToDelete.slice(i, i + 100);
-            await supabaseCancelFisik
-              .from('cancel_fisik_reports')
-              .delete()
-              .in('id', chunk);
-          }
-          setDevToast(`🧹 Sukses menghapus ${idsToDelete.length} data duplikat dari database!`);
-          setTimeout(() => setDevToast(null), 5000);
-          setTimeout(() => window.location.reload(), 1200);
-        } else {
-          setDevToast("✅ Tidak ada data duplikat yang ditemukan.");
-          setTimeout(() => setDevToast(null), 4000);
-        }
-      }
-    } catch (err: any) {
-      alert("Gagal membersihkan duplikat: " + err.message);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -506,7 +363,7 @@ export default function InputCancelFisikView({
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          {/* Tombol DevMode: Import Excel & Sinkron Data */}
+          {/* Tombol DevMode: Import Excel */}
           {isDevModeUnlocked && (
             <div className="flex flex-wrap items-center gap-2 bg-[#1a0f44] p-1.5 rounded-2xl border border-indigo-500/30 shadow-lg">
               <button
@@ -515,35 +372,6 @@ export default function InputCancelFisikView({
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Import Excel (DevMode)</span>
-              </button>
-
-              <button
-                onClick={handleSyncFirestoreToSupabase}
-                disabled={isSyncing}
-                className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs rounded-xl shadow-md border border-indigo-400/30 transition-all cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Menyinkron...' : 'Sinkron Firestore -> Supabase'}</span>
-              </button>
-
-              <button
-                onClick={handleCleanupWrongData}
-                disabled={isSyncing}
-                className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs rounded-xl shadow-md border border-rose-400/30 transition-all cursor-pointer disabled:opacity-50"
-                title="Bersihkan Data Retur/Rusak dari Tabel Cancel Fisik Supabase"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Bersihkan Data Retur</span>
-              </button>
-
-              <button
-                onClick={handleCleanupDuplicates}
-                disabled={isSyncing}
-                className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs rounded-xl shadow-md border border-amber-400/30 transition-all cursor-pointer disabled:opacity-50"
-                title="Bersihkan Data Duplikat (Referensi Invoice + SKU yang sama)"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Hapus Duplikat</span>
               </button>
             </div>
           )}

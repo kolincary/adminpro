@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { collection, query, onSnapshot, deleteDoc, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
+import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { DailyOrder, OperationType, UserProfile } from './types';
-import { handleFirestoreError } from './utils';
+import { supabase } from './supabaseClient';
+import { DailyOrder, UserProfile } from './types';
 import Toast, { ToastType } from './Toast';
 import { 
   Calendar, Clock, PlusCircle, Search, Trash2, Edit3, Save, X, 
   FileSpreadsheet, Loader2, ChevronLeft, ChevronRight,
-  BarChart3, Database, Sparkles
+  BarChart3, Database, Sparkles, RefreshCw, Code2, Copy, Check, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -25,29 +24,21 @@ function TimeManualInput({ value, onChange, className = "", isSmall = false }: T
   const hourRef = useRef<HTMLInputElement>(null);
   const minuteRef = useRef<HTMLInputElement>(null);
 
-  // Parse current value ("HH:MM")
   const parts = (value || "").split(":");
   const currentHour = parts[0] || "";
   const currentMinute = parts[1] || "";
 
   const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/[^0-9]/g, "");
-    if (val.length > 2) {
-      val = val.slice(0, 2);
-    }
-    
-    // Validate if complete
+    if (val.length > 2) val = val.slice(0, 2);
     if (val.length === 2) {
       const hNum = parseInt(val, 10);
-      if (hNum > 23) {
-        val = "23";
-      }
+      if (hNum > 23) val = "23";
     }
 
     const nextVal = `${val}:${currentMinute}`;
     onChange(nextVal);
 
-    // Auto tab to minute
     if (val.length === 2 && minuteRef.current) {
       minuteRef.current.focus();
       minuteRef.current.select();
@@ -56,15 +47,10 @@ function TimeManualInput({ value, onChange, className = "", isSmall = false }: T
 
   const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/[^0-9]/g, "");
-    if (val.length > 2) {
-      val = val.slice(0, 2);
-    }
-
+    if (val.length > 2) val = val.slice(0, 2);
     if (val.length === 2) {
       const mNum = parseInt(val, 10);
-      if (mNum > 59) {
-        val = "59";
-      }
+      if (mNum > 59) val = "59";
     }
 
     const nextVal = `${currentHour}:${val}`;
@@ -100,7 +86,6 @@ function TimeManualInput({ value, onChange, className = "", isSmall = false }: T
   };
 
   const handleContainerBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    // If focus is transferring to another element within the container, do not pad/format yet
     if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) {
       return;
     }
@@ -108,9 +93,7 @@ function TimeManualInput({ value, onChange, className = "", isSmall = false }: T
     let paddedHour = currentHour;
     let paddedMin = currentMinute;
 
-    if (!paddedHour && !paddedMin) {
-      return;
-    }
+    if (!paddedHour && !paddedMin) return;
 
     if (paddedHour.length === 1) paddedHour = '0' + paddedHour;
     if (paddedHour.length === 0) paddedHour = '00';
@@ -163,9 +146,82 @@ interface DailyOrdersProps {
   userProfile: UserProfile | null;
 }
 
+const SQL_SCHEMA_CODE = `-- ==============================================================================
+-- SCHEMA TABEL DAILY_ORDERS UNTUK SUPABASE
+-- Project: tpewylwthmlnfhzohlgu
+-- Jalankan skrip ini di Supabase SQL Editor:
+-- https://supabase.com/dashboard/project/tpewylwthmlnfhzohlgu/sql
+-- ==============================================================================
+
+-- 1. Buat Tabel daily_orders jika belum ada
+CREATE TABLE IF NOT EXISTS public.daily_orders (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    input_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    input_time VARCHAR(10) NOT NULL,
+    shopee INTEGER DEFAULT 0,
+    tiktok INTEGER DEFAULT 0,
+    lazada INTEGER DEFAULT 0,
+    tiktok_home INTEGER DEFAULT 0,
+    shopee_home INTEGER DEFAULT 0,
+    blibli INTEGER DEFAULT 0,
+    total INTEGER DEFAULT 0,
+    created_by TEXT,
+    user_email TEXT,
+    user_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2. Buat Index untuk performa query cepat berdasarkan tanggal & waktu
+CREATE INDEX IF NOT EXISTS idx_daily_orders_input_date ON public.daily_orders(input_date DESC, input_time DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_orders_created_at ON public.daily_orders(created_at DESC);
+
+-- 3. Aktifkan Row Level Security (RLS)
+ALTER TABLE public.daily_orders ENABLE ROW LEVEL SECURITY;
+
+-- 4. Buat Policy agar semua role (anon & authenticated) dapat membaca dan menulis
+DROP POLICY IF EXISTS "Allow public read daily_orders" ON public.daily_orders;
+CREATE POLICY "Allow public read daily_orders" 
+ON public.daily_orders FOR SELECT 
+TO anon, authenticated 
+USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert daily_orders" ON public.daily_orders;
+CREATE POLICY "Allow public insert daily_orders" 
+ON public.daily_orders FOR INSERT 
+TO anon, authenticated 
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update daily_orders" ON public.daily_orders;
+CREATE POLICY "Allow public update daily_orders" 
+ON public.daily_orders FOR UPDATE 
+TO anon, authenticated 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public delete daily_orders" ON public.daily_orders;
+CREATE POLICY "Allow public delete daily_orders" 
+ON public.daily_orders FOR DELETE 
+TO anon, authenticated 
+USING (true);
+
+-- 5. Tambahkan ke Realtime Publication Supabase
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'daily_orders'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.daily_orders;
+  END IF;
+END $$;`;
+
 export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
   const [orders, setOrders] = useState<DailyOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [supabaseTableMissing, setSupabaseTableMissing] = useState(false);
   
   // Form State
   const [inputDate, setInputDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
@@ -188,6 +244,12 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
   // Delete Confirmation Modal State
   const [deleteConfirmId, setDeleteConfirmId] = useState<{ id: string; createdBy: string } | null>(null);
   
+  // Sync & SQL Modal State
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
   // Toast Alert State
   const [toast, setToast] = useState<{ message: string; type: ToastType; visible: boolean }>({
     message: '',
@@ -200,18 +262,101 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Helper to guarantee active Firebase auth context
-  const ensureFirebaseAuth = async () => {
-    if (!auth.currentUser) {
-      try {
-        await signInAnonymously(auth);
-      } catch (fbErr) {
-        console.warn("Background Firebase auth in DailyOrders:", fbErr);
-      }
+  const triggerToast = (message: string, type: ToastType = 'success') => {
+    setToast({ message, type, visible: true });
+  };
+
+  // Fallback to fetch from Firestore if Supabase table is not yet created
+  const fetchOrdersFromFirestore = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'daily_orders'));
+      const fetched: DailyOrder[] = [];
+      snap.forEach((docSnap) => {
+        const d = docSnap.data();
+        fetched.push({
+          id: docSnap.id,
+          inputDate: d.inputDate || d.input_date || '',
+          inputTime: d.inputTime || d.input_time || '',
+          shopee: Number(d.shopee) || 0,
+          tiktok: Number(d.tiktok) || 0,
+          lazada: Number(d.lazada) || 0,
+          tiktokHome: Number(d.tiktokHome || d.tiktok_home) || 0,
+          shopeeHome: Number(d.shopeeHome || d.shopee_home) || 0,
+          blibli: Number(d.blibli) || 0,
+          total: Number(d.total) || 0,
+          createdBy: d.createdBy || d.created_by || '',
+          createdAt: d.createdAt || d.created_at || null
+        });
+      });
+
+      fetched.sort((a, b) => {
+        const dateA = a.inputDate || '';
+        const dateB = b.inputDate || '';
+        if (dateA !== dateB) return dateB.localeCompare(dateA);
+        const timeA = a.inputTime || '';
+        const timeB = b.inputTime || '';
+        return timeB.localeCompare(timeA);
+      });
+
+      setOrders(fetched);
+    } catch (fsErr) {
+      console.warn("Firestore fallback error:", fsErr);
     }
   };
 
-  // Retrieve existing records directly from Firestore
+  // Retrieve records directly from Supabase (Primary Database for Daily Orders)
+  const fetchOrdersFromSupabase = async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('daily_orders')
+        .select('*')
+        .order('input_date', { ascending: false })
+        .order('input_time', { ascending: false });
+
+      if (error) {
+        console.warn("Supabase daily_orders notice:", error.message);
+        if (
+          error.code === '42P01' || 
+          error.code === 'PGRST205' || 
+          error.message.toLowerCase().includes('relation') || 
+          error.message.toLowerCase().includes('not exist') ||
+          error.message.toLowerCase().includes('schema cache')
+        ) {
+          setSupabaseTableMissing(true);
+        }
+        await fetchOrdersFromFirestore();
+        return;
+      }
+
+      if (data) {
+        setSupabaseTableMissing(false);
+        const mapped: DailyOrder[] = data.map((d: any) => ({
+          id: String(d.id),
+          inputDate: d.input_date || d.inputDate || '',
+          inputTime: d.input_time || d.inputTime || '',
+          shopee: Number(d.shopee) || 0,
+          tiktok: Number(d.tiktok) || 0,
+          lazada: Number(d.lazada) || 0,
+          tiktokHome: Number(d.tiktok_home !== undefined ? d.tiktok_home : d.tiktokHome) || 0,
+          shopeeHome: Number(d.shopee_home !== undefined ? d.shopee_home : d.shopeeHome) || 0,
+          blibli: Number(d.blibli) || 0,
+          total: Number(d.total) || 0,
+          createdBy: d.created_by || d.createdBy || '',
+          createdAt: d.created_at || d.createdAt || null
+        }));
+
+        setOrders(mapped);
+      }
+    } catch (err: any) {
+      console.warn("Supabase fetch exception:", err);
+      await fetchOrdersFromFirestore();
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  // Realtime Supabase Subscription
   useEffect(() => {
     if (!user) {
       setOrders([]);
@@ -219,48 +364,19 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
       return;
     }
 
-    ensureFirebaseAuth();
-    setLoading(true);
-    const q = query(collection(db, 'daily_orders'));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedOrders: DailyOrder[] = [];
-      snapshot.forEach((doc) => {
-        fetchedOrders.push({
-          id: doc.id,
-          ...doc.data()
-        } as DailyOrder);
-      });
-      
-      // Sort client-side by inputDate desc, then inputTime desc
-      fetchedOrders.sort((a, b) => {
-        const dateA = a.inputDate || '';
-        const dateB = b.inputDate || '';
-        if (dateA !== dateB) {
-          return dateB.localeCompare(dateA);
-        }
-        const timeA = a.inputTime || '';
-        const timeB = b.inputTime || '';
-        return timeB.localeCompare(timeA);
-      });
-      
-      setOrders(fetchedOrders);
-      setLoading(false);
-    }, (error) => {
-      setLoading(false);
-      try {
-        handleFirestoreError(error, OperationType.LIST, 'daily_orders');
-      } catch (err) {
-        console.error("Firestore loading error:", err);
-      }
-    });
+    fetchOrdersFromSupabase();
 
-    return unsubscribe;
+    const channel = supabase
+      .channel('realtime_daily_orders_feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_orders' }, () => {
+        fetchOrdersFromSupabase(true);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
-
-  const triggerToast = (message: string, type: ToastType = 'success') => {
-    setToast({ message, type, visible: true });
-  };
 
   // Safe numeric conversion helper
   const parseNum = (val: string): number => {
@@ -278,7 +394,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
            parseNum(blibli);
   }, [shopee, tiktok, lazada, tiktokHome, shopeeHome, blibli]);
 
-  // Insert Record into Firestore
+  // Insert Record into Supabase
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -294,61 +410,64 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
 
     setActionLoading(true);
 
-    await ensureFirebaseAuth();
+    const effectiveCreatedBy = userProfile?.displayName || user?.email || 'User';
 
-    const effectiveCreatedBy = auth.currentUser?.uid || user?.uid || 'anonymous';
-
-    const newOrder: any = {
-      inputDate,
-      inputTime,
+    const supabasePayload = {
+      input_date: inputDate,
+      input_time: inputTime,
       shopee: parseNum(shopee),
       tiktok: parseNum(tiktok),
       lazada: parseNum(lazada),
-      tiktokHome: parseNum(tiktokHome),
-      shopeeHome: parseNum(shopeeHome),
+      tiktok_home: parseNum(tiktokHome),
+      shopee_home: parseNum(shopeeHome),
       blibli: parseNum(blibli),
       total: liveTotal,
-      createdBy: effectiveCreatedBy,
-      createdAt: serverTimestamp(),
-      created_at: serverTimestamp(),
-      timestamp: serverTimestamp(),
-      userEmail: user?.email || '',
-      userId: effectiveCreatedBy
+      created_by: effectiveCreatedBy,
+      user_email: user?.email || '',
+      user_id: user?.uid || 'anonymous'
     };
 
     try {
-      await addDoc(collection(db, 'daily_orders'), newOrder);
+      const { data, error } = await supabase
+        .from('daily_orders')
+        .insert([supabasePayload])
+        .select();
 
-      // Reset input fields immediately to allow quick consecutive entries
-      setShopee('');
-      setTiktok('');
-      setLazada('');
-      setTiktokHome('');
-      setShopeeHome('');
-      setBlibli('');
-      setInputTime('');
-
-      setActionLoading(false);
-      triggerToast('Data harian berhasil disimpan!');
-    } catch (err: any) {
-      console.error("Firestore submit error:", err);
-      setActionLoading(false);
-      try {
-        handleFirestoreError(err, OperationType.WRITE, 'daily_orders');
-      } catch (firestoreErr: any) {
-        let msg = 'Gagal menyimpan data harian ke Firestore.';
-        try {
-          const parsed = JSON.parse(firestoreErr.message);
-          msg += ` (${parsed.error || parsed})`;
-        } catch {
-          msg += ` (${firestoreErr.message || firestoreErr})`;
-        }
-        triggerToast(msg, 'error');
+      if (error) {
+        // If table doesn't exist yet, write to Firestore and alert user
+        console.error("Supabase insert error:", error);
+        await addDoc(collection(db, 'daily_orders'), {
+          ...supabasePayload,
+          inputDate,
+          inputTime,
+          tiktokHome: parseNum(tiktokHome),
+          shopeeHome: parseNum(shopeeHome),
+          createdAt: serverTimestamp()
+        });
+        await fetchOrdersFromFirestore();
+        triggerToast('Data disimpan ke Firestore (Tabel Supabase belum dibuat, silakan jalankan SQL schema)', 'warning');
+      } else {
+        // Reset input fields
+        setShopee('');
+        setTiktok('');
+        setLazada('');
+        setTiktokHome('');
+        setShopeeHome('');
+        setBlibli('');
+        setInputTime('');
+        
+        triggerToast('✅ Data orderan harian berhasil disimpan ke Supabase!');
+        await fetchOrdersFromSupabase(true);
       }
+    } catch (err: any) {
+      console.error("Submit error:", err);
+      triggerToast(`Gagal menyimpan data: ${err.message}`, 'error');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  // Delete Record
+  // Delete Record from Supabase
   const handleDelete = (id: string, createdBy: string) => {
     setDeleteConfirmId({ id, createdBy });
   };
@@ -356,34 +475,31 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
   const confirmDelete = async () => {
     if (!deleteConfirmId) return;
     setActionLoading(true);
+    const targetId = deleteConfirmId.id;
+
     try {
-      await ensureFirebaseAuth();
+      const { error } = await supabase
+        .from('daily_orders')
+        .delete()
+        .eq('id', targetId);
 
-      const targetId = deleteConfirmId.id;
-
-      // Delete directly from Firestore
-      await deleteDoc(doc(db, 'daily_orders', targetId));
+      if (error) {
+        console.warn("Supabase delete failed, trying Firestore fallback:", error);
+        await deleteDoc(doc(db, 'daily_orders', targetId));
+      } else {
+        // Also cleanup from Firestore if mirroring existed
+        deleteDoc(doc(db, 'daily_orders', targetId)).catch(() => {});
+      }
 
       setOrders(prev => prev.filter(o => o.id !== targetId));
-      setActionLoading(false);
       setDeleteConfirmId(null);
       triggerToast('Data harian berhasil dihapus.');
     } catch (err: any) {
-      console.error("Firestore delete error:", err);
-      setActionLoading(false);
+      console.error("Delete error:", err);
       setDeleteConfirmId(null);
-      try {
-        handleFirestoreError(err, OperationType.DELETE, `daily_orders/${deleteConfirmId.id}`);
-      } catch (firestoreErr: any) {
-        let msg = 'Gagal menghapus data harian.';
-        try {
-          const parsed = JSON.parse(firestoreErr.message);
-          msg += ` (${parsed.error || parsed})`;
-        } catch {
-          msg += ` (${firestoreErr.message || firestoreErr})`;
-        }
-        triggerToast(msg, 'error');
-      }
+      triggerToast(`Gagal menghapus data: ${err.message}`, 'error');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -398,7 +514,6 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     setEditForm((prev) => {
       const updated = { ...prev, [field]: value };
       
-      // Auto recalculate total
       if (['shopee', 'tiktok', 'lazada', 'tiktokHome', 'shopeeHome', 'blibli'].includes(field as string)) {
         const shopeeVal = parseNum(String(field === 'shopee' ? value : updated.shopee || 0));
         const tiktokVal = parseNum(String(field === 'tiktok' ? value : updated.tiktok || 0));
@@ -412,46 +527,122 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     });
   };
 
-  // Save Edit Record directly to Firestore
+  // Save Edit Record to Supabase
   const handleSaveEdit = async (id: string) => {
     if (!editForm.inputDate || !editForm.inputTime) {
       triggerToast('Tanggal dan waktu harus diisi.', 'error');
       return;
     }
 
-    try {
-      await ensureFirebaseAuth();
-      const recordDoc = doc(db, 'daily_orders', id);
+    const payload = {
+      input_date: editForm.inputDate,
+      input_time: editForm.inputTime,
+      shopee: parseNum(String(editForm.shopee || 0)),
+      tiktok: parseNum(String(editForm.tiktok || 0)),
+      lazada: parseNum(String(editForm.lazada || 0)),
+      tiktok_home: parseNum(String(editForm.tiktokHome || 0)),
+      shopee_home: parseNum(String(editForm.shopeeHome || 0)),
+      blibli: parseNum(String(editForm.blibli || 0)),
+      total: editForm.total || 0,
+      updated_at: new Date().toISOString()
+    };
 
-      await updateDoc(recordDoc, {
-        inputDate: editForm.inputDate,
-        inputTime: editForm.inputTime,
-        shopee: parseNum(String(editForm.shopee || 0)),
-        tiktok: parseNum(String(editForm.tiktok || 0)),
-        lazada: parseNum(String(editForm.lazada || 0)),
-        tiktokHome: parseNum(String(editForm.tiktokHome || 0)),
-        shopeeHome: parseNum(String(editForm.shopeeHome || 0)),
-        blibli: parseNum(String(editForm.blibli || 0)),
-        total: editForm.total || 0,
+    try {
+      const { error } = await supabase
+        .from('daily_orders')
+        .update(payload)
+        .eq('id', id);
+
+      if (error) {
+        console.warn("Supabase update error, falling back to Firestore:", error);
+        await updateDoc(doc(db, 'daily_orders', id), {
+          inputDate: editForm.inputDate,
+          inputTime: editForm.inputTime,
+          shopee: parseNum(String(editForm.shopee || 0)),
+          tiktok: parseNum(String(editForm.tiktok || 0)),
+          lazada: parseNum(String(editForm.lazada || 0)),
+          tiktokHome: parseNum(String(editForm.tiktokHome || 0)),
+          shopeeHome: parseNum(String(editForm.shopeeHome || 0)),
+          blibli: parseNum(String(editForm.blibli || 0)),
+          total: editForm.total || 0,
+        });
+      }
+
+      triggerToast('✅ Data harian berhasil diperbarui.');
+      setEditingId(null);
+      await fetchOrdersFromSupabase(true);
+    } catch (err: any) {
+      console.error("Save edit error:", err);
+      triggerToast(`Gagal memperbarui data: ${err.message}`, 'error');
+    }
+  };
+
+  // 1-Click Sync Firestore to Supabase
+  const handleSyncFirestoreToSupabase = async () => {
+    setIsSyncing(true);
+    try {
+      const snapshot = await getDocs(collection(db, 'daily_orders'));
+      if (snapshot.empty) {
+        triggerToast('Tidak ada data orderan harian di Firestore untuk disinkronkan.', 'error');
+        setIsSyncing(false);
+        setIsSyncModalOpen(false);
+        return;
+      }
+
+      const rows: any[] = [];
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data();
+        rows.push({
+          id: docSnap.id,
+          input_date: d.inputDate || d.input_date || d.date || format(new Date(), 'yyyy-MM-dd'),
+          input_time: d.inputTime || d.input_time || '00:00',
+          shopee: Number(d.shopee) || 0,
+          tiktok: Number(d.tiktok) || 0,
+          lazada: Number(d.lazada) || 0,
+          tiktok_home: Number(d.tiktokHome !== undefined ? d.tiktokHome : d.tiktok_home) || 0,
+          shopee_home: Number(d.shopeeHome !== undefined ? d.shopeeHome : d.shopee_home) || 0,
+          blibli: Number(d.blibli) || 0,
+          total: Number(d.total) || 0,
+          created_by: d.createdBy || d.created_by || 'Firestore Migration',
+          user_email: d.userEmail || d.user_email || '',
+          user_id: d.userId || d.user_id || ''
+        });
       });
 
-      triggerToast('Data harian berhasil diperbarui.');
-      setEditingId(null);
-    } catch (err: any) {
-      console.error("Firestore edit error:", err);
-      try {
-        handleFirestoreError(err, OperationType.WRITE, `daily_orders/${id}`);
-      } catch (firestoreErr: any) {
-        let msg = 'Gagal memperbarui data.';
-        try {
-          const parsed = JSON.parse(firestoreErr.message);
-          msg += ` (${parsed.error || parsed})`;
-        } catch {
-          msg += ` (${firestoreErr.message || firestoreErr})`;
-        }
-        triggerToast(msg, 'error');
+      let successCount = 0;
+      for (let i = 0; i < rows.length; i += 100) {
+        const chunk = rows.slice(i, i + 100);
+        const { error } = await supabase
+          .from('daily_orders')
+          .upsert(chunk, { onConflict: 'id' });
+
+        if (error) throw error;
+        successCount += chunk.length;
       }
+
+      triggerToast(`⚡ Sukses menyinkronkan ${successCount} data orderan harian ke Supabase!`, 'success');
+      await fetchOrdersFromSupabase();
+    } catch (err: any) {
+      console.error("Sync Firestore to Supabase error:", err);
+      const msg = err.message || '';
+      if (err.code === 'PGRST205' || msg.includes('schema cache') || msg.includes('daily_orders') || msg.includes('relation')) {
+        setSupabaseTableMissing(true);
+        triggerToast('⚠️ Tabel daily_orders belum dibuat di Supabase. Silakan jalankan Skrip SQL di SQL Editor terlebih dahulu (klik tombol Skema SQL).', 'error');
+        setIsSqlModalOpen(true);
+      } else {
+        triggerToast(`Gagal sinkronisasi: ${msg}`, 'error');
+      }
+    } finally {
+      setIsSyncing(false);
+      setIsSyncModalOpen(false);
     }
+  };
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SQL_SCHEMA_CODE);
+    setCopiedSql(true);
+    triggerToast('📋 Skrip SQL berhasil disalin ke clipboard!');
+    setTimeout(() => setCopiedSql(false), 3000);
   };
 
   // Filtering Logic
@@ -489,7 +680,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage) || 1;
 
-  // Export to beautifully styled Excel (matching other xlsx-js-style implementations)
+  // Export to Excel
   const handleExportExcel = () => {
     if (filteredOrders.length === 0) {
       triggerToast('Tidak ada data harian untuk di-export.', 'error');
@@ -497,7 +688,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     }
 
     const wsData = [
-      ['LAPORAN ORDERAN HARIAN — ADMIN REPORT PRO'],
+      ['LAPORAN ORDERAN HARIAN — ADMIN REPORT PRO (SUPABASE)'],
       [`Dicetak pada: ${format(new Date(), 'dd-MM-yyyy HH:mm')} oleh ${userProfile?.displayName || user?.email}`],
       [],
       ['TANGGAL', 'WAKTU', 'SHOPEE', 'TIKTOK', 'LAZADA', 'TIKTOK HOME', 'SHOPEE HOME', 'BLIBLI', 'TOTAL']
@@ -517,7 +708,6 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
       ]);
     });
 
-    // Add aggregate total row
     wsData.push([]);
     wsData.push([
       'TOTAL REKAPITULASI',
@@ -534,20 +724,11 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    // Apply styles to Excel Sheets
     ws['!cols'] = [
-      { wch: 14 }, // Tanggal
-      { wch: 10 }, // Waktu
-      { wch: 12 }, // Shopee
-      { wch: 12 }, // Tiktok
-      { wch: 12 }, // Lazada
-      { wch: 14 }, // Tiktok Home
-      { wch: 14 }, // Shopee Home
-      { wch: 12 }, // Blibli
-      { wch: 14 }  // Total
+      { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, 
+      { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 }
     ];
 
-    // Design styles matching corporate aesthetic
     const titleStyle = { font: { name: 'Arial', sz: 14, bold: true, color: { rgb: '312e81' } } };
     const subtitleStyle = { font: { name: 'Arial', sz: 10, italic: true, color: { rgb: '6b7280' } } };
     const headerStyle = {
@@ -570,18 +751,15 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
       alignment: { horizontal: 'center' }
     };
 
-    // Apply styles to individual cells
     ws['A1'].s = titleStyle;
     ws['A2'].s = subtitleStyle;
 
-    // Header cells (Row index 3 in 0-indexed representation)
     const headerRowIdx = 3;
     for (let colIdx = 0; colIdx < 9; colIdx++) {
       const cellRef = XLSX.utils.encode_cell({ r: headerRowIdx, c: colIdx });
       if (ws[cellRef]) ws[cellRef].s = headerStyle;
     }
 
-    // Records formatting
     const startRecordRow = 4;
     const endRecordRow = 4 + filteredOrders.length;
     for (let r = startRecordRow; r < endRecordRow; r++) {
@@ -591,7 +769,6 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
       }
     }
 
-    // Total Footer Styles
     const totalRowIdx = endRecordRow + 1;
     for (let c = 0; c < 9; c++) {
       const cellRef = XLSX.utils.encode_cell({ r: totalRowIdx, c });
@@ -599,7 +776,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
     }
 
     XLSX.utils.book_append_sheet(wb, ws, "Rekap Orderan Harian");
-    XLSX.writeFile(wb, `Rekap_Orderan_Harian_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    XLSX.writeFile(wb, `Rekap_Orderan_Harian_Supabase_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     triggerToast('Excel berhasil diexport!');
   };
 
@@ -622,6 +799,28 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         onClose={() => setToast(prev => ({ ...prev, visible: false }))} 
       />
 
+      {/* Supabase Table Missing Warning Banner */}
+      {supabaseTableMissing && (
+        <div className="bg-amber-950/60 border border-amber-500/50 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-amber-200">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold text-xs">Tabel Supabase `daily_orders` belum terdeteksi</p>
+              <p className="text-[11px] text-amber-300/80">Jalankan SQL Schema di Supabase SQL Editor untuk mengaktifkan database Supabase &amp; fitur Realtime.</p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => setIsSqlModalOpen(true)}
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-black font-extrabold text-xs rounded-xl shadow transition cursor-pointer flex items-center gap-1.5"
+            >
+              <Code2 className="w-3.5 h-3.5" />
+              <span>Buka SQL Editor</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -629,36 +828,57 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               DATA ORDERAN HARIAN
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#052e16] text-[#34d399] border border-emerald-500/30 tracking-wider">
-              Live Monitoring
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#06241a] text-[#34d399] border border-emerald-500/40 tracking-wider flex items-center gap-1.5 shadow-sm">
+              <Database className="w-3 h-3 text-emerald-400" />
+              <span>Supabase Engine</span>
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
-            Input manual data print admin/jumlah orderan masuk setelah dilakukan penarikan data per jam dari masing-masing marketplace.
+            Input manual data print admin/jumlah orderan masuk setelah dilakukan penarikan data per jam dari masing-masing marketplace (Terhubung Realtime ke Supabase).
           </p>
         </div>
 
-        {/* Quick Excel Export */}
-        <button
-          onClick={handleExportExcel}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 active:scale-95 transition-all cursor-pointer"
-        >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
-          <span>Export ke Excel</span>
-        </button>
+        {/* Action Header Controls */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* SQL Schema Button */}
+          <button
+            onClick={() => setIsSqlModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1e1040] hover:bg-[#2b175a] border border-purple-500/40 text-purple-200 text-xs font-bold transition cursor-pointer shadow-md"
+            title="Lihat & Salin Skrip SQL Editor Supabase"
+          >
+            <Code2 className="w-4 h-4 text-purple-400" />
+            <span>SQL Schema</span>
+          </button>
+
+          {/* Sync Firestore -> Supabase Button */}
+          <button
+            onClick={() => setIsSyncModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold shadow-lg shadow-teal-900/30 active:scale-95 transition-all cursor-pointer"
+            title="Pindahkan seluruh data dari Firestore ke Supabase"
+          >
+            <RefreshCw className="w-4 h-4 text-teal-200" />
+            <span>Sinkronkan ke Supabase</span>
+          </button>
+
+          {/* Quick Excel Export */}
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 active:scale-95 transition-all cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+            <span>Export ke Excel</span>
+          </button>
+        </div>
       </div>
 
-      {/* 4 Analytics KPI Cards with Custom WebP Backgrounds */}
+      {/* 4 Analytics KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
         {/* Shopee Card */}
         <div className="relative overflow-hidden bg-[#130b2e]/90 border border-orange-500/25 hover:border-orange-500/50 p-4 sm:p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group min-h-[120px] sm:min-h-[140px]">
-          {/* Custom WebP Background Layer */}
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80 group-hover:opacity-95 group-hover:scale-105 transition-all duration-500 pointer-events-none"
             style={{ backgroundImage: `url('/images/orderan/shopee-bg.webp')` }}
           />
-          
-          {/* Card Content */}
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div className="flex items-center justify-end mb-2 pt-1">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#2f1308]/90 border border-orange-600/40 flex items-center justify-center text-orange-400 group-hover:scale-110 shadow-sm shadow-orange-950 transition-transform">
@@ -672,13 +892,10 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         
         {/* TikTok Card */}
         <div className="relative overflow-hidden bg-[#130b2e]/90 border border-cyan-500/25 hover:border-cyan-500/50 p-4 sm:p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group min-h-[120px] sm:min-h-[140px]">
-          {/* Custom WebP Background Layer */}
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80 group-hover:opacity-95 group-hover:scale-105 transition-all duration-500 pointer-events-none"
             style={{ backgroundImage: `url('/images/orderan/tiktok-bg.webp')` }}
           />
-          
-          {/* Card Content */}
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div className="flex items-center justify-end mb-2 pt-1">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#082830]/90 border border-cyan-600/40 flex items-center justify-center text-cyan-400 group-hover:scale-110 shadow-sm shadow-cyan-950 transition-transform">
@@ -692,13 +909,10 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
 
         {/* Lazada & Blibli Card */}
         <div className="relative overflow-hidden bg-[#130b2e]/90 border border-blue-500/25 hover:border-blue-500/50 p-4 sm:p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group min-h-[120px] sm:min-h-[140px]">
-          {/* Custom WebP Background Layer */}
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80 group-hover:opacity-95 group-hover:scale-105 transition-all duration-500 pointer-events-none"
             style={{ backgroundImage: `url('/images/orderan/lazada-blibli-bg.webp')` }}
           />
-          
-          {/* Card Content */}
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div className="flex items-center justify-end mb-2 pt-1">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#0b244d]/90 border border-blue-600/40 flex items-center justify-center text-blue-400 group-hover:scale-110 shadow-sm shadow-blue-950 transition-transform">
@@ -712,13 +926,10 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
 
         {/* Akumulasi Total Card */}
         <div className="relative overflow-hidden bg-[#130b2e]/90 border border-purple-500/40 hover:border-purple-400/70 p-4 sm:p-5 rounded-2xl shadow-xl flex flex-col justify-between transition-all group min-h-[120px] sm:min-h-[140px]">
-          {/* Custom WebP Background Layer */}
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80 group-hover:opacity-95 group-hover:scale-105 transition-all duration-500 pointer-events-none"
             style={{ backgroundImage: `url('/images/orderan/total-orders-bg.webp')` }}
           />
-          
-          {/* Card Content */}
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div className="flex items-center justify-end mb-2 pt-1">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-900/60 border border-purple-500/50 flex items-center justify-center text-purple-300 group-hover:scale-110 shadow-sm shadow-purple-950 transition-transform">
@@ -737,9 +948,14 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
         {/* Form Container */}
         <div className="xl:col-span-4 h-fit">
           <div className="bg-[#130b2e]/90 border border-purple-900/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-            <div className="flex items-center gap-2 mb-5">
-              <PlusCircle className="w-5 h-5 text-purple-400" />
-              <h2 className="text-base font-bold text-white">Input Orderan Hari Ini</h2>
+            <div className="flex items-center justify-between gap-2 mb-5">
+              <div className="flex items-center gap-2">
+                <PlusCircle className="w-5 h-5 text-purple-400" />
+                <h2 className="text-base font-bold text-white">Input Orderan Hari Ini</h2>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-950/80 border border-emerald-500/30 text-emerald-400">
+                Supabase DB
+              </span>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -888,7 +1104,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                 ) : (
                   <>
                     <PlusCircle className="w-4 h-4" />
-                    <span>Simpan Catatan Orderan</span>
+                    <span>Simpan ke Supabase</span>
                   </>
                 )}
               </button>
@@ -956,7 +1172,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
                       <td colSpan={10} className="p-12 text-center text-slate-400">
                         <div className="flex flex-col items-center gap-3">
                           <Loader2 className="w-7 h-7 animate-spin text-purple-400" />
-                          <span className="text-xs font-medium">Memuat data orderan harian...</span>
+                          <span className="text-xs font-medium">Memuat data orderan harian dari Supabase...</span>
                         </div>
                       </td>
                     </tr>
@@ -1171,6 +1387,144 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
 
       </div>
 
+      {/* Sync Confirmation Modal */}
+      <AnimatePresence>
+        {isSyncModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isSyncing && setIsSyncModalOpen(false)}
+              className="absolute inset-0 bg-[#050212]/85 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="relative w-full max-w-lg bg-[#130b2e] border border-teal-500/50 rounded-3xl p-6 shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-teal-950/80 border border-teal-500/40 flex items-center justify-center text-teal-300">
+                  <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-white">Sinkronkan Firestore ke Supabase</h3>
+                  <p className="text-xs text-slate-400">Migrasi &amp; Salin semua data orderan harian lama ke Supabase</p>
+                </div>
+              </div>
+
+              <div className="bg-[#0c0620]/90 border border-purple-900/40 p-4 rounded-2xl mb-5 space-y-2 text-xs text-slate-300 leading-relaxed">
+                <p>Fitur ini akan:</p>
+                <ul className="list-disc pl-4 space-y-1 text-slate-400">
+                  <li>Membaca seluruh catatan dari collection Firestore <code className="text-teal-300 font-mono font-bold">daily_orders</code>.</li>
+                  <li>Melakukan upsert langsung ke tabel Supabase <code className="text-teal-300 font-mono font-bold">daily_orders</code>.</li>
+                  <li>Data di Firestore <strong>tidak akan dihapus</strong>, melainkan disalin dan disinkronkan secara aman.</li>
+                </ul>
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  disabled={isSyncing}
+                  onClick={() => setIsSyncModalOpen(false)}
+                  className="bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-bold py-2.5 px-4 rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSyncing}
+                  onClick={handleSyncFirestoreToSupabase}
+                  className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-extrabold py-2.5 px-5 rounded-xl text-xs transition shadow-lg shadow-teal-950/40 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Sedang Menyinkronkan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Mulai Sinkronisasi Sekarang</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SQL Schema Modal */}
+      <AnimatePresence>
+        {isSqlModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSqlModalOpen(false)}
+              className="absolute inset-0 bg-[#050212]/85 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="relative w-full max-w-2xl bg-[#130b2e] border border-purple-900/60 rounded-3xl p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-purple-900/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-950/80 border border-purple-500/40 flex items-center justify-center text-purple-300">
+                    <Code2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">SQL Schema: daily_orders</h3>
+                    <p className="text-xs text-slate-400">Jalankan skrip ini di SQL Editor Supabase</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsSqlModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/5 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="my-4 overflow-y-auto flex-1 bg-[#070314] p-4 rounded-2xl border border-purple-900/40 font-mono text-[11px] text-purple-200 leading-relaxed relative group">
+                <pre className="whitespace-pre-wrap select-all">{SQL_SCHEMA_CODE}</pre>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-purple-900/30">
+                <a
+                  href="https://supabase.com/dashboard/project/ymolrxscthxxtlmnxmob/sql"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-purple-300 hover:text-purple-200 underline flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Buka Supabase SQL Editor Dashboard</span>
+                </a>
+
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={handleCopySql}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg transition cursor-pointer"
+                  >
+                    {copiedSql ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedSql ? 'Tersalin!' : 'Salin Skrip SQL'}</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {deleteConfirmId && (
@@ -1196,7 +1550,7 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
               
               <h3 className="text-lg font-extrabold text-white mb-2">Konfirmasi Hapus</h3>
               <p className="text-slate-300 text-xs leading-relaxed mb-6">
-                Apakah Anda yakin ingin menghapus catatan orderan harian ini? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
+                Apakah Anda yakin ingin menghapus catatan orderan harian ini dari database? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
               </p>
               
               <div className="flex gap-3 justify-center">

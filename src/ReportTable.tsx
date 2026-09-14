@@ -17,7 +17,6 @@ import XLSX from 'xlsx-js-style';
 import { writeBatch } from 'firebase/firestore';
 
 import { updateDashboardStats } from './stats';
-import { supabaseCancelFisik } from './supabaseClient';
 
 interface ReportTableProps {
   reports: Report[];
