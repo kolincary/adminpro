@@ -66,6 +66,7 @@ interface AdminPanelProps {
 export default function AdminPanel({ user }: AdminPanelProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'backups' | 'blocked' | 'master' | 'settings' | 'sessions' | 'security' | 'notifications' | 'dual_database'>('backups');
   const [isSyncingDual, setIsSyncingDual] = useState(false);
