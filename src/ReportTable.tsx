@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, addDoc, setDoc, serverTimestamp, getDoc, updateDoc, limit } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { Report, OperationType, UserProfile } from './types';
+import Toast, { ToastType } from './Toast';
 import { handleFirestoreError, normalizeDate, getCleanAnalis, getCleanInvoice } from './utils';
 import { 
   Search, Filter, Trash2, ChevronLeft, ChevronRight, FileSpreadsheet, 
