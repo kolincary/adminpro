@@ -672,9 +672,29 @@ function AppContent() {
       for (const item of fsList) {
         if (item.id) itemMap.set(item.id, item);
       }
-      // 2. Overlay freshest Supabase 7-day rolling data (Fast & Realtime)
-      for (const item of sbList) {
-        if (item.id) itemMap.set(item.id, item);
+      // 2. Overlay freshest Supabase 7-day rolling data (Fast & Realtime) with Smart Merge
+      for (const sbItem of sbList) {
+        if (sbItem.id) {
+          const existing = itemMap.get(sbItem.id);
+          if (existing) {
+            // Smart Merge: Don't let blank/placeholder Supabase fields overwrite non-empty Firestore fields
+            itemMap.set(sbItem.id, {
+              ...existing,
+              ...sbItem,
+              invoiceNumber: (sbItem.invoiceNumber && sbItem.invoiceNumber !== '---') ? sbItem.invoiceNumber : (existing.invoiceNumber || sbItem.invoiceNumber || ''),
+              picGinee: (sbItem.picGinee && sbItem.picGinee !== '---') ? sbItem.picGinee : (existing.picGinee || sbItem.picGinee || ''),
+              analis: ((sbItem as any).analis && (sbItem as any).analis !== '---') ? (sbItem as any).analis : ((existing as any).analis || (sbItem as any).analis || ''),
+              createdBy: (sbItem.createdBy && sbItem.createdBy !== '---') ? sbItem.createdBy : (existing.createdBy || sbItem.createdBy || ''),
+              type: (sbItem.type && sbItem.type !== 'Standard') ? sbItem.type : (existing.type || sbItem.type || 'Standard'),
+              gineeInputDate: sbItem.gineeInputDate || existing.gineeInputDate || '',
+              itemDescription: sbItem.itemDescription || existing.itemDescription || '',
+              status: sbItem.status || existing.status || '',
+              marketplace: (sbItem.marketplace && sbItem.marketplace !== 'Umum') ? sbItem.marketplace : (existing.marketplace || sbItem.marketplace || 'Umum'),
+            });
+          } else {
+            itemMap.set(sbItem.id, sbItem);
+          }
+        }
       }
       const combined = Array.from(itemMap.values());
       combined.sort((a, b) => ((b as any)._sortTs || 0) - ((a as any)._sortTs || 0));
@@ -765,13 +785,15 @@ function AppContent() {
 
     const mapReportDoc = (doc: any) => {
       const d = doc.data();
-      const sku = d.sku || d.sku_id || d.item_code || '';
-      const normalizedStatus = getNormalizedStatus(d.modul_fisik || d.status || d.assetStatus, '');
-      const category = getInferredCategory(normalizedStatus, d.category, '', 'reports', sku);
+      const sku = d.sku || d.sku_id || d.item_code || d.msku || '';
+      const rawStatus = d.modul_fisik || d.status || d.assetStatus || '';
+      const type = d.type || (rawStatus.toUpperCase().includes('COD') ? 'COD' : 'Standard');
+      const normalizedStatus = getNormalizedStatus(rawStatus, type);
+      const category = getInferredCategory(normalizedStatus, d.category, type, 'reports', sku);
       
       const createdAt = d.created_at || d.createdAt || d.timestamp || d.updatedAt || null;
       let _sortTs = 0;
-      let inputDateStr = d.inputDate || d.logDate || d.date || d.tanggal || '';
+      let inputDateStr = d.inputDate || d.logDate || d.date || d.tanggal || d.tanggal_log || '';
 
       if (createdAt) {
         if (typeof createdAt.toDate === 'function') _sortTs = createdAt.toDate().getTime();
@@ -793,15 +815,27 @@ function AppContent() {
         _sortTs = isNaN(dts.getTime()) ? 0 : dts.getTime();
       }
 
+      const invoiceNumber = d.invoiceNumber || d.invoice_number || d.referensi_invoice || d.invoice_ref || d.invoice || d.idPesanan || d.id_pesanan || d.noPesanan || d.no_pesanan || d.nomorResi || d.nomor_resi || d.barcode || doc.id || '';
+      const picGinee = d.picGinee || d.pic_ginee || d.pic_input_ginee || d.analis || d.analis_pic || d.createdBy || d.created_by || d.pic || '';
+      const analis = d.analis || d.analis_pic || d.picGinee || d.pic_ginee || d.createdBy || d.created_by || d.pic || '';
+      const createdBy = d.created_by || d.createdBy || analis || picGinee || d.pic || '';
+      const gineeInputDate = d.gineeInputDate || d.ginee_input_date || d.tgl_input_ginee || '';
+
       return {
         id: doc.id,
         _source: 'reports',
         ...d,
         category,
-        sku: d.sku || d.sku_id || d.item_code || '',
-        quantity: d.quantity || d.qty || 0,
+        sku,
+        quantity: Number(d.quantity || d.qty || d.jumlah || 1),
         inputDate: normalizeDate(inputDateStr),
-        status: d.status || '',
+        invoiceNumber,
+        picGinee,
+        analis,
+        createdBy,
+        type,
+        gineeInputDate,
+        status: rawStatus,
         normalizedStatus,
         createdAt,
         _sortTs
@@ -810,13 +844,15 @@ function AppContent() {
 
     const mapTransactionDoc = (doc: any) => {
       const d = doc.data();
-      const sku = d.sku_id || d.sku || d.item_code || '';
-      const normalizedStatus = getNormalizedStatus(d.modul_fisik || d.status || d.assetStatus, d.type || '');
-      const category = getInferredCategory(normalizedStatus, d.category, d.type || '', 'transactions', sku);
+      const sku = d.sku_id || d.sku || d.item_code || d.msku || '';
+      const rawStatus = d.modul_fisik || d.status || d.assetStatus || '';
+      const type = d.type || (rawStatus.toUpperCase().includes('COD') ? 'COD' : 'Standard');
+      const normalizedStatus = getNormalizedStatus(rawStatus, type);
+      const category = getInferredCategory(normalizedStatus, d.category, type, 'transactions', sku);
       
       const createdAt = d.created_at || d.createdAt || d.timestamp || d.updatedAt || null;
       let _sortTs = 0;
-      let inputDateStr = d.date || d.inputDate || d.logDate || d.tanggal || '';
+      let inputDateStr = d.date || d.inputDate || d.logDate || d.tanggal || d.tanggal_log || '';
 
       if (createdAt) {
         if (typeof createdAt.toDate === 'function') _sortTs = createdAt.toDate().getTime();
@@ -838,21 +874,31 @@ function AppContent() {
         _sortTs = isNaN(dts.getTime()) ? 0 : dts.getTime();
       }
 
+      const invoiceNumber = d.invoice_number || d.invoiceNumber || d.referensi_invoice || d.invoice_ref || d.invoice || d.idPesanan || d.id_pesanan || d.noPesanan || d.no_pesanan || d.nomorResi || d.nomor_resi || d.barcode || doc.id || '';
+      const picGinee = d.picGinee || d.pic_ginee || d.pic_input_ginee || d.analis || d.analis_pic || d.createdBy || d.created_by || d.pic || '';
+      const analis = d.analis || d.analis_pic || d.picGinee || d.pic_ginee || d.createdBy || d.created_by || d.pic || '';
+      const createdBy = d.created_by || d.createdBy || analis || picGinee || d.pic || '';
+      const gineeInputDate = d.gineeInputDate || d.ginee_input_date || d.tgl_input_ginee || '';
+
       return {
         id: doc.id,
         ...d, // Spread all fields to avoid missing data
         _source: 'transactions',
         category,
-        sku: d.sku_id || d.sku || d.item_code || '',
-        quantity: d.quantity || d.qty || 0,
+        sku,
+        quantity: Number(d.quantity || d.qty || d.jumlah || 1),
         inputDate: normalizeDate(inputDateStr),
         createdAt,
-        createdBy: d.created_by || d.createdBy || d.analis || '',
-        marketplace: d.marketplace || 'Umum',
-        invoiceNumber: d.invoice_number || d.invoiceNumber || d.id,
-        status: d.status || '',
+        createdBy,
+        picGinee,
+        analis,
+        type,
+        gineeInputDate,
+        marketplace: d.marketplace || d.pasar || 'Umum',
+        invoiceNumber,
+        status: rawStatus,
         normalizedStatus,
-        itemDescription: d.item_name || d.itemDescription || '',
+        itemDescription: d.item_name || d.itemDescription || d.product_name || '',
         _sortTs
       } as Report & { _sortTs: number };
     };

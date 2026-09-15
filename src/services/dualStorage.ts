@@ -256,19 +256,28 @@ export async function syncLast7DaysToSupabase(
     stage: 'Membaca data laporan 7 hari terakhir dari Firebase Firestore...'
   });
 
-  // Ambil data Firestore dari 7 hari terakhir
-  const snapshot = await getDocs(collection(db, 'reports'));
-  const rows: any[] = [];
+  // Ambil data Firestore dari 7 hari terakhir (dari koleksi reports dan transactions)
+  const [snapReports, snapTransactions] = await Promise.all([
+    getDocs(collection(db, 'reports')),
+    getDocs(collection(db, 'transactions'))
+  ]);
 
-  snapshot.forEach((docSnap) => {
+  const rows: any[] = [];
+  const seenIds = new Set<string>();
+
+  const processDoc = (docSnap: any) => {
+    if (seenIds.has(docSnap.id)) return;
+    seenIds.add(docSnap.id);
+
     const d = docSnap.data();
-    const dateStr = normalizeDateStr(d.inputDate || d.date || d.logDate);
-    const invoiceNumber = d.invoiceNumber || d.invoice_number || d.referensi_invoice || d.invoice_ref || d.invoice || d.barcode || docSnap.id || '';
-    const picGinee = d.picGinee || d.pic_ginee || d.analis || d.createdBy || d.created_by || d.pic || '';
-    const analis = d.analis || d.picGinee || d.pic_ginee || d.createdBy || d.created_by || d.pic || '';
-    const type = d.type || 'Standard';
-    const gineeInputDate = d.gineeInputDate || d.ginee_input_date || null;
-    const assetStatus = d.assetStatus || d.asset_status || d.status || '';
+    const dateStr = normalizeDateStr(d.inputDate || d.date || d.logDate || d.tanggal || d.tanggal_log || d.timestamp);
+    const invoiceNumber = d.invoiceNumber || d.invoice_number || d.referensi_invoice || d.invoice_ref || d.invoice || d.idPesanan || d.id_pesanan || d.noPesanan || d.no_pesanan || d.nomorResi || d.nomor_resi || d.barcode || docSnap.id || '';
+    const picGinee = d.picGinee || d.pic_ginee || d.pic_input_ginee || d.analis || d.analis_pic || d.createdBy || d.created_by || d.pic || '';
+    const analis = d.analis || d.analis_pic || d.picGinee || d.pic_ginee || d.createdBy || d.created_by || d.pic || '';
+    const rawStatus = d.status || d.assetStatus || d.modul_fisik || '';
+    const type = d.type || (rawStatus.toUpperCase().includes('COD') ? 'COD' : 'Standard');
+    const gineeInputDate = d.gineeInputDate || d.ginee_input_date || d.tgl_input_ginee || null;
+    const assetStatus = d.assetStatus || d.asset_status || rawStatus;
     
     // Hanya ambil data dalam rentang 7 hari terakhir
     if (dateStr >= sevenDaysAgoStr) {
@@ -281,15 +290,15 @@ export async function syncLast7DaysToSupabase(
         type: type,
         ginee_input_date: gineeInputDate,
         asset_status: assetStatus,
-        nama_barang: d.itemDescription || d.nama_barang || d.item_name || '',
-        item_name: d.itemDescription || d.nama_barang || d.item_name || '',
-        sku: d.sku || d.sku_id || d.item_code || '',
-        qty: Number(d.quantity || d.qty || 1),
-        quantity: Number(d.quantity || d.qty || 1),
-        status: d.status || assetStatus || '',
-        modul_fisik: d.modul_fisik || d.status || assetStatus || '',
+        nama_barang: d.itemDescription || d.nama_barang || d.item_name || d.product_name || '',
+        item_name: d.itemDescription || d.nama_barang || d.item_name || d.product_name || '',
+        sku: d.sku || d.sku_id || d.item_code || d.msku || '',
+        qty: Number(d.quantity || d.qty || d.jumlah || 1),
+        quantity: Number(d.quantity || d.qty || d.jumlah || 1),
+        status: rawStatus,
+        modul_fisik: d.modul_fisik || rawStatus,
         category: d.category || '',
-        marketplace: d.marketplace || 'Umum',
+        marketplace: d.marketplace || d.pasar || 'Umum',
         pic: d.pic || picGinee || d.createdBy || '',
         keterangan: d.keterangan || d.notes || d.itemDescription || '',
         notes: d.notes || d.keterangan || '',
@@ -303,7 +312,10 @@ export async function syncLast7DaysToSupabase(
         updated_at: new Date().toISOString()
       });
     }
-  });
+  };
+
+  snapReports.forEach(processDoc);
+  snapTransactions.forEach(processDoc);
 
   const totalRows = rows.length;
   if (totalRows === 0) {
