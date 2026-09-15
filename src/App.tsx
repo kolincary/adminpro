@@ -663,11 +663,29 @@ function AppContent() {
     const unsubs: (() => void)[] = [];
 
     // Unified processing functions
-    const processSnapReports = (snapshot: any) => {
-      const mapped = snapshot.docs.map((d: any) => mapReportDoc(d));
-      setReports(mapped);
+    let fsReportsData: Report[] = [];
+    let sbReportsData: Report[] = [];
+
+    const combineAndSetReports = (fsList: Report[], sbList: Report[]) => {
+      const itemMap = new Map<string, Report>();
+      // 1. Lifetime Firestore data (Permanent)
+      for (const item of fsList) {
+        if (item.id) itemMap.set(item.id, item);
+      }
+      // 2. Overlay freshest Supabase 7-day rolling data (Fast & Realtime)
+      for (const item of sbList) {
+        if (item.id) itemMap.set(item.id, item);
+      }
+      const combined = Array.from(itemMap.values());
+      combined.sort((a, b) => ((b as any)._sortTs || 0) - ((a as any)._sortTs || 0));
+      setReports(combined);
       reportsDone = true;
       setIsDataLoading(false);
+    };
+
+    const processSnapReports = (snapshot: any) => {
+      fsReportsData = snapshot.docs.map((d: any) => mapReportDoc(d));
+      combineAndSetReports(fsReportsData, sbReportsData);
     };
 
     const processSnapTransactions = (snapshot: any) => {
@@ -838,6 +856,77 @@ function AppContent() {
         _sortTs
       } as Report & { _sortTs: number };
     };
+
+    const mapSupabaseReportDoc = (d: any) => {
+      const sku = d.sku || d.item_code || '';
+      const normalizedStatus = getNormalizedStatus(d.modul_fisik || d.status, '');
+      const category = getInferredCategory(normalizedStatus, d.category, '', 'reports', sku);
+      const createdAt = d.created_at || null;
+      let _sortTs = 0;
+      let inputDateStr = d.date || d.input_date || '';
+
+      if (createdAt) {
+        const dts = new Date(createdAt);
+        _sortTs = isNaN(dts.getTime()) ? 0 : dts.getTime();
+      }
+      if (!inputDateStr && _sortTs > 0) {
+        inputDateStr = new Date(_sortTs).toISOString().split('T')[0];
+      }
+      if (_sortTs === 0 && inputDateStr) {
+        const dts = new Date(normalizeDate(inputDateStr));
+        _sortTs = isNaN(dts.getTime()) ? 0 : dts.getTime();
+      }
+
+      return {
+        id: String(d.id),
+        _source: 'reports',
+        category,
+        sku,
+        quantity: Number(d.qty || d.quantity || 1),
+        itemDescription: d.nama_barang || d.item_name || '',
+        barcode: d.barcode || '',
+        status: d.status || '',
+        modul_fisik: d.modul_fisik || d.status || '',
+        marketplace: d.marketplace || 'Umum',
+        pic: d.pic || d.created_by || '',
+        keterangan: d.keterangan || '',
+        inputDate: normalizeDate(inputDateStr),
+        image_url: d.image_url || '',
+        createdAt,
+        _sortTs
+      } as Report & { _sortTs: number };
+    };
+
+    // Load Supabase 7-day rolling reports
+    const fetchSupabase7DayReports = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('reports')
+          .select('*')
+          .order('date', { ascending: false });
+
+        if (data && !error) {
+          sbReportsData = data.map((d: any) => mapSupabaseReportDoc(d));
+          combineAndSetReports(fsReportsData, sbReportsData);
+        }
+      } catch (sbErr) {
+        console.warn("Supabase 7-day reports fetch catch notice:", sbErr);
+      }
+    };
+
+    fetchSupabase7DayReports();
+
+    // Supabase Realtime WebSocket listener on reports table
+    const sbChannel = supabase
+      .channel('app_reports_7days_channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => {
+        fetchSupabase7DayReports();
+      })
+      .subscribe();
+
+    unsubs.push(() => {
+      supabase.removeChannel(sbChannel);
+    });
 
     // Realtime listeners for all reports and transactions
     const reportsQuery = query(collection(db, 'reports'));

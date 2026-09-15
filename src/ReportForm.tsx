@@ -15,6 +15,7 @@ import Toast, { ToastType } from './Toast';
 import ConfirmModal from './ConfirmModal';
 import { updateDashboardStats, updateDashboardStatsBulk } from './stats';
 import { supabase } from './supabaseClient';
+import { saveReportDual } from './services/dualStorage';
 
 interface FieldErrors {
   headerMarketplace?: boolean;
@@ -766,9 +767,9 @@ export default function ReportForm({ category = 'retur', isCancelFisikOnly = fal
         };
       });
 
-      // Submit reports
+      // Submit reports (Dual-Write Firestore & Supabase 7-day rolling cache)
       for (const itemData of reportItemsData) {
-        await addDoc(collection(db, 'reports'), itemData);
+        await saveReportDual(itemData);
       }
 
       // Update Dashboard Stats Bulk

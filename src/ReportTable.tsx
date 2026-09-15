@@ -17,6 +17,8 @@ import XLSX from 'xlsx-js-style';
 import { writeBatch } from 'firebase/firestore';
 
 import { updateDashboardStats } from './stats';
+import { supabase } from './supabaseClient';
+import { saveReportDual, updateReportDual, deleteReportDual } from './services/dualStorage';
 
 interface ReportTableProps {
   reports: Report[];
@@ -248,11 +250,11 @@ export default function ReportTable({
         uniquePayloads.push(firestorePayload);
       }
 
-      // Batch write
+      // Batch write (Dual Storage Firestore + Supabase)
       let successCount = 0;
       for (const payload of uniquePayloads) {
         try {
-          await addDoc(collection(db, 'reports'), payload);
+          await saveReportDual(payload);
           successCount++;
         } catch (eFs) {}
       }
@@ -317,9 +319,13 @@ export default function ReportTable({
         deletedBy: user?.uid || 'admin'
       });
 
-      // 2. Delete Original
+      // 2. Delete Original (Dual Storage: Firestore & Supabase)
       const source = (reportToDelete as any)._source || 'reports';
-      await deleteDoc(doc(db, source, deleteModal.id));
+      if (source === 'reports') {
+        await deleteReportDual(deleteModal.id);
+      } else {
+        await deleteDoc(doc(db, source, deleteModal.id));
+      }
 
       // 3. Update dashboard stats
       try {
@@ -366,6 +372,14 @@ export default function ReportTable({
       if (backupPromises.length > 0) {
         await Promise.all(backupPromises);
         await batch.commit();
+
+        // Delete from Supabase reports as well
+        try {
+          await supabase.from('reports').delete().in('id', Array.from(selectedIds));
+        } catch (sbErr) {
+          console.warn("Supabase bulk delete notice:", sbErr);
+        }
+
         setSelectedIds(new Set());
         setBulkDeleteModal(false);
         showToast(`Berhasil menghapus ${backupPromises.length} data.`, 'success');
@@ -394,9 +408,8 @@ export default function ReportTable({
     if (!editingId) return;
     setIsSaving(true);
     try {
-      const reportRef = doc(db, 'reports', editingId);
       const { id, createdAt, createdBy, ...updateData } = editForm as any;
-      await updateDoc(reportRef, updateData);
+      await updateReportDual(editingId, updateData);
       showToast('Data berhasil diperbarui', 'success');
       setEditingId(null);
       setEditForm({});

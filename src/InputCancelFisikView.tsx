@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
+import { saveReportDual } from './services/dualStorage';
 import ReportForm from './ReportForm';
 import ReportTable from './ReportTable';
 import { Report, UserProfile } from './types';
@@ -313,10 +314,10 @@ export default function InputCancelFisikView({
         };
 
         try {
-          await addDoc(collection(db, 'reports'), firestorePayload);
+          await saveReportDual(firestorePayload);
           successCount++;
         } catch (eFs) {
-          console.warn("Firestore import error:", eFs);
+          console.warn("Dual save import error:", eFs);
         }
       }
 

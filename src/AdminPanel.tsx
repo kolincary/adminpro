@@ -51,10 +51,10 @@ import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import MasterDataManagement from './MasterDataManagement';
 import ConfirmModal from './ConfirmModal';
-import Toast, { ToastType } from './Toast';
-
 import { recalculateStats } from './stats';
 import { generateTOTPCode, getTOTPRemainingSeconds } from './totp';
+import { syncLast7DaysToSupabase } from './services/dualStorage';
+import { Sparkles, RefreshCw, Code2, Check } from 'lucide-react';
 
 const CLIENT_VERSION = "2.4.2";
 const FORCE_LOGOUT_DURATION = 5 * 60 * 1000; // 5 minutes block duration
@@ -66,9 +66,10 @@ interface AdminPanelProps {
 export default function AdminPanel({ user }: AdminPanelProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [activeSubTab, setActiveSubTab] = useState<'backups' | 'blocked' | 'master' | 'settings' | 'sessions' | 'security' | 'notifications'>('backups');
+  const [activeSubTab, setActiveSubTab] = useState<'backups' | 'blocked' | 'master' | 'settings' | 'sessions' | 'security' | 'notifications' | 'dual_database'>('backups');
+  const [isSyncingDual, setIsSyncingDual] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -878,6 +879,13 @@ export default function AdminPanel({ user }: AdminPanelProps) {
             Notifikasi
           </button>
           <button
+            onClick={() => setActiveSubTab('dual_database')}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${activeSubTab === 'dual_database' ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg shadow-teal-950/40' : 'text-teal-300/70 hover:text-white hover:bg-teal-950/40'}`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+            Dual-Database (7 Hari)
+          </button>
+          <button
             onClick={handleLogout}
             className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20"
           >
@@ -1606,6 +1614,172 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                     Notifikasi sekarang tidak bisa ditutup manual oleh staf. Pesan akan hilang secara otomatis sesuai timer atau dengan menekan tombol Hentikan Notifikasi di panel ini.
                   </p>
                 </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Dual-Database Management Tab (Firestore Lifetime + Supabase 7-Day Rolling) */}
+        {activeSubTab === 'dual_database' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-5xl mx-auto space-y-6"
+          >
+            {/* Overview Card */}
+            <div className="bg-[#130b2e]/90 border border-teal-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-purple-900/40">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500/20 to-emerald-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400 shadow-lg shadow-teal-950/50">
+                    <Database className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                      <span>Arsitektur Dual-Storage Hybrid</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase tracking-widest">
+                        Aktif
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      Menyimpan data simultan ke <strong>Firebase Firestore</strong> (seumur hidup) &amp; <strong>Supabase</strong> (7 hari terakhir untuk kecepatan &amp; live realtime).
+                    </p>
+                  </div>
+                </div>
+
+                {/* 1-Click Sync Button */}
+                <button
+                  onClick={async () => {
+                    setIsSyncingDual(true);
+                    try {
+                      const res = await syncLast7DaysToSupabase();
+                      showToast(`⚡ Sukses menyinkronkan ${res.totalSynced} data 7 hari terakhir ke Supabase!`, 'success');
+                    } catch (err: any) {
+                      showToast(`Gagal sinkronisasi: ${err.message}`, 'error');
+                    } finally {
+                      setIsSyncingDual(false);
+                    }
+                  }}
+                  disabled={isSyncingDual}
+                  className="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 disabled:opacity-50 text-white font-black rounded-xl transition-all shadow-xl shadow-teal-950/40 flex items-center justify-center gap-2.5 text-xs uppercase tracking-widest cursor-pointer active:scale-95 shrink-0"
+                >
+                  {isSyncingDual ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <RefreshCw className="w-4 h-4 text-teal-200" />}
+                  <span>Sinkronkan 7 Hari ke Supabase</span>
+                </button>
+              </div>
+
+              {/* Status Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="p-4 bg-[#0c0620] border border-purple-900/40 rounded-2xl">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-purple-400 mb-1">Database Arsip (Lifetime)</div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span>Firebase Firestore</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">100% data tersimpan permanen selamanya.</div>
+                </div>
+
+                <div className="p-4 bg-[#0c0620] border border-teal-500/30 rounded-2xl">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-teal-400 mb-1">Database Operasional (7 Hari)</div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
+                    <span>Supabase Postgres</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">Rolling window 7 hari terakhir (Realtime &amp; Cepat).</div>
+                </div>
+
+                <div className="p-4 bg-[#0c0620] border border-purple-900/40 rounded-2xl">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-indigo-400 mb-1">Pembersihan Otomatis</div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>Rolling Trigger Purge</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">Data &gt; 7 hari terhapus otomatis di Supabase.</div>
+                </div>
+              </div>
+
+              {/* SQL Schema Box */}
+              <div className="mt-6 bg-[#080414] border border-purple-900/50 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-purple-200">
+                    <Code2 className="w-4 h-4 text-purple-400" />
+                    <span>SQL Schema Supabase (`sql/reports_7days_schema.sql`)</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const sql = `-- SCHEMA TABEL REPORTS (7-DAY ROLLING CACHE) UNTUK SUPABASE
+-- Project: tpewylwthmlnfhzohlgu
+
+CREATE TABLE IF NOT EXISTS public.reports (
+    id TEXT PRIMARY KEY,
+    barcode TEXT,
+    nama_barang TEXT,
+    item_name TEXT,
+    sku TEXT,
+    qty INTEGER DEFAULT 1,
+    quantity INTEGER DEFAULT 1,
+    status TEXT,
+    modul_fisik TEXT,
+    category TEXT,
+    marketplace TEXT,
+    pic TEXT,
+    keterangan TEXT,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    input_date DATE,
+    image_url TEXT,
+    user_id TEXT,
+    user_email TEXT,
+    created_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_date ON public.reports(date DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_created_at ON public.reports(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_barcode ON public.reports(barcode);
+CREATE INDEX IF NOT EXISTS idx_reports_sku ON public.reports(sku);
+
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read reports" ON public.reports;
+CREATE POLICY "Allow public read reports" ON public.reports FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert reports" ON public.reports;
+CREATE POLICY "Allow public insert reports" ON public.reports FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update reports" ON public.reports;
+CREATE POLICY "Allow public update reports" ON public.reports FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public delete reports" ON public.reports;
+CREATE POLICY "Allow public delete reports" ON public.reports FOR DELETE TO anon, authenticated USING (true);
+
+CREATE OR REPLACE FUNCTION public.cleanup_reports_older_than_7_days()
+RETURNS trigger AS $$
+BEGIN
+    DELETE FROM public.reports WHERE (date < (CURRENT_DATE - INTERVAL '7 days')) OR (created_at < (timezone('utc'::text, now()) - INTERVAL '8 days'));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_cleanup_reports_7days ON public.reports;
+CREATE TRIGGER trigger_cleanup_reports_7days AFTER INSERT ON public.reports FOR EACH STATEMENT EXECUTE FUNCTION public.cleanup_reports_older_than_7_days();
+
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'reports') THEN ALTER PUBLICATION supabase_realtime ADD TABLE public.reports; END IF; END $$;`;
+                      navigator.clipboard.writeText(sql);
+                      setCopiedSql(true);
+                      showToast('📋 Skrip SQL berhasil disalin ke clipboard!', 'success');
+                      setTimeout(() => setCopiedSql(false), 3000);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-bold transition cursor-pointer"
+                  >
+                    {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedSql ? 'Tersalin' : 'Salin SQL'}</span>
+                  </button>
+                </div>
+                <pre className="text-[11px] font-mono text-purple-300/80 overflow-x-auto max-h-48 p-3 bg-black/40 rounded-xl">
+                  {`-- DDL Tabel Supabase 'reports' & Trigger Pembersihan 7 Hari (Rolling Retention)
+CREATE TABLE IF NOT EXISTS public.reports (...);
+CREATE TRIGGER trigger_cleanup_reports_7days AFTER INSERT ON public.reports ...;`}
+                </pre>
               </div>
             </div>
           </motion.div>

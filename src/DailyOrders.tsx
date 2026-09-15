@@ -262,6 +262,42 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
+  // Secret Dev Mode Trigger ('devmodenew')
+  const [showDevMode, setShowDevMode] = useState(false);
+  const keyBufferRef = useRef('');
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      
+      if (e.key === 'Backspace') {
+        keyBufferRef.current = keyBufferRef.current.slice(0, -1);
+        return;
+      }
+
+      if (e.key && e.key.length === 1) {
+        keyBufferRef.current = (keyBufferRef.current + e.key.toLowerCase()).slice(-20);
+        if (keyBufferRef.current.endsWith('devmodenew')) {
+          keyBufferRef.current = '';
+          setShowDevMode((prev) => {
+            const next = !prev;
+            if (next) {
+              triggerToast('⚡ Dev Mode Aktif: Tombol SQL Schema & Sinkronisasi ditampilkan!', 'info');
+            } else {
+              triggerToast('🔒 Dev Mode dinonaktifkan: Tombol developer disembunyikan.', 'info');
+            }
+            return next;
+          });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, []);
+
   const triggerToast = (message: string, type: ToastType = 'success') => {
     setToast({ message, type, visible: true });
   };
@@ -840,27 +876,53 @@ export default function DailyOrders({ user, userProfile }: DailyOrdersProps) {
 
         {/* Action Header Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* SQL Schema Button */}
-          <button
-            onClick={() => setIsSqlModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1e1040] hover:bg-[#2b175a] border border-purple-500/40 text-purple-200 text-xs font-bold transition cursor-pointer shadow-md"
-            title="Lihat & Salin Skrip SQL Editor Supabase"
-          >
-            <Code2 className="w-4 h-4 text-purple-400" />
-            <span>SQL Schema</span>
-          </button>
+          {/* Dev Mode Actions (Revealed only by typing 'devmodenew') */}
+          <AnimatePresence>
+            {showDevMode && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, x: 20 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95, x: 20 }}
+                className="flex flex-wrap items-center gap-2"
+              >
+                {/* Dev Mode Badge with Close Toggle */}
+                <button
+                  onClick={() => {
+                    setShowDevMode(false);
+                    triggerToast('🔒 Dev Mode dinonaktifkan.', 'info');
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-bold hover:bg-amber-500/30 transition cursor-pointer"
+                  title="Sembunyikan Menu Developer"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  <span>DEV MODE</span>
+                  <X className="w-3.5 h-3.5 ml-0.5 text-amber-400" />
+                </button>
 
-          {/* Sync Firestore -> Supabase Button */}
-          <button
-            onClick={() => setIsSyncModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold shadow-lg shadow-teal-900/30 active:scale-95 transition-all cursor-pointer"
-            title="Pindahkan seluruh data dari Firestore ke Supabase"
-          >
-            <RefreshCw className="w-4 h-4 text-teal-200" />
-            <span>Sinkronkan ke Supabase</span>
-          </button>
+                {/* SQL Schema Button */}
+                <button
+                  onClick={() => setIsSqlModalOpen(true)}
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1e1040] hover:bg-[#2b175a] border border-purple-500/40 text-purple-200 text-xs font-bold transition cursor-pointer shadow-md"
+                  title="Lihat & Salin Skrip SQL Editor Supabase"
+                >
+                  <Code2 className="w-4 h-4 text-purple-400" />
+                  <span>SQL Schema</span>
+                </button>
 
-          {/* Quick Excel Export */}
+                {/* Sync Firestore -> Supabase Button */}
+                <button
+                  onClick={() => setIsSyncModalOpen(true)}
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold shadow-lg shadow-teal-900/30 active:scale-95 transition-all cursor-pointer"
+                  title="Pindahkan seluruh data dari Firestore ke Supabase"
+                >
+                  <RefreshCw className="w-4 h-4 text-teal-200" />
+                  <span>Sinkronkan ke Supabase</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Quick Excel Export (Always Visible) */}
           <button
             onClick={handleExportExcel}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 active:scale-95 transition-all cursor-pointer"
