@@ -575,7 +575,7 @@ export default function ReportTable({
       }
 
       if (!category && !statusFilter) {
-        if (reportCategory === 'rusak_internal' || reportCategory === 'eliminasi_rusak' || reportStatus === 'Eliminasi Stok Rusak' || report.type === 'OUT') {
+        if (isExplicitEliminasiRusak) {
           return false;
         }
       }
