@@ -1760,6 +1760,12 @@ export default function AdminPanel({ user }: AdminPanelProps) {
 CREATE TABLE IF NOT EXISTS public.reports (
     id TEXT PRIMARY KEY,
     barcode TEXT,
+    invoice_number TEXT,
+    pic_ginee TEXT,
+    analis TEXT,
+    type TEXT DEFAULT 'Standard',
+    ginee_input_date DATE,
+    asset_status TEXT,
     nama_barang TEXT,
     item_name TEXT,
     sku TEXT,
@@ -1771,6 +1777,7 @@ CREATE TABLE IF NOT EXISTS public.reports (
     marketplace TEXT,
     pic TEXT,
     keterangan TEXT,
+    notes TEXT,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     input_date DATE,
     image_url TEXT,
@@ -1781,10 +1788,21 @@ CREATE TABLE IF NOT EXISTS public.reports (
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Pastikan kolom baru otomatis ada jika tabel sudah pernah dibuat sebelumnya
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS invoice_number TEXT;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS pic_ginee TEXT;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS analis TEXT;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'Standard';
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS ginee_input_date DATE;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS asset_status TEXT;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS notes TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_reports_date ON public.reports(date DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_created_at ON public.reports(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_barcode ON public.reports(barcode);
+CREATE INDEX IF NOT EXISTS idx_reports_invoice_number ON public.reports(invoice_number);
 CREATE INDEX IF NOT EXISTS idx_reports_sku ON public.reports(sku);
+CREATE INDEX IF NOT EXISTS idx_reports_modul_fisik ON public.reports(modul_fisik);
 
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 

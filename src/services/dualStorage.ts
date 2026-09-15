@@ -43,9 +43,22 @@ export async function saveReportDual(itemData: Partial<Report> & Record<string, 
   const nowIso = new Date().toISOString();
 
   // 1. Simpan ke Firebase Firestore (Permanent Lifetime Storage)
+  const invoiceNumber = itemData.invoiceNumber || itemData.invoice_number || itemData.referensi_invoice || itemData.invoice_ref || itemData.barcode || '';
+  const picGinee = itemData.picGinee || itemData.pic_ginee || itemData.analis || itemData.createdBy || itemData.created_by || itemData.pic || '';
+  const analis = itemData.analis || itemData.picGinee || itemData.pic_ginee || itemData.createdBy || itemData.created_by || itemData.pic || '';
+  const type = itemData.type || 'Standard';
+  const gineeInputDate = itemData.gineeInputDate || itemData.ginee_input_date || null;
+  const assetStatus = itemData.assetStatus || itemData.asset_status || itemData.status || '';
+
   const firestorePayload = {
     ...itemData,
     id,
+    invoiceNumber,
+    picGinee,
+    analis,
+    type,
+    gineeInputDate,
+    assetStatus,
     inputDate: dateStr,
     date: dateStr,
     createdAt: serverTimestamp(),
@@ -58,24 +71,31 @@ export async function saveReportDual(itemData: Partial<Report> & Record<string, 
   try {
     const supabasePayload = {
       id,
-      barcode: itemData.barcode || '',
+      barcode: itemData.barcode || invoiceNumber || '',
+      invoice_number: invoiceNumber,
+      pic_ginee: picGinee,
+      analis: analis,
+      type: type,
+      ginee_input_date: gineeInputDate,
+      asset_status: assetStatus,
       nama_barang: itemData.itemDescription || itemData.nama_barang || itemData.item_name || '',
       item_name: itemData.itemDescription || itemData.nama_barang || itemData.item_name || '',
       sku: itemData.sku || itemData.item_code || '',
       qty: Number(itemData.quantity || itemData.qty || 1),
       quantity: Number(itemData.quantity || itemData.qty || 1),
-      status: itemData.status || '',
-      modul_fisik: itemData.modul_fisik || itemData.status || '',
+      status: itemData.status || assetStatus || '',
+      modul_fisik: itemData.modul_fisik || itemData.status || assetStatus || '',
       category: itemData.category || '',
       marketplace: itemData.marketplace || 'Umum',
-      pic: itemData.pic || itemData.createdBy || '',
-      keterangan: itemData.keterangan || itemData.notes || '',
+      pic: itemData.pic || picGinee || itemData.createdBy || '',
+      keterangan: itemData.keterangan || itemData.notes || itemData.itemDescription || '',
+      notes: itemData.notes || itemData.keterangan || '',
       date: dateStr,
       input_date: dateStr,
       image_url: itemData.image_url || itemData.imageUrl || '',
       user_id: itemData.userId || itemData.user_id || '',
       user_email: itemData.userEmail || itemData.user_email || '',
-      created_by: itemData.createdBy || itemData.created_by || '',
+      created_by: itemData.createdBy || itemData.created_by || picGinee || '',
       created_at: nowIso,
       updated_at: nowIso
     };
@@ -119,6 +139,23 @@ export async function updateReportDual(id: string, updateData: Partial<Report> &
     };
 
     if (updateData.barcode !== undefined) supabaseUpdate.barcode = updateData.barcode;
+    if (updateData.invoiceNumber !== undefined || updateData.invoice_number !== undefined) {
+      supabaseUpdate.invoice_number = updateData.invoiceNumber || updateData.invoice_number || '';
+    }
+    if (updateData.picGinee !== undefined || updateData.pic_ginee !== undefined || updateData.analis !== undefined) {
+      const p = updateData.picGinee || updateData.pic_ginee || updateData.analis || updateData.pic || '';
+      supabaseUpdate.pic_ginee = p;
+      supabaseUpdate.analis = p;
+    }
+    if (updateData.type !== undefined) {
+      supabaseUpdate.type = updateData.type;
+    }
+    if (updateData.gineeInputDate !== undefined || updateData.ginee_input_date !== undefined) {
+      supabaseUpdate.ginee_input_date = updateData.gineeInputDate || updateData.ginee_input_date || null;
+    }
+    if (updateData.assetStatus !== undefined || updateData.asset_status !== undefined) {
+      supabaseUpdate.asset_status = updateData.assetStatus || updateData.asset_status;
+    }
     if (updateData.itemDescription !== undefined) {
       supabaseUpdate.nama_barang = updateData.itemDescription;
       supabaseUpdate.item_name = updateData.itemDescription;
@@ -226,29 +263,42 @@ export async function syncLast7DaysToSupabase(
   snapshot.forEach((docSnap) => {
     const d = docSnap.data();
     const dateStr = normalizeDateStr(d.inputDate || d.date || d.logDate);
+    const invoiceNumber = d.invoiceNumber || d.invoice_number || d.referensi_invoice || d.invoice_ref || d.invoice || d.barcode || docSnap.id || '';
+    const picGinee = d.picGinee || d.pic_ginee || d.analis || d.createdBy || d.created_by || d.pic || '';
+    const analis = d.analis || d.picGinee || d.pic_ginee || d.createdBy || d.created_by || d.pic || '';
+    const type = d.type || 'Standard';
+    const gineeInputDate = d.gineeInputDate || d.ginee_input_date || null;
+    const assetStatus = d.assetStatus || d.asset_status || d.status || '';
     
     // Hanya ambil data dalam rentang 7 hari terakhir
     if (dateStr >= sevenDaysAgoStr) {
       rows.push({
         id: docSnap.id,
-        barcode: d.barcode || '',
+        barcode: d.barcode || invoiceNumber || '',
+        invoice_number: invoiceNumber,
+        pic_ginee: picGinee,
+        analis: analis,
+        type: type,
+        ginee_input_date: gineeInputDate,
+        asset_status: assetStatus,
         nama_barang: d.itemDescription || d.nama_barang || d.item_name || '',
         item_name: d.itemDescription || d.nama_barang || d.item_name || '',
-        sku: d.sku || d.item_code || '',
+        sku: d.sku || d.sku_id || d.item_code || '',
         qty: Number(d.quantity || d.qty || 1),
         quantity: Number(d.quantity || d.qty || 1),
-        status: d.status || '',
-        modul_fisik: d.modul_fisik || d.status || '',
+        status: d.status || assetStatus || '',
+        modul_fisik: d.modul_fisik || d.status || assetStatus || '',
         category: d.category || '',
         marketplace: d.marketplace || 'Umum',
-        pic: d.pic || d.createdBy || '',
-        keterangan: d.keterangan || d.notes || '',
+        pic: d.pic || picGinee || d.createdBy || '',
+        keterangan: d.keterangan || d.notes || d.itemDescription || '',
+        notes: d.notes || d.keterangan || '',
         date: dateStr,
         input_date: dateStr,
         image_url: d.image_url || d.imageUrl || '',
         user_id: d.userId || d.user_id || '',
         user_email: d.userEmail || d.user_email || '',
-        created_by: d.createdBy || d.created_by || '',
+        created_by: d.createdBy || d.created_by || picGinee || '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });

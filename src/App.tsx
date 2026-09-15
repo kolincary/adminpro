@@ -858,9 +858,11 @@ function AppContent() {
     };
 
     const mapSupabaseReportDoc = (d: any) => {
-      const sku = d.sku || d.item_code || '';
-      const normalizedStatus = getNormalizedStatus(d.modul_fisik || d.status, '');
-      const category = getInferredCategory(normalizedStatus, d.category, '', 'reports', sku);
+      const sku = d.sku || d.item_code || d.sku_id || '';
+      const rawStatus = d.modul_fisik || d.status || d.asset_status || '';
+      const type = d.type || 'Standard';
+      const normalizedStatus = getNormalizedStatus(rawStatus, type);
+      const category = getInferredCategory(normalizedStatus, d.category, type, 'reports', sku);
       const createdAt = d.created_at || null;
       let _sortTs = 0;
       let inputDateStr = d.date || d.input_date || '';
@@ -877,19 +879,33 @@ function AppContent() {
         _sortTs = isNaN(dts.getTime()) ? 0 : dts.getTime();
       }
 
+      const invoiceNumber = d.invoice_number || d.invoiceNumber || d.barcode || d.id || '';
+      const picGinee = d.pic_ginee || d.picGinee || d.analis || d.created_by || d.createdBy || d.pic || '';
+      const analis = d.analis || d.pic_ginee || d.picGinee || d.created_by || d.createdBy || d.pic || '';
+      const createdBy = d.created_by || d.createdBy || analis || picGinee || d.pic || '';
+      const gineeInputDate = d.ginee_input_date || d.gineeInputDate || '';
+
       return {
         id: String(d.id),
+        ...d,
         _source: 'reports',
         category,
         sku,
         quantity: Number(d.qty || d.quantity || 1),
-        itemDescription: d.nama_barang || d.item_name || '',
-        barcode: d.barcode || '',
-        status: d.status || '',
-        modul_fisik: d.modul_fisik || d.status || '',
+        itemDescription: d.nama_barang || d.item_name || d.keterangan || '',
+        barcode: d.barcode || invoiceNumber || '',
+        invoiceNumber,
+        picGinee,
+        analis,
+        type,
+        gineeInputDate,
+        assetStatus: d.asset_status || rawStatus,
+        status: rawStatus,
+        modul_fisik: d.modul_fisik || rawStatus,
         marketplace: d.marketplace || 'Umum',
-        pic: d.pic || d.created_by || '',
-        keterangan: d.keterangan || '',
+        pic: d.pic || picGinee || createdBy,
+        createdBy,
+        keterangan: d.keterangan || d.notes || '',
         inputDate: normalizeDate(inputDateStr),
         image_url: d.image_url || '',
         createdAt,

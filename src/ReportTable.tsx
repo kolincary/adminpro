@@ -544,8 +544,11 @@ export default function ReportTable({
       if (lowerSearch) {
         const matchesSearch =
           (report.invoiceNumber?.toLowerCase() || '').includes(lowerSearch) ||
+          ((report as any).barcode?.toLowerCase() || '').includes(lowerSearch) ||
           (report.sku?.toLowerCase() || '').includes(lowerSearch) ||
           (report.picGinee?.toLowerCase() || '').includes(lowerSearch) ||
+          ((report as any).analis?.toLowerCase() || '').includes(lowerSearch) ||
+          (report.createdBy?.toLowerCase() || '').includes(lowerSearch) ||
           (report.status?.toLowerCase() || '').includes(lowerSearch);
         if (!matchesSearch) return false;
       }
@@ -1050,7 +1053,7 @@ export default function ReportTable({
                           onChange={(e) => setEditForm({ ...editForm, picGinee: e.target.value })}
                           className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs"
                         />
-                      ) : (report.picGinee || report.createdBy || '---')}
+                      ) : (report.picGinee || report.createdBy || (report as any).analis || (report as any).pic || '---')}
                     </td>
 
                     {/* Marketplace */}
@@ -1089,7 +1092,7 @@ export default function ReportTable({
                           onChange={(e) => setEditForm({ ...editForm, invoiceNumber: e.target.value })}
                           className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs font-mono"
                         />
-                      ) : report.invoiceNumber}
+                      ) : (report.invoiceNumber || (report as any).invoice_number || (report as any).referensi_invoice || report.barcode || '---')}
                     </td>
 
                     {/* Status / Keterangan */}
