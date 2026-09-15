@@ -101,3 +101,132 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     throw new Error(errInfo.error);
   }
 }
+
+/**
+ * Validates if a string is a real Analis / PIC name from dropdown,
+ * and NOT a login username, auth UID, system label, or email.
+ */
+export function isValidAnalisName(val: any): boolean {
+  if (val === undefined || val === null) return false;
+  const s = String(val).trim();
+  if (!s || s === '---' || s === '-' || s === 'null' || s === 'undefined') return false;
+  
+  const lower = s.toLowerCase();
+  
+  // Exclude system/account prefixes and login accounts
+  if (lower.startsWith('user-') || lower.startsWith('admin-')) return false;
+  if (lower.includes('@')) return false; // email addresses
+  if (['devmode user', 'devmode', 'anonymous', 'firestore migration', 'system', 'admin', 'user', 'unknown', 'none'].includes(lower)) return false;
+  
+  // Exclude Firebase Auth UIDs (typically 24-36 chars alphanumeric string with no spaces)
+  if (s.length >= 24 && s.length <= 36 && /^[a-zA-Z0-9_-]+$/.test(s) && !s.includes(' ')) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Extracts and sanitizes the Analis / PIC dropdown value from any record/object.
+ * Strictly ignores login accounts (user-*, emails, UIDs).
+ */
+export function getCleanAnalis(data: any): string {
+  if (data === undefined || data === null) return '';
+  if (typeof data === 'string') {
+    return isValidAnalisName(data) ? data.trim() : '';
+  }
+  if (typeof data !== 'object') return '';
+
+  const candidates = [
+    data.picGinee,
+    data.pic_ginee,
+    data.pic_input_ginee,
+    data.analis,
+    data.analis_pic,
+    data.pic,
+    data.nama_analis,
+    data.operator,
+    data['PIC Input Ginee'],
+    data['Analis (PIC)'],
+    data['Analis'],
+    data['PIC'],
+    data['pic'],
+    data['pic ginee'],
+    data['pic_analis']
+  ];
+
+  for (const c of candidates) {
+    if (isValidAnalisName(c)) {
+      return String(c).trim();
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Extracts and sanitizes the Referensi / Invoice / No Pesanan / Resi from any record/object.
+ */
+export function getCleanInvoice(data: any): string {
+  if (data === undefined || data === null) return '';
+  if (typeof data === 'string' || typeof data === 'number') {
+    const s = String(data).trim();
+    if (!s || s === '---' || s === '-' || s === 'null' || s === 'undefined') return '';
+    return s;
+  }
+  if (typeof data !== 'object') return '';
+
+  const candidates = [
+    data.invoiceNumber,
+    data.invoice_number,
+    data.referensi_invoice,
+    data.referensiInvoice,
+    data.referensi_no_pesanan_invoice,
+    data.referensi_pesanan,
+    data.referensi,
+    data.invoice_ref,
+    data.invoiceRef,
+    data.invoice,
+    data.inv,
+    data.idPesanan,
+    data.id_pesanan,
+    data.noPesanan,
+    data.no_pesanan,
+    data.nomorPesanan,
+    data.nomor_pesanan,
+    data.nomorResi,
+    data.nomor_resi,
+    data.no_resi,
+    data.noResi,
+    data.resi,
+    data.order_id,
+    data.orderId,
+    data.id_order,
+    data.tracking_number,
+    data.barcode,
+    data['referensi / no pesanan / invoice'],
+    data['referensi/no pesanan/invoice'],
+    data['referensi invoice'],
+    data['inv / pemesanan'],
+    data['inv/pemesanan'],
+    data['id pesanan'],
+    data['no pesanan'],
+    data['nomor pesanan'],
+    data['nomor resi'],
+    data['no resi'],
+    data['order id'],
+    data['invoice']
+  ];
+
+  for (const c of candidates) {
+    if (c !== undefined && c !== null) {
+      const s = String(c).trim();
+      if (s && s !== '---' && s !== '-' && s !== 'null' && s !== 'undefined') {
+        return s;
+      }
+    }
+  }
+
+  return '';
+}
+

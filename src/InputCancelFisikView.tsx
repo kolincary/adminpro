@@ -7,7 +7,7 @@ import ReportForm from './ReportForm';
 import ReportTable from './ReportTable';
 import { Report, UserProfile } from './types';
 import { Layers, PlusCircle, Table, FileSpreadsheet, Upload, Download, X, Check, AlertCircle, Loader2, Sparkles, RefreshCw, Trash2 } from 'lucide-react';
-import { normalizeDate } from './utils';
+import { normalizeDate, getCleanAnalis, getCleanInvoice } from './utils';
 
 interface InputCancelFisikViewProps {
   allReports: Report[];
@@ -148,16 +148,18 @@ export default function InputCancelFisikView({
       const exportRows: any[] = [];
 
       cancelReports.forEach((rep: any) => {
+        const cleanInv = getCleanInvoice(rep);
+        const cleanPic = getCleanAnalis(rep);
         if (rep.items && rep.items.length > 0) {
           rep.items.forEach((item: any) => {
             exportRows.push({
-              'Tanggal Log': rep.inputDate || rep.log_date || (rep.createdAt ? String(rep.createdAt) : ''),
+              'Tanggal Log': normalizeDate(rep.inputDate || rep.log_date || (rep.createdAt ? String(rep.createdAt) : '')),
               'Tgl Input Ginee': rep.gineeInputDate || rep.ginee_date || '',
-              'PIC Input Ginee': rep.picGinee || rep.pic_ginee || rep.createdBy || '',
+              'PIC Input Ginee': cleanPic || '',
               'Marketplace': rep.marketplace || '',
-              'Analis (PIC)': rep.createdBy || rep.analis || '',
+              'Analis (PIC)': cleanPic || '',
               'Modul Fisik': 'Cancel Fisik',
-              'Referensi Invoice': rep.invoiceNumber || rep.invoice_ref || rep.invoice || '',
+              'Referensi Invoice': cleanInv || '',
               'Lokasi / Rak': item.location || rep.location || '',
               'SKU / Barcode': item.sku || item.barcode || rep.sku || '',
               'Nama Produk': item.productName || item.product_name || item.name || rep.itemDescription || '',
@@ -168,13 +170,13 @@ export default function InputCancelFisikView({
           });
         } else {
           exportRows.push({
-            'Tanggal Log': rep.inputDate || rep.log_date || (rep.createdAt ? String(rep.createdAt) : ''),
+            'Tanggal Log': normalizeDate(rep.inputDate || rep.log_date || (rep.createdAt ? String(rep.createdAt) : '')),
             'Tgl Input Ginee': rep.gineeInputDate || rep.ginee_date || '',
-            'PIC Input Ginee': rep.picGinee || rep.pic_ginee || rep.createdBy || '',
+            'PIC Input Ginee': cleanPic || '',
             'Marketplace': rep.marketplace || '',
-            'Analis (PIC)': rep.createdBy || rep.analis || '',
+            'Analis (PIC)': cleanPic || '',
             'Modul Fisik': 'Cancel Fisik',
-            'Referensi Invoice': rep.invoiceNumber || rep.invoice_ref || rep.invoice || '',
+            'Referensi Invoice': cleanInv || '',
             'Lokasi / Rak': rep.location || '',
             'SKU / Barcode': rep.sku || '',
             'Nama Produk': rep.itemDescription || rep.product_name || '',
@@ -284,10 +286,10 @@ export default function InputCancelFisikView({
         const rawGineeDate = getRowVal(row, ['tgl_input_ginee', 'tgl input ginee', 'sinkron ginee', 'ginee_date']);
         const gineeDate = rawGineeDate ? normalizeDate(rawGineeDate) : null;
 
-        const inv = getRowVal(row, ['referensi_invoice', 'referensi invoice', 'referensi/no pesanan/invoice', 'invoice', 'invoice_ref', 'inv / pemesanan', 'inv']);
+        const inv = getCleanInvoice(row) || getRowVal(row, ['referensi_invoice', 'referensi invoice', 'referensi/no pesanan/invoice', 'invoice', 'invoice_ref', 'inv / pemesanan', 'inv', 'id pesanan', 'no pesanan', 'nomor resi']);
         const sku = getRowVal(row, ['sku', 'sku_id', 'sku / barcode', 'barcode', 'item_code']);
         const qty = Number(getRowVal(row, ['qty', 'quantity', 'jumlah'])) || 1;
-        const pic = getRowVal(row, ['analis_pic', 'analis (pic)', 'analis', 'pic_input_ginee', 'pic input ginee', 'pic ginee', 'pic']) || currentUser?.email || 'DevMode User';
+        const pic = getCleanAnalis(row);
         const mp = getRowVal(row, ['marketplace', 'pasar']) || 'Shopee';
         const desc = getRowVal(row, ['product_name', 'nama produk', 'keterangan barang', 'status/keterangan', 'keterangan', 'notes', 'itemdescription']) || '';
         const loc = getRowVal(row, ['location_rak', 'lokasi / rak', 'lokasi', 'rak', 'location']) || '';
@@ -296,6 +298,7 @@ export default function InputCancelFisikView({
           inputDate: logDate,
           gineeInputDate: gineeDate || '',
           picGinee: pic,
+          analis: pic,
           marketplace: mp,
           invoiceNumber: inv,
           status: 'Cancel Fisik',
@@ -308,7 +311,7 @@ export default function InputCancelFisikView({
           itemDescription: desc,
           location: loc,
           category: 'retur2',
-          createdBy: currentUser?.uid || 'DevMode User',
+          createdBy: currentUser?.uid || '',
           createdAt: serverTimestamp(),
           created_at: serverTimestamp()
         };

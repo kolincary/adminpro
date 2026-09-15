@@ -3,21 +3,14 @@ import { db } from '../firebase';
 import { supabase } from '../supabaseClient';
 import { Report } from '../types';
 import { format, subDays, isAfter, parseISO } from 'date-fns';
+import { getCleanAnalis, getCleanInvoice, normalizeDate } from '../utils';
 
 /**
  * Normalizes any date input to yyyy-MM-dd string
  */
 export const normalizeDateStr = (d: any): string => {
   if (!d) return format(new Date(), 'yyyy-MM-dd');
-  if (typeof d === 'string') {
-    // If it's already YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}$/.test(d.trim())) return d.trim();
-    const parsed = new Date(d);
-    if (!isNaN(parsed.getTime())) return format(parsed, 'yyyy-MM-dd');
-  }
-  if (d instanceof Date) return format(d, 'yyyy-MM-dd');
-  if (typeof d?.toDate === 'function') return format(d.toDate(), 'yyyy-MM-dd');
-  return format(new Date(), 'yyyy-MM-dd');
+  return normalizeDate(d) || format(new Date(), 'yyyy-MM-dd');
 };
 
 /**
@@ -43,9 +36,8 @@ export async function saveReportDual(itemData: Partial<Report> & Record<string, 
   const nowIso = new Date().toISOString();
 
   // 1. Simpan ke Firebase Firestore (Permanent Lifetime Storage)
-  const invoiceNumber = itemData.invoiceNumber || itemData.invoice_number || itemData.referensi_invoice || itemData.invoice_ref || itemData.barcode || '';
-  const picGinee = itemData.picGinee || itemData.pic_ginee || itemData.analis || itemData.createdBy || itemData.created_by || itemData.pic || '';
-  const analis = itemData.analis || itemData.picGinee || itemData.pic_ginee || itemData.createdBy || itemData.created_by || itemData.pic || '';
+  const invoiceNumber = getCleanInvoice(itemData);
+  const cleanAnalis = getCleanAnalis(itemData);
   const type = itemData.type || 'Standard';
   const gineeInputDate = itemData.gineeInputDate || itemData.ginee_input_date || null;
   const assetStatus = itemData.assetStatus || itemData.asset_status || itemData.status || '';
@@ -54,8 +46,8 @@ export async function saveReportDual(itemData: Partial<Report> & Record<string, 
     ...itemData,
     id,
     invoiceNumber,
-    picGinee,
-    analis,
+    picGinee: cleanAnalis,
+    analis: cleanAnalis,
     type,
     gineeInputDate,
     assetStatus,
@@ -73,8 +65,8 @@ export async function saveReportDual(itemData: Partial<Report> & Record<string, 
       id,
       barcode: itemData.barcode || invoiceNumber || '',
       invoice_number: invoiceNumber,
-      pic_ginee: picGinee,
-      analis: analis,
+      pic_ginee: cleanAnalis,
+      analis: cleanAnalis,
       type: type,
       ginee_input_date: gineeInputDate,
       asset_status: assetStatus,
@@ -87,7 +79,7 @@ export async function saveReportDual(itemData: Partial<Report> & Record<string, 
       modul_fisik: itemData.modul_fisik || itemData.status || assetStatus || '',
       category: itemData.category || '',
       marketplace: itemData.marketplace || 'Umum',
-      pic: itemData.pic || picGinee || itemData.createdBy || '',
+      pic: cleanAnalis,
       keterangan: itemData.keterangan || itemData.notes || itemData.itemDescription || '',
       notes: itemData.notes || itemData.keterangan || '',
       date: dateStr,
@@ -95,7 +87,7 @@ export async function saveReportDual(itemData: Partial<Report> & Record<string, 
       image_url: itemData.image_url || itemData.imageUrl || '',
       user_id: itemData.userId || itemData.user_id || '',
       user_email: itemData.userEmail || itemData.user_email || '',
-      created_by: itemData.createdBy || itemData.created_by || picGinee || '',
+      created_by: itemData.createdBy || itemData.created_by || '',
       created_at: nowIso,
       updated_at: nowIso
     };
@@ -139,13 +131,14 @@ export async function updateReportDual(id: string, updateData: Partial<Report> &
     };
 
     if (updateData.barcode !== undefined) supabaseUpdate.barcode = updateData.barcode;
-    if (updateData.invoiceNumber !== undefined || updateData.invoice_number !== undefined) {
-      supabaseUpdate.invoice_number = updateData.invoiceNumber || updateData.invoice_number || '';
+    if (updateData.invoiceNumber !== undefined || updateData.invoice_number !== undefined || updateData.referensi_invoice !== undefined) {
+      supabaseUpdate.invoice_number = getCleanInvoice(updateData);
     }
-    if (updateData.picGinee !== undefined || updateData.pic_ginee !== undefined || updateData.analis !== undefined) {
-      const p = updateData.picGinee || updateData.pic_ginee || updateData.analis || updateData.pic || '';
+    if (updateData.picGinee !== undefined || updateData.pic_ginee !== undefined || updateData.analis !== undefined || updateData.pic !== undefined) {
+      const p = getCleanAnalis(updateData);
       supabaseUpdate.pic_ginee = p;
       supabaseUpdate.analis = p;
+      supabaseUpdate.pic = p;
     }
     if (updateData.type !== undefined) {
       supabaseUpdate.type = updateData.type;
@@ -170,7 +163,6 @@ export async function updateReportDual(id: string, updateData: Partial<Report> &
     if (updateData.modul_fisik !== undefined) supabaseUpdate.modul_fisik = updateData.modul_fisik;
     if (updateData.category !== undefined) supabaseUpdate.category = updateData.category;
     if (updateData.marketplace !== undefined) supabaseUpdate.marketplace = updateData.marketplace;
-    if (updateData.pic !== undefined) supabaseUpdate.pic = updateData.pic;
     if (updateData.keterangan !== undefined) supabaseUpdate.keterangan = updateData.keterangan;
     if (updateData.inputDate !== undefined || updateData.date !== undefined) {
       const d = normalizeDateStr(updateData.inputDate || updateData.date);
@@ -271,9 +263,8 @@ export async function syncLast7DaysToSupabase(
 
     const d = docSnap.data();
     const dateStr = normalizeDateStr(d.inputDate || d.date || d.logDate || d.tanggal || d.tanggal_log || d.timestamp);
-    const invoiceNumber = d.invoiceNumber || d.invoice_number || d.referensi_invoice || d.invoice_ref || d.invoice || d.idPesanan || d.id_pesanan || d.noPesanan || d.no_pesanan || d.nomorResi || d.nomor_resi || d.barcode || docSnap.id || '';
-    const picGinee = d.picGinee || d.pic_ginee || d.pic_input_ginee || d.analis || d.analis_pic || d.createdBy || d.created_by || d.pic || '';
-    const analis = d.analis || d.analis_pic || d.picGinee || d.pic_ginee || d.createdBy || d.created_by || d.pic || '';
+    const invoiceNumber = getCleanInvoice(d);
+    const cleanAnalis = getCleanAnalis(d);
     const rawStatus = d.status || d.assetStatus || d.modul_fisik || '';
     const type = d.type || (rawStatus.toUpperCase().includes('COD') ? 'COD' : 'Standard');
     const gineeInputDate = d.gineeInputDate || d.ginee_input_date || d.tgl_input_ginee || null;
@@ -285,8 +276,8 @@ export async function syncLast7DaysToSupabase(
         id: docSnap.id,
         barcode: d.barcode || invoiceNumber || '',
         invoice_number: invoiceNumber,
-        pic_ginee: picGinee,
-        analis: analis,
+        pic_ginee: cleanAnalis,
+        analis: cleanAnalis,
         type: type,
         ginee_input_date: gineeInputDate,
         asset_status: assetStatus,
@@ -299,7 +290,7 @@ export async function syncLast7DaysToSupabase(
         modul_fisik: d.modul_fisik || rawStatus,
         category: d.category || '',
         marketplace: d.marketplace || d.pasar || 'Umum',
-        pic: d.pic || picGinee || d.createdBy || '',
+        pic: cleanAnalis,
         keterangan: d.keterangan || d.notes || d.itemDescription || '',
         notes: d.notes || d.keterangan || '',
         date: dateStr,
@@ -307,7 +298,7 @@ export async function syncLast7DaysToSupabase(
         image_url: d.image_url || d.imageUrl || '',
         user_id: d.userId || d.user_id || '',
         user_email: d.userEmail || d.user_email || '',
-        created_by: d.createdBy || d.created_by || picGinee || '',
+        created_by: d.createdBy || d.created_by || '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
@@ -332,17 +323,17 @@ export async function syncLast7DaysToSupabase(
     current: 0,
     total: totalRows,
     percent: 15,
-    stage: `Ditemukan ${totalRows} data. Membersihkan cache lama Supabase...`
+    stage: `Ditemukan ${totalRows} data. Mengosongkan cache lama Supabase agar sinkronisasi bersih...`
   });
 
-  // Hapus data lama di Supabase yang sudah > 7 hari
+  // Hapus bersih data lama di Supabase reports sebelum menyinkronkan data baru
   try {
     await supabase
       .from('reports')
       .delete()
-      .lt('date', sevenDaysAgoStr);
+      .neq('id', '00000000-0000-0000-0000-000000000000');
   } catch (cleanErr) {
-    console.warn("Clean old supabase reports warning:", cleanErr);
+    console.warn("Clean supabase reports warning:", cleanErr);
   }
 
   // Batch upsert ke Supabase

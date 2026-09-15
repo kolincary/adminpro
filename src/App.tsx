@@ -19,9 +19,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 import { auth, db, ensureFirebaseAuth } from './firebase';
-import { Report, OperationType, UserProfile, DashboardStats } from './types';
-import { handleFirestoreError, normalizeDate } from './utils';
-import { recalculateStats } from './stats';
+import { handleFirestoreError, normalizeDate, getCleanAnalis, getCleanInvoice } from './utils';
 import { ErrorBoundary } from './ErrorBoundary';
 import ReportForm from './ReportForm';
 import ReportTable from './ReportTable';
@@ -676,15 +674,20 @@ function AppContent() {
       for (const sbItem of sbList) {
         if (sbItem.id) {
           const existing = itemMap.get(sbItem.id);
+          const cleanSbInv = getCleanInvoice(sbItem);
+          const cleanExistingInv = existing ? getCleanInvoice(existing) : '';
+          const cleanSbAnalis = getCleanAnalis(sbItem);
+          const cleanExistingAnalis = existing ? getCleanAnalis(existing) : '';
+
           if (existing) {
             // Smart Merge: Don't let blank/placeholder Supabase fields overwrite non-empty Firestore fields
             itemMap.set(sbItem.id, {
               ...existing,
               ...sbItem,
-              invoiceNumber: (sbItem.invoiceNumber && sbItem.invoiceNumber !== '---') ? sbItem.invoiceNumber : (existing.invoiceNumber || sbItem.invoiceNumber || ''),
-              picGinee: (sbItem.picGinee && sbItem.picGinee !== '---') ? sbItem.picGinee : (existing.picGinee || sbItem.picGinee || ''),
-              analis: ((sbItem as any).analis && (sbItem as any).analis !== '---') ? (sbItem as any).analis : ((existing as any).analis || (sbItem as any).analis || ''),
-              createdBy: (sbItem.createdBy && sbItem.createdBy !== '---') ? sbItem.createdBy : (existing.createdBy || sbItem.createdBy || ''),
+              invoiceNumber: cleanSbInv || cleanExistingInv || '',
+              picGinee: cleanSbAnalis || cleanExistingAnalis || '',
+              analis: cleanSbAnalis || cleanExistingAnalis || '',
+              createdBy: sbItem.createdBy || existing.createdBy || '',
               type: (sbItem.type && sbItem.type !== 'Standard') ? sbItem.type : (existing.type || sbItem.type || 'Standard'),
               gineeInputDate: sbItem.gineeInputDate || existing.gineeInputDate || '',
               itemDescription: sbItem.itemDescription || existing.itemDescription || '',
@@ -692,7 +695,12 @@ function AppContent() {
               marketplace: (sbItem.marketplace && sbItem.marketplace !== 'Umum') ? sbItem.marketplace : (existing.marketplace || sbItem.marketplace || 'Umum'),
             });
           } else {
-            itemMap.set(sbItem.id, sbItem);
+            itemMap.set(sbItem.id, {
+              ...sbItem,
+              invoiceNumber: cleanSbInv,
+              picGinee: cleanSbAnalis,
+              analis: cleanSbAnalis
+            });
           }
         }
       }
@@ -815,10 +823,9 @@ function AppContent() {
         _sortTs = isNaN(dts.getTime()) ? 0 : dts.getTime();
       }
 
-      const invoiceNumber = d.invoiceNumber || d.invoice_number || d.referensi_invoice || d.invoice_ref || d.invoice || d.idPesanan || d.id_pesanan || d.noPesanan || d.no_pesanan || d.nomorResi || d.nomor_resi || d.barcode || doc.id || '';
-      const picGinee = d.picGinee || d.pic_ginee || d.pic_input_ginee || d.analis || d.analis_pic || d.createdBy || d.created_by || d.pic || '';
-      const analis = d.analis || d.analis_pic || d.picGinee || d.pic_ginee || d.createdBy || d.created_by || d.pic || '';
-      const createdBy = d.created_by || d.createdBy || analis || picGinee || d.pic || '';
+      const invoiceNumber = getCleanInvoice(d);
+      const cleanAnalis = getCleanAnalis(d);
+      const createdBy = d.created_by || d.createdBy || d.userEmail || '';
       const gineeInputDate = d.gineeInputDate || d.ginee_input_date || d.tgl_input_ginee || '';
 
       return {
@@ -830,8 +837,8 @@ function AppContent() {
         quantity: Number(d.quantity || d.qty || d.jumlah || 1),
         inputDate: normalizeDate(inputDateStr),
         invoiceNumber,
-        picGinee,
-        analis,
+        picGinee: cleanAnalis,
+        analis: cleanAnalis,
         createdBy,
         type,
         gineeInputDate,
@@ -874,10 +881,9 @@ function AppContent() {
         _sortTs = isNaN(dts.getTime()) ? 0 : dts.getTime();
       }
 
-      const invoiceNumber = d.invoice_number || d.invoiceNumber || d.referensi_invoice || d.invoice_ref || d.invoice || d.idPesanan || d.id_pesanan || d.noPesanan || d.no_pesanan || d.nomorResi || d.nomor_resi || d.barcode || doc.id || '';
-      const picGinee = d.picGinee || d.pic_ginee || d.pic_input_ginee || d.analis || d.analis_pic || d.createdBy || d.created_by || d.pic || '';
-      const analis = d.analis || d.analis_pic || d.picGinee || d.pic_ginee || d.createdBy || d.created_by || d.pic || '';
-      const createdBy = d.created_by || d.createdBy || analis || picGinee || d.pic || '';
+      const invoiceNumber = getCleanInvoice(d);
+      const cleanAnalis = getCleanAnalis(d);
+      const createdBy = d.created_by || d.createdBy || d.userEmail || '';
       const gineeInputDate = d.gineeInputDate || d.ginee_input_date || d.tgl_input_ginee || '';
 
       return {
@@ -890,8 +896,8 @@ function AppContent() {
         inputDate: normalizeDate(inputDateStr),
         createdAt,
         createdBy,
-        picGinee,
-        analis,
+        picGinee: cleanAnalis,
+        analis: cleanAnalis,
         type,
         gineeInputDate,
         marketplace: d.marketplace || d.pasar || 'Umum',
@@ -925,10 +931,9 @@ function AppContent() {
         _sortTs = isNaN(dts.getTime()) ? 0 : dts.getTime();
       }
 
-      const invoiceNumber = d.invoice_number || d.invoiceNumber || d.barcode || d.id || '';
-      const picGinee = d.pic_ginee || d.picGinee || d.analis || d.created_by || d.createdBy || d.pic || '';
-      const analis = d.analis || d.pic_ginee || d.picGinee || d.created_by || d.createdBy || d.pic || '';
-      const createdBy = d.created_by || d.createdBy || analis || picGinee || d.pic || '';
+      const invoiceNumber = getCleanInvoice(d);
+      const cleanAnalis = getCleanAnalis(d);
+      const createdBy = d.created_by || d.createdBy || d.user_email || '';
       const gineeInputDate = d.ginee_input_date || d.gineeInputDate || '';
 
       return {
@@ -941,15 +946,15 @@ function AppContent() {
         itemDescription: d.nama_barang || d.item_name || d.keterangan || '',
         barcode: d.barcode || invoiceNumber || '',
         invoiceNumber,
-        picGinee,
-        analis,
+        picGinee: cleanAnalis,
+        analis: cleanAnalis,
         type,
         gineeInputDate,
         assetStatus: d.asset_status || rawStatus,
         status: rawStatus,
         modul_fisik: d.modul_fisik || rawStatus,
         marketplace: d.marketplace || 'Umum',
-        pic: d.pic || picGinee || createdBy,
+        pic: cleanAnalis,
         createdBy,
         keterangan: d.keterangan || d.notes || '',
         inputDate: normalizeDate(inputDateStr),

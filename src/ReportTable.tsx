@@ -2,9 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, addDoc, setDoc, serverTimestamp, getDoc, updateDoc, limit } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { Report, OperationType, UserProfile } from './types';
-import { handleFirestoreError, normalizeDate } from './utils';
-import Toast, { ToastType } from './Toast';
+import { handleFirestoreError, normalizeDate, getCleanAnalis, getCleanInvoice } from './utils';
 import { 
   Search, Filter, Trash2, ChevronLeft, ChevronRight, FileSpreadsheet, 
   AlertTriangle, X, ChevronDown, Calendar, RotateCcw, CheckSquare, Square, 
@@ -204,7 +202,7 @@ export default function ReportTable({
       let skippedDuplicates = 0;
 
       for (const row of parsedData) {
-        const inv = getRowVal(row, ['referensi_invoice', 'referensi invoice', 'invoice', 'invoice_ref', 'inv / pemesanan', 'no pesanan', 'id pesanan', 'nomor resi']);
+        const inv = getCleanInvoice(row) || getRowVal(row, ['referensi_invoice', 'referensi invoice', 'invoice', 'invoice_ref', 'inv / pemesanan', 'no pesanan', 'id pesanan', 'nomor resi']);
         const sku = getRowVal(row, ['sku', 'sku_id', 'sku / barcode', 'barcode', 'msku']);
         const qtyRaw = getRowVal(row, ['qty', 'quantity', 'jumlah', 'unit']);
         const qty = Number(qtyRaw) || 1;
@@ -215,7 +213,7 @@ export default function ReportTable({
         const rawGineeDate = getRowVal(row, ['tgl_input_ginee', 'tgl input ginee', 'sinkron ginee', 'ginee_date']);
         const gineeDate = rawGineeDate ? normalizeDate(rawGineeDate) : null;
 
-        const pic = getRowVal(row, ['analis_pic', 'analis (pic)', 'analis', 'pic_input_ginee', 'pic input ginee', 'pic ginee', 'pic']) || user?.email || 'DevMode';
+        const pic = getCleanAnalis(row);
         const mp = getRowVal(row, ['marketplace', 'pasar']) || 'Shopee';
         const desc = getRowVal(row, ['product_name', 'nama produk', 'keterangan barang', 'status/keterangan', 'keterangan', 'notes', 'itemdescription']) || '';
         const loc = getRowVal(row, ['location_rak', 'lokasi / rak', 'lokasi', 'rak', 'location']) || '';
@@ -224,6 +222,7 @@ export default function ReportTable({
           inputDate: logDate,
           gineeInputDate: gineeDate || '',
           picGinee: pic,
+          analis: pic,
           marketplace: mp,
           invoiceNumber: inv,
           status: 'Cancel Fisik',
@@ -236,7 +235,7 @@ export default function ReportTable({
           itemDescription: desc,
           location: loc,
           category: 'retur2',
-          createdBy: user?.uid || 'DevMode User',
+          createdBy: user?.uid || '',
           createdAt: serverTimestamp(),
           created_at: serverTimestamp()
         };
@@ -542,20 +541,20 @@ export default function ReportTable({
       }
 
       if (lowerSearch) {
+        const inv = getCleanInvoice(report).toLowerCase();
+        const pic = getCleanAnalis(report).toLowerCase();
         const matchesSearch =
-          (report.invoiceNumber?.toLowerCase() || '').includes(lowerSearch) ||
+          inv.includes(lowerSearch) ||
           ((report as any).barcode?.toLowerCase() || '').includes(lowerSearch) ||
           (report.sku?.toLowerCase() || '').includes(lowerSearch) ||
-          (report.picGinee?.toLowerCase() || '').includes(lowerSearch) ||
-          ((report as any).analis?.toLowerCase() || '').includes(lowerSearch) ||
-          (report.createdBy?.toLowerCase() || '').includes(lowerSearch) ||
+          pic.includes(lowerSearch) ||
           (report.status?.toLowerCase() || '').includes(lowerSearch);
         if (!matchesSearch) return false;
       }
 
       if (filterMarketplace && report.marketplace !== filterMarketplace) return false;
 
-      const creator = (report.createdBy || report.picGinee || (report as any).analis || '').toUpperCase();
+      const creator = (getCleanAnalis(report) || report.createdBy || '').toUpperCase();
       if (creator.includes('SYSTEM')) return false;
 
       const activeDateFilter = isRangeMode && startDate && endDate 
@@ -644,11 +643,11 @@ export default function ReportTable({
         return {
           'Tanggal Log': normalizeDate(r.inputDate || (r as any).tanggal_log || (r as any).log_date || ''),
           'Tgl Input Ginee': r.gineeInputDate || (r as any).tgl_input_ginee || (r as any).ginee_date || '',
-          'PIC Input Ginee': r.picGinee || (r as any).pic_input_ginee || (r as any).pic_ginee || '',
+          'PIC Input Ginee': getCleanAnalis(r) || '',
           'Marketplace': r.marketplace || '',
-          'Analis (PIC)': r.createdBy || (r as any).analis || (r as any).analis_pic || '',
+          'Analis (PIC)': getCleanAnalis(r) || '',
           'Modul Fisik': resolvedModulFisik,
-          'Referensi Invoice': r.invoiceNumber || (r as any).referensi_invoice || (r as any).invoice_ref || '',
+          'Referensi Invoice': getCleanInvoice(r) || '',
           'Lokasi / Rak': r.location || (r as any).location_rak || (r as any).location || '',
           'SKU / Barcode': r.sku || '',
           'Nama Produk': r.itemDescription || (r as any).product_name || '',
@@ -667,9 +666,9 @@ export default function ReportTable({
       data = sortedReports.map(r => ({
         'Timestamp': r.inputDate,
         'Sinkron Ginee': r.gineeInputDate || '-',
-        'Analis': r.picGinee || r.createdBy || '-',
+        'Analis': getCleanAnalis(r) || '-',
         'Marketplace': r.marketplace || '-',
-        'Referensi/no pesanan/invoice': r.invoiceNumber,
+        'Referensi/no pesanan/invoice': getCleanInvoice(r) || '-',
         'Status/Keterangan': r.assetStatus || r.status || '-',
         'Keterangan Barang': r.itemDescription || '-',
         'SKU': r.sku,
@@ -1053,7 +1052,7 @@ export default function ReportTable({
                           onChange={(e) => setEditForm({ ...editForm, picGinee: e.target.value })}
                           className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs"
                         />
-                      ) : (report.picGinee || report.createdBy || (report as any).analis || (report as any).pic || '---')}
+                      ) : (getCleanAnalis(report) || '---')}
                     </td>
 
                     {/* Marketplace */}
@@ -1092,7 +1091,7 @@ export default function ReportTable({
                           onChange={(e) => setEditForm({ ...editForm, invoiceNumber: e.target.value })}
                           className="bg-[#0c0620] border border-purple-800/60 rounded px-2 py-1 text-white text-xs font-mono"
                         />
-                      ) : (report.invoiceNumber || (report as any).invoice_number || (report as any).referensi_invoice || report.barcode || '---')}
+                      ) : (getCleanInvoice(report) || '---')}
                     </td>
 
                     {/* Status / Keterangan */}
