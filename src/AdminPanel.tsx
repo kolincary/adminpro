@@ -51,10 +51,11 @@ import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import MasterDataManagement from './MasterDataManagement';
 import ConfirmModal from './ConfirmModal';
+import Toast, { ToastType } from './Toast';
 import { recalculateStats } from './stats';
 import { generateTOTPCode, getTOTPRemainingSeconds } from './totp';
 import { syncLast7DaysToSupabase } from './services/dualStorage';
-import { Sparkles, RefreshCw, Code2, Check } from 'lucide-react';
+import { Sparkles, RefreshCw, Code2, Check, Copy } from 'lucide-react';
 
 const CLIENT_VERSION = "2.4.2";
 const FORCE_LOGOUT_DURATION = 5 * 60 * 1000; // 5 minutes block duration
