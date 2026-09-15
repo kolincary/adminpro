@@ -197,12 +197,28 @@ export async function saveReportsBulkDual(items: Array<Partial<Report> & Record<
   return count;
 }
 
+export interface SyncProgress {
+  current: number;
+  total: number;
+  percent: number;
+  stage: string;
+}
+
 /**
  * 7-Day Rolling Sync: Syncs Firestore records from the last 7 days into Supabase
  */
-export async function syncLast7DaysToSupabase(): Promise<{ totalSynced: number }> {
+export async function syncLast7DaysToSupabase(
+  onProgress?: (progress: SyncProgress) => void
+): Promise<{ totalSynced: number; totalRecords: number }> {
   const sevenDaysAgoStr = format(subDays(new Date(), 7), 'yyyy-MM-dd');
   
+  onProgress?.({
+    current: 0,
+    total: 0,
+    percent: 5,
+    stage: 'Membaca data laporan 7 hari terakhir dari Firebase Firestore...'
+  });
+
   // Ambil data Firestore dari 7 hari terakhir
   const snapshot = await getDocs(collection(db, 'reports'));
   const rows: any[] = [];
@@ -239,16 +255,39 @@ export async function syncLast7DaysToSupabase(): Promise<{ totalSynced: number }
     }
   });
 
+  const totalRows = rows.length;
+  if (totalRows === 0) {
+    onProgress?.({
+      current: 0,
+      total: 0,
+      percent: 100,
+      stage: 'Tidak ada data laporan dalam rentang 7 hari terakhir di Firestore.'
+    });
+    return { totalSynced: 0, totalRecords: 0 };
+  }
+
+  onProgress?.({
+    current: 0,
+    total: totalRows,
+    percent: 15,
+    stage: `Ditemukan ${totalRows} data. Membersihkan cache lama Supabase...`
+  });
+
   // Hapus data lama di Supabase yang sudah > 7 hari
-  await supabase
-    .from('reports')
-    .delete()
-    .lt('date', sevenDaysAgoStr);
+  try {
+    await supabase
+      .from('reports')
+      .delete()
+      .lt('date', sevenDaysAgoStr);
+  } catch (cleanErr) {
+    console.warn("Clean old supabase reports warning:", cleanErr);
+  }
 
   // Batch upsert ke Supabase
   let successCount = 0;
-  for (let i = 0; i < rows.length; i += 100) {
-    const chunk = rows.slice(i, i + 100);
+  const batchSize = 50; // batch size 50 untuk update progress yang responsif dan mulus
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const chunk = rows.slice(i, i + batchSize);
     const { error } = await supabase
       .from('reports')
       .upsert(chunk, { onConflict: 'id' });
@@ -258,7 +297,23 @@ export async function syncLast7DaysToSupabase(): Promise<{ totalSynced: number }
     } else {
       console.error("Supabase sync batch error:", error);
     }
+
+    const currentProcessed = Math.min(i + chunk.length, totalRows);
+    const percent = Math.min(98, Math.round(15 + (currentProcessed / totalRows) * 80));
+    onProgress?.({
+      current: currentProcessed,
+      total: totalRows,
+      percent,
+      stage: `Mengunggah ke Supabase: ${currentProcessed} / ${totalRows} data (${percent}%)...`
+    });
   }
 
-  return { totalSynced: successCount };
+  onProgress?.({
+    current: totalRows,
+    total: totalRows,
+    percent: 100,
+    stage: `Sinkronisasi selesai! ${successCount} data berhasil disinkronkan ke Supabase.`
+  });
+
+  return { totalSynced: successCount, totalRecords: totalRows };
 }

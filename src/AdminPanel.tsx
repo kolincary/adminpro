@@ -54,7 +54,7 @@ import ConfirmModal from './ConfirmModal';
 import Toast, { ToastType } from './Toast';
 import { recalculateStats } from './stats';
 import { generateTOTPCode, getTOTPRemainingSeconds } from './totp';
-import { syncLast7DaysToSupabase } from './services/dualStorage';
+import { syncLast7DaysToSupabase, SyncProgress } from './services/dualStorage';
 import { Sparkles, RefreshCw, Code2, Check, Copy } from 'lucide-react';
 
 const CLIENT_VERSION = "2.4.2";
@@ -71,6 +71,7 @@ export default function AdminPanel({ user }: AdminPanelProps) {
   const [error, setError] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'backups' | 'blocked' | 'master' | 'settings' | 'sessions' | 'security' | 'notifications' | 'dual_database'>('backups');
   const [isSyncingDual, setIsSyncingDual] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
@@ -1652,8 +1653,16 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                 <button
                   onClick={async () => {
                     setIsSyncingDual(true);
+                    setSyncProgress({
+                      current: 0,
+                      total: 0,
+                      percent: 5,
+                      stage: 'Memulai proses sinkronisasi...'
+                    });
                     try {
-                      const res = await syncLast7DaysToSupabase();
+                      const res = await syncLast7DaysToSupabase((p) => {
+                        setSyncProgress(p);
+                      });
                       showToast(`⚡ Sukses menyinkronkan ${res.totalSynced} data 7 hari terakhir ke Supabase!`, 'success');
                     } catch (err: any) {
                       showToast(`Gagal sinkronisasi: ${err.message}`, 'error');
@@ -1665,9 +1674,46 @@ export default function AdminPanel({ user }: AdminPanelProps) {
                   className="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 disabled:opacity-50 text-white font-black rounded-xl transition-all shadow-xl shadow-teal-950/40 flex items-center justify-center gap-2.5 text-xs uppercase tracking-widest cursor-pointer active:scale-95 shrink-0"
                 >
                   {isSyncingDual ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <RefreshCw className="w-4 h-4 text-teal-200" />}
-                  <span>Sinkronkan 7 Hari ke Supabase</span>
+                  <span>{isSyncingDual ? 'Sedang Menyinkronkan...' : 'Sinkronkan 7 Hari ke Supabase'}</span>
                 </button>
               </div>
+
+              {/* Visual Real-Time Progress Bar */}
+              {syncProgress && (
+                <div className="mt-5 p-4 bg-[#080414] border border-teal-500/40 rounded-2xl shadow-2xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-teal-400/50 to-transparent" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-bold">
+                    <div className="flex items-center gap-2.5 text-teal-300">
+                      {isSyncingDual ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-teal-400 shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      )}
+                      <span className="text-xs text-teal-200 font-semibold">{syncProgress.stage}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                      {syncProgress.total > 0 && (
+                        <span className="text-[11px] font-mono font-bold text-slate-300 bg-white/5 px-2.5 py-0.5 rounded-lg border border-white/10">
+                          {syncProgress.current} / {syncProgress.total} data
+                        </span>
+                      )}
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-teal-500/20 text-teal-300 border border-teal-500/40 font-mono">
+                        {syncProgress.percent}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Glowing Progress Bar Track */}
+                  <div className="w-full h-3 bg-black/60 rounded-full overflow-hidden p-0.5 border border-teal-900/60 relative">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-teal-500 via-emerald-400 to-cyan-400 transition-all duration-300 ease-out relative shadow-[0_0_14px_rgba(20,184,166,0.7)]"
+                      style={{ width: `${Math.max(3, syncProgress.percent)}%` }}
+                    >
+                      <div className="absolute inset-0 bg-white/25 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Status Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
